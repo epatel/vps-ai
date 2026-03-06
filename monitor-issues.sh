@@ -77,6 +77,41 @@ ISSUE_URL=$(echo "$ISSUE_JSON" | python3 -c "import sys,json; print(json.load(sy
 
 log "Issue #${ISSUE_NUM}: ${ISSUE_TITLE}"
 
+# Validate issue key (expect "key:<token>" in issue body)
+ISSUE_KEY=$(echo "$ISSUE_BODY" | grep -oP 'key:\K\S+' | head -1 || true)
+if [[ -z "$ISSUE_KEY" ]]; then
+  log "REJECTED issue #${ISSUE_NUM}: no key found in issue body"
+  python3 "$SCRIPT_DIR/github-helper.py" post-comment <(echo "---ISSUE-COMMENT---
+Issue rejected: no \`key:<token>\` found in the issue description.
+---END-COMMENT---") "$ISSUE_NUM" "$GITHUB_REPO" "$GITHUB_TOKEN"
+  python3 "$SCRIPT_DIR/github-helper.py" close-issue "$ISSUE_NUM" "$GITHUB_REPO" "$GITHUB_TOKEN"
+  exit 0
+fi
+
+if ! python3 -c "
+import base64, sys
+from cryptography.hazmat.primitives import serialization
+token, expected = sys.argv[1], sys.argv[2]
+parts = token.split('.')
+assert len(parts) == 2, 'bad format'
+pad = lambda s: s + '=' * (4 - len(s) % 4) if len(s) % 4 else s
+payload = base64.urlsafe_b64decode(pad(parts[0]))
+sig = base64.urlsafe_b64decode(pad(parts[1]))
+with open('$SCRIPT_DIR/public.pem', 'rb') as f:
+    pk = serialization.load_pem_public_key(f.read())
+pk.verify(sig, payload)
+assert payload.decode() == expected, 'payload mismatch'
+" "$ISSUE_KEY" "$ISSUE_NUM" 2>/dev/null; then
+  log "REJECTED issue #${ISSUE_NUM}: invalid key"
+  python3 "$SCRIPT_DIR/github-helper.py" post-comment <(echo "---ISSUE-COMMENT---
+Issue rejected: the key provided is not valid for issue #${ISSUE_NUM}.
+---END-COMMENT---") "$ISSUE_NUM" "$GITHUB_REPO" "$GITHUB_TOKEN"
+  python3 "$SCRIPT_DIR/github-helper.py" close-issue "$ISSUE_NUM" "$GITHUB_REPO" "$GITHUB_TOKEN"
+  exit 0
+fi
+
+log "Key validated for issue #${ISSUE_NUM}"
+
 # Create the issue file
 cat > "$ISSUE_FILE" <<EOF
 # Issue #${ISSUE_NUM}: ${ISSUE_TITLE}

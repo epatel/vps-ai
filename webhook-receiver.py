@@ -121,6 +121,29 @@ class WebhookHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": "processing", "issue": issue_num}).encode())
             return
 
+        if event == "issues" and data.get("action") == "reopened":
+            issue_num = data["issue"]["number"]
+            log(f"Issue #{issue_num} reopened, closing it")
+
+            # Close the issue via GitHub API
+            env = CONFIG
+            token = env.get("GITHUB_TOKEN", "")
+            repo = env.get("GITHUB_REPO", "")
+            if token and repo:
+                subprocess.Popen(
+                    ["python3", os.path.join(SCRIPT_DIR, "github-helper.py"),
+                     "close-issue", str(issue_num), repo, token],
+                    stdout=open(LOG_FILE, "a"),
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "closed", "issue": issue_num}).encode())
+            return
+
         if event == "pull_request" and data.get("action") == "closed":
             pr = data.get("pull_request", {})
             if pr.get("merged"):
