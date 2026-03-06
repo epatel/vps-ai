@@ -3,6 +3,7 @@
 
 Commands:
   post-comment <output_file> <issue_num> <repo> <token>
+  post-comment-text <text> <issue_num> <repo> <token>
   close-issue <issue_num> <repo> <token>
   create-pr <repo> <token> <branch> <title> <body>
   detect-mode <worktree_dir>  — prints "new-project", "modify", or "mixed"
@@ -63,6 +64,19 @@ def post_comment(output_file, issue_num, repo, token):
         sys.exit(1)
 
     return body
+
+
+def post_comment_text(text, issue_num, repo, token):
+    """Post a text comment to a GitHub issue."""
+    status, resp = github_api(
+        "POST",
+        f"https://api.github.com/repos/{repo}/issues/{issue_num}/comments",
+        token, {"body": text}
+    )
+    if status < 300:
+        print(f"Comment posted (HTTP {status})")
+    else:
+        print(f"Failed to post comment: HTTP {status} - {resp}", file=sys.stderr)
 
 
 def close_issue(issue_num, repo, token):
@@ -137,6 +151,8 @@ def main():
 
     if cmd == "post-comment":
         post_comment(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
+    elif cmd == "post-comment-text":
+        post_comment_text(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
     elif cmd == "close-issue":
         close_issue(sys.argv[2], sys.argv[3], sys.argv[4])
     elif cmd == "create-pr":

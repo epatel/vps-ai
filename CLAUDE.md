@@ -9,12 +9,11 @@ GitHub-issue-driven autonomous agent system on `ai.memention.net` (Ubuntu 24.04,
 3. It runs `monitor-issues.sh` which fetches the issue details from GitHub
 4. For each new issue, it creates `issues/issue-N.md` and spawns `run-agent.sh`
 5. `run-agent.sh` pulls latest `main`, creates an isolated **git worktree** at `.worktrees/issue-N/`, and runs Claude there
-6. After the agent finishes, the script determines what happened:
-   - **New files only** (new project): merge to `main` and push
-   - **Modifications to existing files**: push `issue-N` branch and create a **PR** for review
-7. Posts the agent's summary as a comment on the GitHub issue and closes it
-8. When a PR is merged, the webhook triggers `git pull` on the server
-9. A **post-merge git hook** auto-restarts services when their project files change
+6. A comment is posted on the issue that the agent has started
+7. After the agent finishes, it pushes the `issue-N` branch and creates a **PR** for review
+8. Posts the agent's summary as a comment on the GitHub issue and closes it
+9. When a PR is merged, the webhook triggers `git pull` on the server
+10. A **post-merge git hook** auto-restarts services when their project files change
 
 ## Directory structure
 

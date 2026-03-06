@@ -8,11 +8,10 @@ Running on `ai.memention.net`.
 
 1. Open a GitHub issue describing what you want
 2. A webhook fires and the server picks it up
-3. Claude runs in an isolated git worktree, working on the task
-4. When done:
-   - **New project** (only new files) — merged to `main` and pushed automatically
-   - **Changes to existing code** — a PR is created for review
-5. The agent posts a summary comment on the issue and closes it
+3. A comment is posted on the issue that the agent has started
+4. Claude runs in an isolated git worktree, working on the task
+5. When done, a PR is created for review
+6. The agent posts a summary comment on the issue and closes it
 
 ## Architecture
 
@@ -28,8 +27,7 @@ monitor-issues.sh    ◄── fetches issue, creates issue-N.md
     ▼
 run-agent.sh         ◄── creates worktree, runs Claude, handles output
     │
-    ├── new files only ──► merge to main + push
-    └── modifications  ──► push branch + create PR
+    └──► push branch + create PR
 ```
 
 A post-merge git hook auto-restarts systemd services when their project files change.
