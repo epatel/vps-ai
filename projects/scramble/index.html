@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scramble</title>
+<title>Scramble - Vectrex Edition</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -14,101 +14,91 @@ body {
     justify-content: center;
     height: 100vh;
     font-family: 'Courier New', monospace;
-    color: #0f0;
+    color: #fff;
     overflow: hidden;
+    /* Subtle CRT curvature feel */
+    background: radial-gradient(ellipse at center, #0a0a12 0%, #000 80%);
+}
+#game-container {
+    position: relative;
+    width: 800px;
+    height: 600px;
 }
 canvas {
-    border: 2px solid #0f0;
-    image-rendering: pixelated;
+    position: absolute;
+    top: 0;
+    left: 0;
+    image-rendering: auto;
 }
-#ui {
+#crt-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 800px;
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    font-size: 16px;
+    height: 600px;
+    pointer-events: none;
+    z-index: 5;
+    /* Scanlines via repeating gradient */
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.15) 2px,
+        rgba(0, 0, 0, 0.15) 4px
+    );
+    /* Vignette */
+    box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.7);
+    border-radius: 12px;
 }
-#start-screen {
+#game-container::after {
+    content: '';
     position: absolute;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-}
-#start-screen h1 {
-    font-size: 48px;
-    color: #0f0;
-    text-shadow: 0 0 20px #0f0;
-    margin-bottom: 20px;
-    letter-spacing: 8px;
-}
-#start-screen .info {
-    font-size: 14px;
-    color: #0a0;
-    margin: 6px 0;
-}
-#start-screen .blink {
-    animation: blink 1s infinite;
-    font-size: 18px;
-    margin-top: 30px;
-}
-@keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
-}
-#game-over {
-    position: absolute;
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-}
-#game-over h2 {
-    font-size: 36px;
-    color: #f00;
-    text-shadow: 0 0 20px #f00;
-    margin-bottom: 10px;
-}
-#game-over .blink {
-    animation: blink 1s infinite;
-    font-size: 16px;
-    margin-top: 20px;
-    color: #0f0;
+    top: -2px; left: -2px;
+    right: -2px; bottom: -2px;
+    border: 3px solid #222;
+    border-radius: 16px;
+    pointer-events: none;
+    z-index: 6;
+    box-shadow: 0 0 30px rgba(100, 200, 255, 0.05);
 }
 </style>
 </head>
 <body>
 
-<div id="start-screen">
-    <h1>SCRAMBLE</h1>
-    <div class="info">Arrow Keys / WASD - Move</div>
-    <div class="info">SPACE - Fire Laser</div>
-    <div class="info">B - Drop Bomb</div>
-    <div class="blink">PRESS SPACE TO START</div>
+<div id="game-container">
+    <canvas id="game" width="800" height="600"></canvas>
+    <canvas id="glow" width="800" height="600" style="z-index:1; mix-blend-mode: screen;"></canvas>
+    <div id="crt-overlay"></div>
 </div>
-
-<div id="game-over">
-    <h2>GAME OVER</h2>
-    <div id="final-score" style="font-size:20px; color:#ff0; margin:10px;">Score: 0</div>
-    <div class="blink">PRESS SPACE TO RESTART</div>
-</div>
-
-<div id="ui">
-    <span>SCORE: <span id="score">0</span></span>
-    <span>FUEL: <span id="fuel-bar"></span></span>
-    <span>LIVES: <span id="lives">3</span></span>
-</div>
-<canvas id="game" width="800" height="500"></canvas>
 
 <script>
+// === VECTREX SCRAMBLE ===
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-const W = 800, H = 500;
+const glowCanvas = document.getElementById('glow');
+const gctx = glowCanvas.getContext('2d');
+const W = 800, H = 600;
+
+// Vectrex color palette - bright phosphor colors
+const VEC = {
+    cyan:    '#00ffff',
+    green:   '#00ff66',
+    blue:    '#4488ff',
+    red:     '#ff3344',
+    yellow:  '#ffee44',
+    magenta: '#ff44ff',
+    white:   '#ffffff',
+    dimCyan: '#007788',
+    dimGreen:'#006633',
+    orange:  '#ff8833',
+};
+
+// Glow intensity
+const GLOW_BLUR = 8;
+const BRIGHT_GLOW = 16;
 
 // Game state
-let state = 'start'; // start, playing, gameover
+let state = 'start';
 let score = 0;
 let lives = 3;
 let fuel = 1000;
@@ -116,14 +106,17 @@ const MAX_FUEL = 1000;
 let scrollX = 0;
 let scrollSpeed = 2;
 let frameCount = 0;
+let flickerPhase = 0;
+let highScore = 0;
 
 // Player
 const player = {
-    x: 100, y: 200, w: 32, h: 16,
+    x: 120, y: 250, w: 36, h: 18,
     vx: 0, vy: 0,
     thrust: 0.3,
     maxSpeed: 4,
-    friction: 0.92
+    friction: 0.92,
+    alive: true
 };
 
 // Input
@@ -134,11 +127,9 @@ document.addEventListener('keydown', e => {
         e.preventDefault();
         if (state === 'start') {
             state = 'playing';
-            document.getElementById('start-screen').style.display = 'none';
             initGame();
         } else if (state === 'gameover') {
             state = 'playing';
-            document.getElementById('game-over').style.display = 'none';
             lives = 3;
             score = 0;
             initGame();
@@ -152,7 +143,7 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
 
-// Terrain generation
+// Terrain
 let terrainTop = [];
 let terrainBottom = [];
 const SEGMENT_W = 8;
@@ -166,29 +157,26 @@ let enemies = [];
 let fuelTanks = [];
 let rockets = [];
 let stars = [];
+let particles = []; // Vector debris particles
 
 function generateTerrain() {
     terrainTop = [];
     terrainBottom = [];
-    let topY = 40;
-    let bottomY = H - 40;
+    let topY = 60;
+    let bottomY = H - 60;
 
     for (let i = 0; i < TOTAL_SEGMENTS; i++) {
-        // Vary terrain - different sections get narrower
         let section = Math.floor(i / 200);
         let narrowing = Math.min(section * 15, 100);
 
-        // Random walk for top
         topY += (Math.random() - 0.45) * 8;
-        topY = Math.max(20, Math.min(180 + narrowing, topY));
+        topY = Math.max(30, Math.min(200 + narrowing, topY));
 
-        // Random walk for bottom
         bottomY += (Math.random() - 0.55) * 8;
-        bottomY = Math.max(H - 180 - narrowing, Math.min(H - 20, bottomY));
+        bottomY = Math.max(H - 200 - narrowing, Math.min(H - 30, bottomY));
 
-        // Ensure minimum gap
-        if (bottomY - topY < 120) {
-            bottomY = topY + 120;
+        if (bottomY - topY < 140) {
+            bottomY = topY + 140;
         }
 
         terrainTop.push(topY);
@@ -202,33 +190,28 @@ function generateObjects() {
     rockets = [];
 
     for (let i = 50; i < TOTAL_SEGMENTS; i += Math.floor(Math.random() * 30) + 15) {
-        let section = Math.floor(i / 200);
         let bY = terrainBottom[i];
         let tY = terrainTop[i];
 
         let roll = Math.random();
         if (roll < 0.25) {
-            // Fuel tank on ground
             fuelTanks.push({
-                x: i * SEGMENT_W, y: bY - 16, w: 16, h: 16, alive: true
+                x: i * SEGMENT_W, y: bY - 18, w: 18, h: 18, alive: true
             });
         } else if (roll < 0.5) {
-            // Rocket on ground
             rockets.push({
-                x: i * SEGMENT_W, y: bY - 20, w: 10, h: 20, alive: true,
+                x: i * SEGMENT_W, y: bY - 24, w: 12, h: 24, alive: true,
                 launched: false, vy: 0
             });
         } else if (roll < 0.7) {
-            // Flying enemy
-            let ey = tY + 30 + Math.random() * (bY - tY - 80);
+            let ey = tY + 40 + Math.random() * (bY - tY - 100);
             enemies.push({
-                x: i * SEGMENT_W, y: ey, w: 20, h: 12, alive: true,
+                x: i * SEGMENT_W, y: ey, w: 22, h: 14, alive: true,
                 type: 'ufo', startY: ey, phase: Math.random() * Math.PI * 2
             });
         } else {
-            // Ground turret
             enemies.push({
-                x: i * SEGMENT_W, y: bY - 14, w: 16, h: 14, alive: true,
+                x: i * SEGMENT_W, y: bY - 16, w: 18, h: 16, alive: true,
                 type: 'turret', shootTimer: Math.random() * 120
             });
         }
@@ -237,12 +220,13 @@ function generateObjects() {
 
 function generateStars() {
     stars = [];
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 60; i++) {
         stars.push({
             x: Math.random() * W,
             y: Math.random() * H,
-            size: Math.random() * 2 + 0.5,
-            speed: Math.random() * 0.5 + 0.2
+            brightness: Math.random() * 0.3 + 0.1,
+            speed: Math.random() * 0.5 + 0.2,
+            flicker: Math.random() * Math.PI * 2
         });
     }
 }
@@ -250,13 +234,15 @@ function generateStars() {
 function initGame() {
     scrollX = 0;
     fuel = MAX_FUEL;
-    player.x = 100;
-    player.y = 200;
+    player.x = 120;
+    player.y = 250;
     player.vx = 0;
     player.vy = 0;
+    player.alive = true;
     lasers = [];
     bombs = [];
     explosions = [];
+    particles = [];
     generateTerrain();
     generateObjects();
     generateStars();
@@ -266,9 +252,10 @@ function fireLaser() {
     lasers.push({
         x: player.x + player.w,
         y: player.y + player.h / 2 - 1,
-        vx: 8,
+        vx: 10,
         vy: 0,
-        w: 12, h: 2
+        w: 16, h: 2,
+        life: 1.0
     });
 }
 
@@ -284,41 +271,50 @@ function dropBomb() {
 }
 
 function addExplosion(x, y, size) {
+    // Vectrex-style explosion: expanding vector lines
+    let numLines = 8 + Math.floor(Math.random() * 6);
+    for (let i = 0; i < numLines; i++) {
+        let angle = (Math.PI * 2 / numLines) * i + Math.random() * 0.3;
+        let speed = 1.5 + Math.random() * 3;
+        let len = 4 + Math.random() * (size * 0.4);
+        particles.push({
+            x: x, y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            len: len,
+            angle: angle,
+            life: 1.0,
+            decay: 0.02 + Math.random() * 0.02,
+            color: Math.random() > 0.5 ? VEC.cyan : VEC.white
+        });
+    }
     explosions.push({
         x: x, y: y,
         radius: 2,
         maxRadius: size || 20,
-        alpha: 1,
+        alpha: 1.0,
         growing: true
     });
 }
 
 function updatePlayer() {
-    // Input
     if (keys['ArrowUp'] || keys['KeyW']) player.vy -= player.thrust;
     if (keys['ArrowDown'] || keys['KeyS']) player.vy += player.thrust;
     if (keys['ArrowRight'] || keys['KeyD']) player.vx += player.thrust * 0.5;
     if (keys['ArrowLeft'] || keys['KeyA']) player.vx -= player.thrust * 0.5;
 
-    // Friction
     player.vx *= player.friction;
     player.vy *= player.friction;
-
-    // Clamp speed
     player.vx = Math.max(-player.maxSpeed, Math.min(player.maxSpeed, player.vx));
     player.vy = Math.max(-player.maxSpeed, Math.min(player.maxSpeed, player.vy));
 
-    // Gravity
     player.vy += 0.08;
 
-    // Move
     player.y += player.vy;
-    // Keep player roughly in left third but allow some movement
     player.x += player.vx;
-    player.x = Math.max(30, Math.min(250, player.x));
-    player.y = Math.max(5, Math.min(H - 5, player.y));
+    player.x = Math.max(30, Math.min(260, player.x));
+    player.y = Math.max(10, Math.min(H - 10, player.y));
 
-    // Fuel consumption
     fuel -= 0.3;
     if (fuel <= 0) {
         fuel = 0;
@@ -327,16 +323,14 @@ function updatePlayer() {
 }
 
 function playerDeath() {
-    addExplosion(player.x + player.w/2, player.y + player.h/2, 30);
+    addExplosion(player.x + player.w/2, player.y + player.h/2, 35);
     lives--;
     if (lives <= 0) {
         state = 'gameover';
-        document.getElementById('game-over').style.display = 'flex';
-        document.getElementById('final-score').textContent = 'Score: ' + score;
+        if (score > highScore) highScore = score;
     } else {
-        // Respawn
-        player.x = 100;
-        player.y = 200;
+        player.x = 120;
+        player.y = 250;
         player.vx = 0;
         player.vy = 0;
         fuel = Math.min(fuel + 300, MAX_FUEL);
@@ -350,7 +344,6 @@ function getTerrainAtX(worldX) {
 }
 
 function checkTerrainCollision() {
-    // Check multiple points on the ship
     let points = [
         { x: player.x + scrollX, y: player.y },
         { x: player.x + player.w + scrollX, y: player.y },
@@ -376,20 +369,18 @@ function update() {
     if (state !== 'playing') return;
 
     frameCount++;
+    flickerPhase += 0.1;
     scrollX += scrollSpeed;
 
     updatePlayer();
-
-    // Check terrain collision
     if (checkTerrainCollision()) return;
 
     // Update lasers
     lasers = lasers.filter(l => {
         l.x += l.vx;
-        // Check terrain hit
         let t = getTerrainAtX(l.x + scrollX);
         if (l.y <= t.top || l.y >= t.bottom) {
-            addExplosion(l.x, l.y, 10);
+            addExplosion(l.x, l.y, 8);
             return false;
         }
         return l.x < W + 20;
@@ -400,11 +391,9 @@ function update() {
         b.vy += b.gravity;
         b.x += b.vx;
         b.y += b.vy;
-        // Terrain hit
         let t = getTerrainAtX(b.x + scrollX);
         if (b.y >= t.bottom) {
-            addExplosion(b.x, t.bottom - 5, 15);
-            // Check ground targets
+            addExplosion(b.x, t.bottom - 5, 18);
             checkBombHits(b.x + scrollX, t.bottom);
             return false;
         }
@@ -417,7 +406,6 @@ function update() {
         let screenX = r.x - scrollX;
         if (screenX < -50 || screenX > W + 200) continue;
 
-        // Launch when player is near
         if (!r.launched && screenX < W && screenX > -20) {
             if (Math.abs(screenX - player.x) < 200) {
                 r.launched = true;
@@ -427,7 +415,6 @@ function update() {
         if (r.launched) {
             r.vy -= 0.05;
             r.y += r.vy;
-            // Check terrain
             let t = getTerrainAtX(r.x);
             if (r.y <= t.top) {
                 r.alive = false;
@@ -435,13 +422,12 @@ function update() {
             }
         }
 
-        // Collision with player
         if (r.alive) {
             let rb = { x: screenX, y: r.y, w: r.w, h: r.h };
             let pb = { x: player.x, y: player.y, w: player.w, h: player.h };
             if (rectCollide(rb, pb)) {
                 r.alive = false;
-                addExplosion(screenX, r.y, 15);
+                addExplosion(screenX, r.y, 18);
                 playerDeath();
                 return;
             }
@@ -459,71 +445,72 @@ function update() {
             e.y = e.startY + Math.sin(e.phase) * 30;
         }
 
-        // Collision with player
         let eb = { x: screenX, y: e.y, w: e.w, h: e.h };
         let pb = { x: player.x, y: player.y, w: player.w, h: player.h };
         if (rectCollide(eb, pb)) {
             e.alive = false;
-            addExplosion(screenX, e.y, 20);
+            addExplosion(screenX, e.y, 22);
             playerDeath();
             return;
         }
     }
 
-    // Laser hits on enemies/rockets/fuel
+    // Laser hits
     for (let l of lasers) {
         let laserWorld = { x: l.x + scrollX, y: l.y, w: l.w, h: l.h };
 
         for (let e of enemies) {
             if (!e.alive) continue;
-            let eb = { x: e.x, y: e.y, w: e.w, h: e.h };
-            if (rectCollide(laserWorld, eb)) {
+            if (rectCollide(laserWorld, { x: e.x, y: e.y, w: e.w, h: e.h })) {
                 e.alive = false;
-                l.x = -100; // remove laser
-                let sx = e.x - scrollX;
-                addExplosion(sx, e.y, 20);
+                l.x = -100;
+                addExplosion(e.x - scrollX, e.y + e.h/2, 22);
                 score += (e.type === 'turret') ? 100 : 150;
             }
         }
-
         for (let r of rockets) {
             if (!r.alive) continue;
-            let rb = { x: r.x, y: r.y, w: r.w, h: r.h };
-            if (rectCollide(laserWorld, rb)) {
+            if (rectCollide(laserWorld, { x: r.x, y: r.y, w: r.w, h: r.h })) {
                 r.alive = false;
                 l.x = -100;
                 addExplosion(r.x - scrollX, r.y, 15);
                 score += 80;
             }
         }
-
         for (let f of fuelTanks) {
             if (!f.alive) continue;
-            let fb = { x: f.x, y: f.y, w: f.w, h: f.h };
-            if (rectCollide(laserWorld, fb)) {
+            if (rectCollide(laserWorld, { x: f.x, y: f.y, w: f.w, h: f.h })) {
                 f.alive = false;
                 l.x = -100;
-                addExplosion(f.x - scrollX, f.y, 12);
+                addExplosion(f.x - scrollX, f.y, 14);
                 fuel = Math.min(fuel + 200, MAX_FUEL);
                 score += 50;
             }
         }
     }
 
+    // Update particles
+    particles = particles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.02; // slight gravity on debris
+        p.life -= p.decay;
+        return p.life > 0;
+    });
+
     // Update explosions
     explosions = explosions.filter(e => {
         if (e.growing) {
-            e.radius += 1.5;
+            e.radius += 2;
             if (e.radius >= e.maxRadius) e.growing = false;
         } else {
-            e.alpha -= 0.05;
+            e.alpha -= 0.06;
         }
         return e.alpha > 0;
     });
 
-    // Check if level complete
+    // Level loop
     if (scrollX > (TOTAL_SEGMENTS - 50) * SEGMENT_W) {
-        // Loop with increased difficulty
         scrollX = 0;
         scrollSpeed += 0.3;
         generateTerrain();
@@ -534,18 +521,18 @@ function update() {
     // Update stars
     for (let s of stars) {
         s.x -= s.speed;
+        s.flicker += 0.05;
         if (s.x < 0) { s.x = W; s.y = Math.random() * H; }
     }
 }
 
 function checkBombHits(worldX, groundY) {
     let hitRange = 30;
-
     for (let e of enemies) {
         if (!e.alive) continue;
         if (e.type === 'turret' && Math.abs(e.x - worldX) < hitRange && Math.abs(e.y - groundY) < hitRange) {
             e.alive = false;
-            addExplosion(e.x - scrollX, e.y, 20);
+            addExplosion(e.x - scrollX, e.y, 22);
             score += 100;
         }
     }
@@ -553,7 +540,7 @@ function checkBombHits(worldX, groundY) {
         if (!f.alive) continue;
         if (Math.abs(f.x - worldX) < hitRange && Math.abs(f.y - groundY) < hitRange) {
             f.alive = false;
-            addExplosion(f.x - scrollX, f.y, 12);
+            addExplosion(f.x - scrollX, f.y, 14);
             fuel = Math.min(fuel + 200, MAX_FUEL);
             score += 50;
         }
@@ -568,139 +555,257 @@ function checkBombHits(worldX, groundY) {
     }
 }
 
-function drawShip(x, y) {
-    ctx.save();
-    // Ship body
-    ctx.fillStyle = '#0ff';
+// ============ VECTREX-STYLE DRAWING ============
+
+// Helper: draw a vector line with glow on both canvases
+function vecLine(x1, y1, x2, y2, color, width, glowAmt) {
+    width = width || 1.5;
+    glowAmt = glowAmt || GLOW_BLUR;
+
+    // Main canvas: crisp bright line
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 4;
     ctx.beginPath();
-    ctx.moveTo(x + 32, y + 8);        // nose
-    ctx.lineTo(x + 20, y);             // top front
-    ctx.lineTo(x + 4, y);              // top back
-    ctx.lineTo(x, y + 4);              // back top curve
-    ctx.lineTo(x, y + 12);            // back bottom curve
-    ctx.lineTo(x + 4, y + 16);        // bottom back
-    ctx.lineTo(x + 20, y + 16);       // bottom front
-    ctx.closePath();
-    ctx.fill();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
 
-    // Cockpit
-    ctx.fillStyle = '#00f';
-    ctx.fillRect(x + 18, y + 4, 8, 8);
+    // Glow canvas: soft bloom
+    gctx.strokeStyle = color;
+    gctx.lineWidth = width + 1;
+    gctx.shadowColor = color;
+    gctx.shadowBlur = glowAmt;
+    gctx.globalAlpha = 0.5;
+    gctx.beginPath();
+    gctx.moveTo(x1, y1);
+    gctx.lineTo(x2, y2);
+    gctx.stroke();
+    gctx.shadowBlur = 0;
+    gctx.globalAlpha = 1;
+}
 
-    // Engine flame
-    if (frameCount % 4 < 2) {
-        ctx.fillStyle = '#f80';
-        ctx.beginPath();
-        ctx.moveTo(x, y + 5);
-        ctx.lineTo(x - 8 - Math.random() * 6, y + 8);
-        ctx.lineTo(x, y + 11);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = '#ff0';
-        ctx.beginPath();
-        ctx.moveTo(x, y + 6);
-        ctx.lineTo(x - 5 - Math.random() * 3, y + 8);
-        ctx.lineTo(x, y + 10);
-        ctx.closePath();
-        ctx.fill();
-    } else {
-        ctx.fillStyle = '#fa0';
-        ctx.beginPath();
-        ctx.moveTo(x, y + 5);
-        ctx.lineTo(x - 10 - Math.random() * 4, y + 8);
-        ctx.lineTo(x, y + 11);
-        ctx.closePath();
-        ctx.fill();
+// Draw a vector polygon (outline only)
+function vecPoly(points, color, width, close, glowAmt) {
+    if (points.length < 2) return;
+    width = width || 1.5;
+    glowAmt = glowAmt || GLOW_BLUR;
+
+    // Main canvas
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i][0], points[i][1]);
     }
-    ctx.restore();
+    if (close) ctx.closePath();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Glow
+    gctx.strokeStyle = color;
+    gctx.lineWidth = width + 1;
+    gctx.shadowColor = color;
+    gctx.shadowBlur = glowAmt;
+    gctx.globalAlpha = 0.5;
+    gctx.beginPath();
+    gctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) {
+        gctx.lineTo(points[i][0], points[i][1]);
+    }
+    if (close) gctx.closePath();
+    gctx.stroke();
+    gctx.shadowBlur = 0;
+    gctx.globalAlpha = 1;
+}
+
+// Vector circle (outline)
+function vecCircle(x, y, r, color, width, glowAmt) {
+    width = width || 1.5;
+    glowAmt = glowAmt || GLOW_BLUR;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    gctx.strokeStyle = color;
+    gctx.lineWidth = width + 1;
+    gctx.shadowColor = color;
+    gctx.shadowBlur = glowAmt;
+    gctx.globalAlpha = 0.4;
+    gctx.beginPath();
+    gctx.arc(x, y, r, 0, Math.PI * 2);
+    gctx.stroke();
+    gctx.shadowBlur = 0;
+    gctx.globalAlpha = 1;
+}
+
+// Vector text with glow
+function vecText(text, x, y, color, size, glowAmt) {
+    size = size || 16;
+    glowAmt = glowAmt || GLOW_BLUR;
+    let font = size + 'px "Courier New", monospace';
+
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 4;
+    ctx.fillText(text, x, y);
+    ctx.shadowBlur = 0;
+
+    gctx.font = font;
+    gctx.fillStyle = color;
+    gctx.shadowColor = color;
+    gctx.shadowBlur = glowAmt;
+    gctx.globalAlpha = 0.5;
+    gctx.fillText(text, x, y);
+    gctx.shadowBlur = 0;
+    gctx.globalAlpha = 1;
+}
+
+// ============ DRAW FUNCTIONS ============
+
+function drawStars() {
+    for (let s of stars) {
+        let bright = s.brightness * (0.7 + 0.3 * Math.sin(s.flicker));
+        let alpha = Math.floor(bright * 255).toString(16).padStart(2, '0');
+        ctx.fillStyle = '#6688aa' + alpha;
+        ctx.fillRect(Math.floor(s.x), Math.floor(s.y), 1, 1);
+    }
 }
 
 function drawTerrain() {
-    // Top terrain
-    ctx.fillStyle = '#040';
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    for (let screenX = 0; screenX <= W; screenX += SEGMENT_W) {
-        let seg = Math.floor((screenX + scrollX) / SEGMENT_W);
-        seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
-        ctx.lineTo(screenX, terrainTop[seg]);
-    }
-    ctx.lineTo(W, 0);
-    ctx.closePath();
-    ctx.fill();
+    // Top terrain - vector lines only
+    let topPoints = [];
+    let bottomPoints = [];
 
-    // Top terrain edge (brighter)
-    ctx.strokeStyle = '#0a0';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
     for (let screenX = 0; screenX <= W; screenX += SEGMENT_W) {
         let seg = Math.floor((screenX + scrollX) / SEGMENT_W);
         seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
-        if (screenX === 0) ctx.moveTo(screenX, terrainTop[seg]);
-        else ctx.lineTo(screenX, terrainTop[seg]);
+        topPoints.push([screenX, terrainTop[seg]]);
+        bottomPoints.push([screenX, terrainBottom[seg]]);
     }
-    ctx.stroke();
 
-    // Bottom terrain
-    ctx.fillStyle = '#040';
-    ctx.beginPath();
-    ctx.moveTo(0, H);
-    for (let screenX = 0; screenX <= W; screenX += SEGMENT_W) {
-        let seg = Math.floor((screenX + scrollX) / SEGMENT_W);
-        seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
-        ctx.lineTo(screenX, terrainBottom[seg]);
-    }
-    ctx.lineTo(W, H);
-    ctx.closePath();
-    ctx.fill();
+    // Draw top terrain edge with glow
+    vecPoly(topPoints, VEC.cyan, 2, false, 12);
 
-    // Bottom terrain edge
-    ctx.strokeStyle = '#0a0';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let screenX = 0; screenX <= W; screenX += SEGMENT_W) {
-        let seg = Math.floor((screenX + scrollX) / SEGMENT_W);
-        seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
-        if (screenX === 0) ctx.moveTo(screenX, terrainBottom[seg]);
-        else ctx.lineTo(screenX, terrainBottom[seg]);
+    // Draw occasional vertical lines from top edge to top of screen (mountain fill effect)
+    for (let i = 0; i < topPoints.length; i += 4) {
+        let p = topPoints[i];
+        let alpha = 0.15;
+        ctx.strokeStyle = `rgba(0, 180, 200, ${alpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(p[0], 0);
+        ctx.lineTo(p[0], p[1]);
+        ctx.stroke();
     }
-    ctx.stroke();
+
+    // Bottom terrain edge with glow
+    vecPoly(bottomPoints, VEC.cyan, 2, false, 12);
+
+    // Vertical hash lines on bottom terrain (ground texture)
+    for (let i = 0; i < bottomPoints.length; i += 3) {
+        let p = bottomPoints[i];
+        let alpha = 0.15;
+        ctx.strokeStyle = `rgba(0, 180, 200, ${alpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(p[0], p[1]);
+        ctx.lineTo(p[0], H);
+        ctx.stroke();
+    }
+}
+
+function drawShip(x, y) {
+    // Vectrex-style ship - all vector lines
+    let pts = [
+        [x + 36, y + 9],    // nose
+        [x + 24, y],        // top front
+        [x + 6, y],         // top back
+        [x, y + 4],         // back top
+        [x, y + 14],        // back bottom
+        [x + 6, y + 18],    // bottom back
+        [x + 24, y + 18],   // bottom front
+    ];
+    vecPoly(pts, VEC.cyan, 2, true, BRIGHT_GLOW);
+
+    // Cockpit window
+    vecPoly([
+        [x + 20, y + 4],
+        [x + 28, y + 4],
+        [x + 28, y + 14],
+        [x + 20, y + 14]
+    ], VEC.blue, 1.5, true, 10);
+
+    // Wing detail line
+    vecLine(x + 6, y + 9, x + 24, y + 9, VEC.dimCyan, 1);
+
+    // Engine exhaust - flickering vector lines
+    let flameLen = 10 + Math.random() * 12;
+    let flameLen2 = 6 + Math.random() * 8;
+    if (frameCount % 3 !== 0) {
+        vecLine(x, y + 5, x - flameLen, y + 9, VEC.white, 1.5, BRIGHT_GLOW);
+        vecLine(x, y + 13, x - flameLen, y + 9, VEC.white, 1.5, BRIGHT_GLOW);
+        vecLine(x, y + 7, x - flameLen2, y + 9, VEC.cyan, 1, 10);
+        vecLine(x, y + 11, x - flameLen2, y + 9, VEC.cyan, 1, 10);
+    } else {
+        vecLine(x, y + 6, x - flameLen * 0.7, y + 9, VEC.cyan, 1.5, 12);
+        vecLine(x, y + 12, x - flameLen * 0.7, y + 9, VEC.cyan, 1.5, 12);
+    }
 }
 
 function drawObjects() {
-    // Fuel tanks
-    ctx.fillStyle = '#f00';
+    // Fuel tanks - vector box with 'F'
     for (let f of fuelTanks) {
         if (!f.alive) continue;
         let sx = f.x - scrollX;
         if (sx < -20 || sx > W + 20) continue;
-        ctx.fillStyle = '#f00';
-        ctx.fillRect(sx, f.y, f.w, f.h);
-        ctx.fillStyle = '#ff0';
-        ctx.font = '10px monospace';
-        ctx.fillText('F', sx + 4, f.y + 12);
+
+        vecPoly([
+            [sx, f.y],
+            [sx + f.w, f.y],
+            [sx + f.w, f.y + f.h],
+            [sx, f.y + f.h]
+        ], VEC.red, 1.5, true, 10);
+
+        // F letter as vector lines
+        vecLine(sx + 5, f.y + 3, sx + 5, f.y + 15, VEC.red, 1.5);
+        vecLine(sx + 5, f.y + 3, sx + 13, f.y + 3, VEC.red, 1.5);
+        vecLine(sx + 5, f.y + 9, sx + 11, f.y + 9, VEC.red, 1.5);
     }
 
-    // Rockets
+    // Rockets - vector triangle
     for (let r of rockets) {
         if (!r.alive) continue;
         let sx = r.x - scrollX;
         if (sx < -20 || sx > W + 20) continue;
-        ctx.fillStyle = '#f80';
-        ctx.beginPath();
-        ctx.moveTo(sx + 5, r.y);
-        ctx.lineTo(sx, r.y + 20);
-        ctx.lineTo(sx + 10, r.y + 20);
-        ctx.closePath();
-        ctx.fill();
+
+        vecPoly([
+            [sx + 6, r.y],
+            [sx, r.y + 24],
+            [sx + 12, r.y + 24]
+        ], VEC.yellow, 1.5, true, 10);
+
+        // Fins
+        vecLine(sx, r.y + 24, sx - 3, r.y + 28, VEC.yellow, 1);
+        vecLine(sx + 12, r.y + 24, sx + 15, r.y + 28, VEC.yellow, 1);
+
+        // Rocket exhaust when launched
         if (r.launched && frameCount % 3 < 2) {
-            ctx.fillStyle = '#ff0';
-            ctx.beginPath();
-            ctx.moveTo(sx + 2, r.y + 20);
-            ctx.lineTo(sx + 5, r.y + 28);
-            ctx.lineTo(sx + 8, r.y + 20);
-            ctx.closePath();
-            ctx.fill();
+            let exLen = 8 + Math.random() * 10;
+            vecLine(sx + 3, r.y + 24, sx + 6, r.y + 24 + exLen, VEC.white, 1.5, BRIGHT_GLOW);
+            vecLine(sx + 9, r.y + 24, sx + 6, r.y + 24 + exLen, VEC.white, 1.5, BRIGHT_GLOW);
         }
     }
 
@@ -711,98 +816,282 @@ function drawObjects() {
         if (sx < -30 || sx > W + 30) continue;
 
         if (e.type === 'ufo') {
-            ctx.fillStyle = '#f0f';
-            ctx.beginPath();
-            ctx.ellipse(sx + 10, e.y + 6, 10, 6, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#faf';
-            ctx.beginPath();
-            ctx.ellipse(sx + 10, e.y + 4, 5, 3, 0, 0, Math.PI * 2);
-            ctx.fill();
+            // UFO - vector ellipse approximation
+            let cx = sx + 11, cy = e.y + 7;
+            // Main body - octagon
+            let bodyPts = [];
+            for (let i = 0; i < 8; i++) {
+                let a = (Math.PI * 2 / 8) * i - Math.PI/8;
+                bodyPts.push([
+                    cx + Math.cos(a) * 11,
+                    cy + Math.sin(a) * 6
+                ]);
+            }
+            vecPoly(bodyPts, VEC.magenta, 1.5, true, 10);
+
+            // Dome
+            let domePts = [];
+            for (let i = 0; i <= 4; i++) {
+                let a = Math.PI + (Math.PI / 4) * i;
+                domePts.push([
+                    cx + Math.cos(a) * 6,
+                    cy + Math.sin(a) * 5 - 2
+                ]);
+            }
+            vecPoly(domePts, VEC.magenta, 1, false, 8);
+
         } else if (e.type === 'turret') {
-            ctx.fillStyle = '#888';
-            ctx.fillRect(sx, e.y + 6, 16, 8);
-            ctx.fillStyle = '#aaa';
-            ctx.fillRect(sx + 4, e.y, 8, 8);
-            ctx.fillStyle = '#ff0';
-            ctx.fillRect(sx + 12, e.y + 2, 6, 3);
+            // Turret - base rectangle + gun barrel
+            let bx = sx, by = e.y;
+            vecPoly([
+                [bx, by + 8],
+                [bx + 18, by + 8],
+                [bx + 18, by + 16],
+                [bx, by + 16]
+            ], VEC.green, 1.5, true, 10);
+
+            // Turret dome
+            vecPoly([
+                [bx + 4, by + 8],
+                [bx + 7, by + 2],
+                [bx + 11, by + 2],
+                [bx + 14, by + 8]
+            ], VEC.green, 1.5, true, 10);
+
+            // Gun barrel
+            vecLine(bx + 14, by + 4, bx + 22, by + 3, VEC.green, 2, 10);
         }
     }
 }
 
 function drawLasers() {
-    ctx.fillStyle = '#ff0';
     for (let l of lasers) {
-        ctx.fillRect(l.x, l.y, l.w, l.h);
+        vecLine(l.x, l.y, l.x + l.w, l.y, VEC.yellow, 2, BRIGHT_GLOW);
+        vecLine(l.x, l.y + 1, l.x + l.w, l.y + 1, VEC.white, 1, BRIGHT_GLOW);
     }
 }
 
 function drawBombs() {
-    ctx.fillStyle = '#f80';
     for (let b of bombs) {
+        // Small vector diamond for bombs
+        vecPoly([
+            [b.x, b.y - 3],
+            [b.x + 3, b.y],
+            [b.x, b.y + 3],
+            [b.x - 3, b.y]
+        ], VEC.yellow, 1.5, true, 10);
+
+        // Bomb trail
+        vecLine(b.x, b.y - 3, b.x - b.vx * 2, b.y - b.vy * 2 - 3, VEC.dimCyan, 0.5);
+    }
+}
+
+function drawParticles() {
+    for (let p of particles) {
+        let endX = p.x + Math.cos(p.angle) * p.len * p.life;
+        let endY = p.y + Math.sin(p.angle) * p.len * p.life;
+
+        ctx.globalAlpha = p.life;
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 6;
         ctx.beginPath();
-        ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+
+        gctx.globalAlpha = p.life * 0.4;
+        gctx.strokeStyle = p.color;
+        gctx.lineWidth = 2;
+        gctx.shadowColor = p.color;
+        gctx.shadowBlur = 10;
+        gctx.beginPath();
+        gctx.moveTo(p.x, p.y);
+        gctx.lineTo(endX, endY);
+        gctx.stroke();
+        gctx.shadowBlur = 0;
+        gctx.globalAlpha = 1;
     }
 }
 
 function drawExplosions() {
     for (let e of explosions) {
-        ctx.save();
-        ctx.globalAlpha = e.alpha;
-        let gradient = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.radius);
-        gradient.addColorStop(0, '#fff');
-        gradient.addColorStop(0.3, '#ff0');
-        gradient.addColorStop(0.6, '#f80');
-        gradient.addColorStop(1, 'rgba(255,0,0,0)');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-    }
-}
-
-function drawStars() {
-    ctx.fillStyle = '#555';
-    for (let s of stars) {
-        ctx.fillRect(s.x, s.y, s.size, s.size);
+        // Vector ring explosion
+        vecCircle(e.x, e.y, e.radius, VEC.white, 1.5 * e.alpha, BRIGHT_GLOW);
+        if (e.radius > 5) {
+            vecCircle(e.x, e.y, e.radius * 0.5, VEC.cyan, 1 * e.alpha, 10);
+        }
     }
 }
 
 function drawHUD() {
-    document.getElementById('score').textContent = score;
-    document.getElementById('lives').textContent = lives;
+    // Score
+    vecText('SCORE', 20, 28, VEC.cyan, 14);
+    vecText(score.toString().padStart(6, '0'), 80, 28, VEC.white, 16, BRIGHT_GLOW);
 
-    // Fuel bar
-    let fuelPct = fuel / MAX_FUEL;
-    let bars = Math.floor(fuelPct * 20);
-    let fuelColor = fuelPct > 0.3 ? '#0f0' : (fuelPct > 0.15 ? '#ff0' : '#f00');
-    let fuelStr = '<span style="color:' + fuelColor + '">';
-    for (let i = 0; i < 20; i++) {
-        fuelStr += i < bars ? '|' : ' ';
+    // High score
+    vecText('HI', 320, 28, VEC.dimCyan, 12);
+    vecText(highScore.toString().padStart(6, '0'), 350, 28, VEC.cyan, 14);
+
+    // Lives - draw small ship icons
+    vecText('LIVES', 560, 28, VEC.cyan, 14);
+    for (let i = 0; i < lives; i++) {
+        let lx = 620 + i * 28;
+        let ly = 16;
+        vecPoly([
+            [lx + 18, ly + 5],
+            [lx + 12, ly],
+            [lx + 2, ly],
+            [lx, ly + 3],
+            [lx, ly + 8],
+            [lx + 2, ly + 10],
+            [lx + 12, ly + 10]
+        ], VEC.cyan, 1, true, 6);
     }
-    fuelStr += '</span>';
-    document.getElementById('fuel-bar').innerHTML = fuelStr;
+
+    // Fuel bar - vector segments
+    vecText('FUEL', 20, H - 16, VEC.cyan, 14);
+    let fuelPct = fuel / MAX_FUEL;
+    let barW = 200;
+    let barX = 70;
+    let barY = H - 26;
+
+    // Fuel bar outline
+    vecPoly([
+        [barX, barY],
+        [barX + barW, barY],
+        [barX + barW, barY + 12],
+        [barX, barY + 12]
+    ], VEC.dimCyan, 1, true, 4);
+
+    // Fuel segments
+    let segments = 20;
+    let fuelSegs = Math.floor(fuelPct * segments);
+    let fuelColor = fuelPct > 0.3 ? VEC.cyan : (fuelPct > 0.15 ? VEC.yellow : VEC.red);
+
+    for (let i = 0; i < fuelSegs; i++) {
+        let sx = barX + 2 + i * (barW / segments);
+        let sw = (barW / segments) - 2;
+        vecLine(sx, barY + 2, sx, barY + 10, fuelColor, sw > 1 ? 1.5 : 1, 6);
+        vecLine(sx + sw, barY + 2, sx + sw, barY + 10, fuelColor, sw > 1 ? 1.5 : 1, 6);
+    }
+
+    // Warning flash when low fuel
+    if (fuelPct < 0.15 && Math.floor(frameCount / 15) % 2 === 0) {
+        vecText('LOW FUEL', barX + barW + 15, H - 16, VEC.red, 14, BRIGHT_GLOW);
+    }
+}
+
+function drawStartScreen() {
+    // Vectrex title screen
+    let pulse = 0.7 + 0.3 * Math.sin(Date.now() * 0.003);
+
+    // Title
+    ctx.save();
+    gctx.save();
+
+    // Big SCRAMBLE text
+    vecText('S C R A M B L E', 160, 180, VEC.cyan, 42, 20);
+
+    // Subtitle
+    vecText('VECTREX EDITION', 268, 220, VEC.dimCyan, 18, 8);
+
+    // Decorative lines
+    vecLine(100, 240, 700, 240, VEC.cyan, 1, 10);
+    vecLine(100, 244, 700, 244, VEC.dimCyan, 0.5, 4);
+
+    // Controls
+    vecText('ARROW KEYS / WASD', 270, 300, VEC.green, 16);
+    vecText('MOVE SHIP', 330, 320, VEC.dimGreen, 14);
+
+    vecText('SPACE', 355, 360, VEC.green, 16);
+    vecText('FIRE LASER', 325, 380, VEC.dimGreen, 14);
+
+    vecText('B', 388, 420, VEC.green, 16);
+    vecText('DROP BOMB', 330, 440, VEC.dimGreen, 14);
+
+    // Blink prompt
+    if (Math.floor(Date.now() / 600) % 2 === 0) {
+        vecText('PRESS SPACE TO START', 240, 520, VEC.white, 22, BRIGHT_GLOW);
+    }
+
+    // Decorative corner brackets
+    let m = 40;
+    let s2 = 30;
+    vecLine(m, m, m + s2, m, VEC.cyan, 1.5);
+    vecLine(m, m, m, m + s2, VEC.cyan, 1.5);
+
+    vecLine(W - m, m, W - m - s2, m, VEC.cyan, 1.5);
+    vecLine(W - m, m, W - m, m + s2, VEC.cyan, 1.5);
+
+    vecLine(m, H - m, m + s2, H - m, VEC.cyan, 1.5);
+    vecLine(m, H - m, m, H - m - s2, VEC.cyan, 1.5);
+
+    vecLine(W - m, H - m, W - m - s2, H - m, VEC.cyan, 1.5);
+    vecLine(W - m, H - m, W - m, H - m - s2, VEC.cyan, 1.5);
+
+    ctx.restore();
+    gctx.restore();
+}
+
+function drawGameOver() {
+    let flash = Math.floor(Date.now() / 400) % 2;
+
+    vecText('G A M E   O V E R', 180, 240, VEC.red, 38, 20);
+
+    vecLine(140, 260, 660, 260, VEC.red, 1, 10);
+
+    vecText('SCORE', 310, 310, VEC.cyan, 20);
+    vecText(score.toString().padStart(6, '0'), 310, 340, VEC.white, 26, BRIGHT_GLOW);
+
+    if (score >= highScore && score > 0) {
+        vecText('NEW HIGH SCORE!', 270, 380, VEC.yellow, 20, BRIGHT_GLOW);
+    }
+
+    if (flash) {
+        vecText('PRESS SPACE TO RESTART', 220, 460, VEC.white, 20, BRIGHT_GLOW);
+    }
 }
 
 function draw() {
+    // Clear both canvases
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, H);
+    gctx.clearRect(0, 0, W, H);
 
-    if (state !== 'playing' && state !== 'gameover') return;
+    // Subtle CRT phosphor persistence - dim afterimage
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
 
+    if (state === 'start') {
+        drawStartScreen();
+        return;
+    }
+
+    if (state === 'gameover') {
+        // Still draw the game scene dimmed behind
+        ctx.globalAlpha = 0.2;
+        gctx.globalAlpha = 0.2;
+        drawStars();
+        drawTerrain();
+        drawObjects();
+        ctx.globalAlpha = 1;
+        gctx.globalAlpha = 1;
+        drawGameOver();
+        return;
+    }
+
+    // Playing
     drawStars();
     drawTerrain();
     drawObjects();
     drawLasers();
     drawBombs();
+    drawParticles();
     drawExplosions();
-
-    if (state === 'playing') {
-        drawShip(player.x, player.y);
-    }
-
+    drawShip(player.x, player.y);
     drawHUD();
 }
 
