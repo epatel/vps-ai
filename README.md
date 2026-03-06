@@ -74,6 +74,37 @@ tail -f .issues-monitor.log
 tail -f .agent-issue-N.log
 ```
 
+## Manual setup required
+
+Some things must be configured manually outside of this repo:
+
+### GitHub webhook
+
+In the repo's **Settings → Webhooks**, create a webhook with:
+- **URL:** `https://ai.memention.net/webhook`
+- **Content type:** `application/json`
+- **Secret:** must match `WEBHOOK_SECRET` in `.env.issues`
+- **Events:** Select **Issues** and **Pull requests** (both are required — Issues triggers the agent, Pull requests triggers `git pull` on merge)
+
+### Nginx
+
+Nginx reverse-proxies `/webhook` to the local webhook receiver and serves static project files. The config lives at `/etc/nginx/sites-enabled/ai.memention.net` and must be updated manually when adding new static projects (e.g. a new `location /my-project` alias).
+
+### Systemd service
+
+The webhook receiver runs as a systemd service. See `setup-server.sh` for the service definition. If the service file changes, reload and restart manually:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart vps-ai-webhook
+```
+
+### GitHub fine-grained PAT
+
+The token in `.env.issues` must be created manually at GitHub → Settings → Developer settings → Fine-grained personal access tokens, with permissions:
+- **Issues**: Read and write
+- **Pull requests**: Read and write
+- **Contents**: Read and write
+
 ## Projects
 
 Agent-created projects live under `projects/`. Services are managed via systemd — add entries to `hooks/post-merge` to auto-restart on deploy.
