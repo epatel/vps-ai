@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scramble</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: 'Courier New', monospace;
+    color: #0f0;
+    overflow: hidden;
+}
+canvas {
+    border: 2px solid #0f0;
+    image-rendering: pixelated;
+}
+#ui {
+    width: 800px;
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 16px;
+}
+#start-screen {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+#start-screen h1 {
+    font-size: 48px;
+    color: #0f0;
+    text-shadow: 0 0 20px #0f0;
+    margin-bottom: 20px;
+    letter-spacing: 8px;
+}
+#start-screen .info {
+    font-size: 14px;
+    color: #0a0;
+    margin: 6px 0;
+}
+#start-screen .blink {
+    animation: blink 1s infinite;
+    font-size: 18px;
+    margin-top: 30px;
+}
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+#game-over {
+    position: absolute;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+#game-over h2 {
+    font-size: 36px;
+    color: #f00;
+    text-shadow: 0 0 20px #f00;
+    margin-bottom: 10px;
+}
+#game-over .blink {
+    animation: blink 1s infinite;
+    font-size: 16px;
+    margin-top: 20px;
+    color: #0f0;
+}
+</style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h1>SCRAMBLE</h1>
+    <div class="info">Arrow Keys / WASD - Move</div>
+    <div class="info">SPACE - Fire Laser</div>
+    <div class="info">B - Drop Bomb</div>
+    <div class="blink">PRESS SPACE TO START</div>
+</div>
+
+<div id="game-over">
+    <h2>GAME OVER</h2>
+    <div id="final-score" style="font-size:20px; color:#ff0; margin:10px;">Score: 0</div>
+    <div class="blink">PRESS SPACE TO RESTART</div>
+</div>
+
+<div id="ui">
+    <span>SCORE: <span id="score">0</span></span>
+    <span>FUEL: <span id="fuel-bar"></span></span>
+    <span>LIVES: <span id="lives">3</span></span>
+</div>
+<canvas id="game" width="800" height="500"></canvas>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = 800, H = 500;
+
+// Game state
+let state = 'start'; // start, playing, gameover
+let score = 0;
+let lives = 3;
+let fuel = 1000;
+const MAX_FUEL = 1000;
+let scrollX = 0;
+let scrollSpeed = 2;
+let frameCount = 0;
+
+// Player
+const player = {
+    x: 100, y: 200, w: 32, h: 16,
+    vx: 0, vy: 0,
+    thrust: 0.3,
+    maxSpeed: 4,
+    friction: 0.92
+};
+
+// Input
+const keys = {};
+document.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (e.code === 'Space') {
+        e.preventDefault();
+        if (state === 'start') {
+            state = 'playing';
+            document.getElementById('start-screen').style.display = 'none';
+            initGame();
+        } else if (state === 'gameover') {
+            state = 'playing';
+            document.getElementById('game-over').style.display = 'none';
+            lives = 3;
+            score = 0;
+            initGame();
+        } else if (state === 'playing') {
+            fireLaser();
+        }
+    }
+    if ((e.code === 'KeyB') && state === 'playing') {
+        dropBomb();
+    }
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// Terrain generation
+let terrainTop = [];
+let terrainBottom = [];
+const SEGMENT_W = 8;
+const TOTAL_SEGMENTS = 2000;
+
+// Game objects
+let lasers = [];
+let bombs = [];
+let explosions = [];
+let enemies = [];
+let fuelTanks = [];
+let rockets = [];
+let stars = [];
+
+function generateTerrain() {
+    terrainTop = [];
+    terrainBottom = [];
+    let topY = 40;
+    let bottomY = H - 40;
+
+    for (let i = 0; i < TOTAL_SEGMENTS; i++) {
+        // Vary terrain - different sections get narrower
+        let section = Math.floor(i / 200);
+        let narrowing = Math.min(section * 15, 100);
+
+        // Random walk for top
+        topY += (Math.random() - 0.45) * 8;
+        topY = Math.max(20, Math.min(180 + narrowing, topY));
+
+        // Random walk for bottom
+        bottomY += (Math.random() - 0.55) * 8;
+        bottomY = Math.max(H - 180 - narrowing, Math.min(H - 20, bottomY));
+
+        // Ensure minimum gap
+        if (bottomY - topY < 120) {
+            bottomY = topY + 120;
+        }
+
+        terrainTop.push(topY);
+        terrainBottom.push(bottomY);
+    }
+}
+
+function generateObjects() {
+    enemies = [];
+    fuelTanks = [];
+    rockets = [];
+
+    for (let i = 50; i < TOTAL_SEGMENTS; i += Math.floor(Math.random() * 30) + 15) {
+        let section = Math.floor(i / 200);
+        let bY = terrainBottom[i];
+        let tY = terrainTop[i];
+
+        let roll = Math.random();
+        if (roll < 0.25) {
+            // Fuel tank on ground
+            fuelTanks.push({
+                x: i * SEGMENT_W, y: bY - 16, w: 16, h: 16, alive: true
+            });
+        } else if (roll < 0.5) {
+            // Rocket on ground
+            rockets.push({
+                x: i * SEGMENT_W, y: bY - 20, w: 10, h: 20, alive: true,
+                launched: false, vy: 0
+            });
+        } else if (roll < 0.7) {
+            // Flying enemy
+            let ey = tY + 30 + Math.random() * (bY - tY - 80);
+            enemies.push({
+                x: i * SEGMENT_W, y: ey, w: 20, h: 12, alive: true,
+                type: 'ufo', startY: ey, phase: Math.random() * Math.PI * 2
+            });
+        } else {
+            // Ground turret
+            enemies.push({
+                x: i * SEGMENT_W, y: bY - 14, w: 16, h: 14, alive: true,
+                type: 'turret', shootTimer: Math.random() * 120
+            });
+        }
+    }
+}
+
+function generateStars() {
+    stars = [];
+    for (let i = 0; i < 100; i++) {
+        stars.push({
+            x: Math.random() * W,
+            y: Math.random() * H,
+            size: Math.random() * 2 + 0.5,
+            speed: Math.random() * 0.5 + 0.2
+        });
+    }
+}
+
+function initGame() {
+    scrollX = 0;
+    fuel = MAX_FUEL;
+    player.x = 100;
+    player.y = 200;
+    player.vx = 0;
+    player.vy = 0;
+    lasers = [];
+    bombs = [];
+    explosions = [];
+    generateTerrain();
+    generateObjects();
+    generateStars();
+}
+
+function fireLaser() {
+    lasers.push({
+        x: player.x + player.w,
+        y: player.y + player.h / 2 - 1,
+        vx: 8,
+        vy: 0,
+        w: 12, h: 2
+    });
+}
+
+function dropBomb() {
+    bombs.push({
+        x: player.x + player.w / 2,
+        y: player.y + player.h,
+        vx: scrollSpeed,
+        vy: 1,
+        w: 6, h: 6,
+        gravity: 0.15
+    });
+}
+
+function addExplosion(x, y, size) {
+    explosions.push({
+        x: x, y: y,
+        radius: 2,
+        maxRadius: size || 20,
+        alpha: 1,
+        growing: true
+    });
+}
+
+function updatePlayer() {
+    // Input
+    if (keys['ArrowUp'] || keys['KeyW']) player.vy -= player.thrust;
+    if (keys['ArrowDown'] || keys['KeyS']) player.vy += player.thrust;
+    if (keys['ArrowRight'] || keys['KeyD']) player.vx += player.thrust * 0.5;
+    if (keys['ArrowLeft'] || keys['KeyA']) player.vx -= player.thrust * 0.5;
+
+    // Friction
+    player.vx *= player.friction;
+    player.vy *= player.friction;
+
+    // Clamp speed
+    player.vx = Math.max(-player.maxSpeed, Math.min(player.maxSpeed, player.vx));
+    player.vy = Math.max(-player.maxSpeed, Math.min(player.maxSpeed, player.vy));
+
+    // Gravity
+    player.vy += 0.08;
+
+    // Move
+    player.y += player.vy;
+    // Keep player roughly in left third but allow some movement
+    player.x += player.vx;
+    player.x = Math.max(30, Math.min(250, player.x));
+    player.y = Math.max(5, Math.min(H - 5, player.y));
+
+    // Fuel consumption
+    fuel -= 0.3;
+    if (fuel <= 0) {
+        fuel = 0;
+        playerDeath();
+    }
+}
+
+function playerDeath() {
+    addExplosion(player.x + player.w/2, player.y + player.h/2, 30);
+    lives--;
+    if (lives <= 0) {
+        state = 'gameover';
+        document.getElementById('game-over').style.display = 'flex';
+        document.getElementById('final-score').textContent = 'Score: ' + score;
+    } else {
+        // Respawn
+        player.x = 100;
+        player.y = 200;
+        player.vx = 0;
+        player.vy = 0;
+        fuel = Math.min(fuel + 300, MAX_FUEL);
+    }
+}
+
+function getTerrainAtX(worldX) {
+    let seg = Math.floor(worldX / SEGMENT_W);
+    seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
+    return { top: terrainTop[seg], bottom: terrainBottom[seg] };
+}
+
+function checkTerrainCollision() {
+    // Check multiple points on the ship
+    let points = [
+        { x: player.x + scrollX, y: player.y },
+        { x: player.x + player.w + scrollX, y: player.y },
+        { x: player.x + scrollX, y: player.y + player.h },
+        { x: player.x + player.w + scrollX, y: player.y + player.h },
+    ];
+    for (let p of points) {
+        let t = getTerrainAtX(p.x);
+        if (p.y <= t.top || p.y >= t.bottom) {
+            playerDeath();
+            return true;
+        }
+    }
+    return false;
+}
+
+function rectCollide(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x &&
+           a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function update() {
+    if (state !== 'playing') return;
+
+    frameCount++;
+    scrollX += scrollSpeed;
+
+    updatePlayer();
+
+    // Check terrain collision
+    if (checkTerrainCollision()) return;
+
+    // Update lasers
+    lasers = lasers.filter(l => {
+        l.x += l.vx;
+        // Check terrain hit
+        let t = getTerrainAtX(l.x + scrollX);
+        if (l.y <= t.top || l.y >= t.bottom) {
+            addExplosion(l.x, l.y, 10);
+            return false;
+        }
+        return l.x < W + 20;
+    });
+
+    // Update bombs
+    bombs = bombs.filter(b => {
+        b.vy += b.gravity;
+        b.x += b.vx;
+        b.y += b.vy;
+        // Terrain hit
+        let t = getTerrainAtX(b.x + scrollX);
+        if (b.y >= t.bottom) {
+            addExplosion(b.x, t.bottom - 5, 15);
+            // Check ground targets
+            checkBombHits(b.x + scrollX, t.bottom);
+            return false;
+        }
+        return b.y < H + 20;
+    });
+
+    // Update rockets
+    for (let r of rockets) {
+        if (!r.alive) continue;
+        let screenX = r.x - scrollX;
+        if (screenX < -50 || screenX > W + 200) continue;
+
+        // Launch when player is near
+        if (!r.launched && screenX < W && screenX > -20) {
+            if (Math.abs(screenX - player.x) < 200) {
+                r.launched = true;
+                r.vy = -2;
+            }
+        }
+        if (r.launched) {
+            r.vy -= 0.05;
+            r.y += r.vy;
+            // Check terrain
+            let t = getTerrainAtX(r.x);
+            if (r.y <= t.top) {
+                r.alive = false;
+                addExplosion(screenX, t.top, 12);
+            }
+        }
+
+        // Collision with player
+        if (r.alive) {
+            let rb = { x: screenX, y: r.y, w: r.w, h: r.h };
+            let pb = { x: player.x, y: player.y, w: player.w, h: player.h };
+            if (rectCollide(rb, pb)) {
+                r.alive = false;
+                addExplosion(screenX, r.y, 15);
+                playerDeath();
+                return;
+            }
+        }
+    }
+
+    // Update enemies
+    for (let e of enemies) {
+        if (!e.alive) continue;
+        let screenX = e.x - scrollX;
+        if (screenX < -50 || screenX > W + 100) continue;
+
+        if (e.type === 'ufo') {
+            e.phase += 0.03;
+            e.y = e.startY + Math.sin(e.phase) * 30;
+        }
+
+        // Collision with player
+        let eb = { x: screenX, y: e.y, w: e.w, h: e.h };
+        let pb = { x: player.x, y: player.y, w: player.w, h: player.h };
+        if (rectCollide(eb, pb)) {
+            e.alive = false;
+            addExplosion(screenX, e.y, 20);
+            playerDeath();
+            return;
+        }
+    }
+
+    // Laser hits on enemies/rockets/fuel
+    for (let l of lasers) {
+        let laserWorld = { x: l.x + scrollX, y: l.y, w: l.w, h: l.h };
+
+        for (let e of enemies) {
+            if (!e.alive) continue;
+            let eb = { x: e.x, y: e.y, w: e.w, h: e.h };
+            if (rectCollide(laserWorld, eb)) {
+                e.alive = false;
+                l.x = -100; // remove laser
+                let sx = e.x - scrollX;
+                addExplosion(sx, e.y, 20);
+                score += (e.type === 'turret') ? 100 : 150;
+            }
+        }
+
+        for (let r of rockets) {
+            if (!r.alive) continue;
+            let rb = { x: r.x, y: r.y, w: r.w, h: r.h };
+            if (rectCollide(laserWorld, rb)) {
+                r.alive = false;
+                l.x = -100;
+                addExplosion(r.x - scrollX, r.y, 15);
+                score += 80;
+            }
+        }
+
+        for (let f of fuelTanks) {
+            if (!f.alive) continue;
+            let fb = { x: f.x, y: f.y, w: f.w, h: f.h };
+            if (rectCollide(laserWorld, fb)) {
+                f.alive = false;
+                l.x = -100;
+                addExplosion(f.x - scrollX, f.y, 12);
+                fuel = Math.min(fuel + 200, MAX_FUEL);
+                score += 50;
+            }
+        }
+    }
+
+    // Update explosions
+    explosions = explosions.filter(e => {
+        if (e.growing) {
+            e.radius += 1.5;
+            if (e.radius >= e.maxRadius) e.growing = false;
+        } else {
+            e.alpha -= 0.05;
+        }
+        return e.alpha > 0;
+    });
+
+    // Check if level complete
+    if (scrollX > (TOTAL_SEGMENTS - 50) * SEGMENT_W) {
+        // Loop with increased difficulty
+        scrollX = 0;
+        scrollSpeed += 0.3;
+        generateTerrain();
+        generateObjects();
+        score += 1000;
+    }
+
+    // Update stars
+    for (let s of stars) {
+        s.x -= s.speed;
+        if (s.x < 0) { s.x = W; s.y = Math.random() * H; }
+    }
+}
+
+function checkBombHits(worldX, groundY) {
+    let hitRange = 30;
+
+    for (let e of enemies) {
+        if (!e.alive) continue;
+        if (e.type === 'turret' && Math.abs(e.x - worldX) < hitRange && Math.abs(e.y - groundY) < hitRange) {
+            e.alive = false;
+            addExplosion(e.x - scrollX, e.y, 20);
+            score += 100;
+        }
+    }
+    for (let f of fuelTanks) {
+        if (!f.alive) continue;
+        if (Math.abs(f.x - worldX) < hitRange && Math.abs(f.y - groundY) < hitRange) {
+            f.alive = false;
+            addExplosion(f.x - scrollX, f.y, 12);
+            fuel = Math.min(fuel + 200, MAX_FUEL);
+            score += 50;
+        }
+    }
+    for (let r of rockets) {
+        if (!r.alive) continue;
+        if (Math.abs(r.x - worldX) < hitRange && Math.abs(r.y - groundY) < hitRange) {
+            r.alive = false;
+            addExplosion(r.x - scrollX, r.y, 15);
+            score += 80;
+        }
+    }
+}
+
+function drawShip(x, y) {
+    ctx.save();
+    // Ship body
+    ctx.fillStyle = '#0ff';
+    ctx.beginPath();
+    ctx.moveTo(x + 32, y + 8);        // nose
+    ctx.lineTo(x + 20, y);             // top front
+    ctx.lineTo(x + 4, y);              // top back
+    ctx.lineTo(x, y + 4);              // back top curve
+    ctx.lineTo(x, y + 12);            // back bottom curve
+    ctx.lineTo(x + 4, y + 16);        // bottom back
+    ctx.lineTo(x + 20, y + 16);       // bottom front
+    ctx.closePath();
+    ctx.fill();
+
+    // Cockpit
+    ctx.fillStyle = '#00f';
+    ctx.fillRect(x + 18, y + 4, 8, 8);
+
+    // Engine flame
+    if (frameCount % 4 < 2) {
+        ctx.fillStyle = '#f80';
+        ctx.beginPath();
+        ctx.moveTo(x, y + 5);
+        ctx.lineTo(x - 8 - Math.random() * 6, y + 8);
+        ctx.lineTo(x, y + 11);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#ff0';
+        ctx.beginPath();
+        ctx.moveTo(x, y + 6);
+        ctx.lineTo(x - 5 - Math.random() * 3, y + 8);
+        ctx.lineTo(x, y + 10);
+        ctx.closePath();
+        ctx.fill();
+    } else {
+        ctx.fillStyle = '#fa0';
+        ctx.beginPath();
+        ctx.moveTo(x, y + 5);
+        ctx.lineTo(x - 10 - Math.random() * 4, y + 8);
+        ctx.lineTo(x, y + 11);
+        ctx.closePath();
+        ctx.fill();
+    }
+    ctx.restore();
+}
+
+function drawTerrain() {
+    // Top terrain
+    ctx.fillStyle = '#040';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    for (let screenX = 0; screenX <= W; screenX += SEGMENT_W) {
+        let seg = Math.floor((screenX + scrollX) / SEGMENT_W);
+        seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
+        ctx.lineTo(screenX, terrainTop[seg]);
+    }
+    ctx.lineTo(W, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Top terrain edge (brighter)
+    ctx.strokeStyle = '#0a0';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let screenX = 0; screenX <= W; screenX += SEGMENT_W) {
+        let seg = Math.floor((screenX + scrollX) / SEGMENT_W);
+        seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
+        if (screenX === 0) ctx.moveTo(screenX, terrainTop[seg]);
+        else ctx.lineTo(screenX, terrainTop[seg]);
+    }
+    ctx.stroke();
+
+    // Bottom terrain
+    ctx.fillStyle = '#040';
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let screenX = 0; screenX <= W; screenX += SEGMENT_W) {
+        let seg = Math.floor((screenX + scrollX) / SEGMENT_W);
+        seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
+        ctx.lineTo(screenX, terrainBottom[seg]);
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+
+    // Bottom terrain edge
+    ctx.strokeStyle = '#0a0';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let screenX = 0; screenX <= W; screenX += SEGMENT_W) {
+        let seg = Math.floor((screenX + scrollX) / SEGMENT_W);
+        seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
+        if (screenX === 0) ctx.moveTo(screenX, terrainBottom[seg]);
+        else ctx.lineTo(screenX, terrainBottom[seg]);
+    }
+    ctx.stroke();
+}
+
+function drawObjects() {
+    // Fuel tanks
+    ctx.fillStyle = '#f00';
+    for (let f of fuelTanks) {
+        if (!f.alive) continue;
+        let sx = f.x - scrollX;
+        if (sx < -20 || sx > W + 20) continue;
+        ctx.fillStyle = '#f00';
+        ctx.fillRect(sx, f.y, f.w, f.h);
+        ctx.fillStyle = '#ff0';
+        ctx.font = '10px monospace';
+        ctx.fillText('F', sx + 4, f.y + 12);
+    }
+
+    // Rockets
+    for (let r of rockets) {
+        if (!r.alive) continue;
+        let sx = r.x - scrollX;
+        if (sx < -20 || sx > W + 20) continue;
+        ctx.fillStyle = '#f80';
+        ctx.beginPath();
+        ctx.moveTo(sx + 5, r.y);
+        ctx.lineTo(sx, r.y + 20);
+        ctx.lineTo(sx + 10, r.y + 20);
+        ctx.closePath();
+        ctx.fill();
+        if (r.launched && frameCount % 3 < 2) {
+            ctx.fillStyle = '#ff0';
+            ctx.beginPath();
+            ctx.moveTo(sx + 2, r.y + 20);
+            ctx.lineTo(sx + 5, r.y + 28);
+            ctx.lineTo(sx + 8, r.y + 20);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+
+    // Enemies
+    for (let e of enemies) {
+        if (!e.alive) continue;
+        let sx = e.x - scrollX;
+        if (sx < -30 || sx > W + 30) continue;
+
+        if (e.type === 'ufo') {
+            ctx.fillStyle = '#f0f';
+            ctx.beginPath();
+            ctx.ellipse(sx + 10, e.y + 6, 10, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#faf';
+            ctx.beginPath();
+            ctx.ellipse(sx + 10, e.y + 4, 5, 3, 0, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (e.type === 'turret') {
+            ctx.fillStyle = '#888';
+            ctx.fillRect(sx, e.y + 6, 16, 8);
+            ctx.fillStyle = '#aaa';
+            ctx.fillRect(sx + 4, e.y, 8, 8);
+            ctx.fillStyle = '#ff0';
+            ctx.fillRect(sx + 12, e.y + 2, 6, 3);
+        }
+    }
+}
+
+function drawLasers() {
+    ctx.fillStyle = '#ff0';
+    for (let l of lasers) {
+        ctx.fillRect(l.x, l.y, l.w, l.h);
+    }
+}
+
+function drawBombs() {
+    ctx.fillStyle = '#f80';
+    for (let b of bombs) {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function drawExplosions() {
+    for (let e of explosions) {
+        ctx.save();
+        ctx.globalAlpha = e.alpha;
+        let gradient = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.radius);
+        gradient.addColorStop(0, '#fff');
+        gradient.addColorStop(0.3, '#ff0');
+        gradient.addColorStop(0.6, '#f80');
+        gradient.addColorStop(1, 'rgba(255,0,0,0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+function drawStars() {
+    ctx.fillStyle = '#555';
+    for (let s of stars) {
+        ctx.fillRect(s.x, s.y, s.size, s.size);
+    }
+}
+
+function drawHUD() {
+    document.getElementById('score').textContent = score;
+    document.getElementById('lives').textContent = lives;
+
+    // Fuel bar
+    let fuelPct = fuel / MAX_FUEL;
+    let bars = Math.floor(fuelPct * 20);
+    let fuelColor = fuelPct > 0.3 ? '#0f0' : (fuelPct > 0.15 ? '#ff0' : '#f00');
+    let fuelStr = '<span style="color:' + fuelColor + '">';
+    for (let i = 0; i < 20; i++) {
+        fuelStr += i < bars ? '|' : ' ';
+    }
+    fuelStr += '</span>';
+    document.getElementById('fuel-bar').innerHTML = fuelStr;
+}
+
+function draw() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+
+    if (state !== 'playing' && state !== 'gameover') return;
+
+    drawStars();
+    drawTerrain();
+    drawObjects();
+    drawLasers();
+    drawBombs();
+    drawExplosions();
+
+    if (state === 'playing') {
+        drawShip(player.x, player.y);
+    }
+
+    drawHUD();
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
