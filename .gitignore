@@ -1,0 +1,7 @@
+.env.issues
+.issues-monitor.log
+.agent-issue-*.log
+.agent-issue-*.output
+issues/.agent-*.pid
+.worktrees/
+__pycache__/

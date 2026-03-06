@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#
+# post-merge hook — restart services when their project files change
+#
+# Maps project dirs to systemd service names.
+# Add new entries as projects are created.
+#
+
+declare -A SERVICE_MAP=(
+  # ["projects/my-project"]="my-service"
+)
+
+# Get list of changed files in this merge
+CHANGED=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD)
+
+for project_dir in "${!SERVICE_MAP[@]}"; do
+  service="${SERVICE_MAP[$project_dir]}"
+  if echo "$CHANGED" | grep -q "^${project_dir}/"; then
+    echo "post-merge: ${project_dir} changed, restarting ${service}..."
+    sudo systemctl restart "$service" 2>&1 && \
+      echo "post-merge: ${service} restarted." || \
+      echo "post-merge: WARNING — failed to restart ${service}"
+  fi
+done
