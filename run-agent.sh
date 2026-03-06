@@ -63,6 +63,12 @@ claude --print \
 echo "=== Agent finished for issue #${ISSUE_NUM} at $(date) ==="
 cat "$AGENT_OUTPUT_FILE"
 
+# Fix any files the agent may have created as root (e.g. via sudo)
+if find "$WORKTREE_DIR" -not -path '*/.git/*' -not -user "$(whoami)" -print -quit | grep -q .; then
+  echo "Fixing ownership of root-owned files in worktree..."
+  sudo chown -R "$(whoami):$(whoami)" "$WORKTREE_DIR"
+fi
+
 # Push branch and create PR
 cd "$SCRIPT_DIR"
 echo "=== Pushing branch and creating PR ==="

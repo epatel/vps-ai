@@ -31,6 +31,12 @@ log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
 }
 
+# Fix any root-owned files in the repo before pulling
+if find "$SCRIPT_DIR" -maxdepth 3 -not -path '*/.git/*' -not -path '*/.worktrees/*' -not -user "$(whoami)" -print -quit 2>/dev/null | grep -q .; then
+  echo "Fixing ownership of root-owned files before pull..."
+  find "$SCRIPT_DIR" -not -path '*/.git/*' -not -path '*/.worktrees/*' -not -user "$(whoami)" -exec sudo chown "$(whoami):$(whoami)" {} +
+fi
+
 # Pull latest so we work on fresh code
 git -C "$SCRIPT_DIR" fetch origin main --quiet 2>/dev/null
 git -C "$SCRIPT_DIR" diff --name-only origin/main 2>/dev/null | while read -r f; do
