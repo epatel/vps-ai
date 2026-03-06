@@ -17,6 +17,7 @@ AGENT_PROMPT="$2"
 HOST_DESCRIPTION="${HOST_DESCRIPTION:-$(uname -n) ($(lsb_release -ds 2>/dev/null || uname -s), $(uname -m))}"
 SYSTEM_PROMPT="$(sed -e "s|{{REPO_ROOT}}|$SCRIPT_DIR|g" -e "s|{{HOST_DESCRIPTION}}|$HOST_DESCRIPTION|g" "$SCRIPT_DIR/.system-prompt.md")"
 HELPER="$SCRIPT_DIR/github-helper.py"
+AUTH_REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
 AGENT_OUTPUT_FILE="$SCRIPT_DIR/.agent-issue-${ISSUE_NUM}.output"
 
 WORKTREE_DIR="$SCRIPT_DIR/.worktrees/issue-${ISSUE_NUM}"
@@ -26,13 +27,13 @@ echo "=== Agent starting for issue #${ISSUE_NUM} at $(date) ==="
 
 # Pull latest main before creating worktree so agent works on fresh code
 echo "Pulling latest main..."
-git -C "$SCRIPT_DIR" fetch origin main 2>&1
-git -C "$SCRIPT_DIR" diff --name-only origin/main 2>/dev/null | while read -r f; do
+git -C "$SCRIPT_DIR" fetch "$AUTH_REMOTE" main 2>&1
+git -C "$SCRIPT_DIR" diff --name-only FETCH_HEAD 2>/dev/null | while read -r f; do
   if [[ -f "$SCRIPT_DIR/$f" ]] && ! git -C "$SCRIPT_DIR" ls-files --error-unmatch "$f" &>/dev/null; then
     rm -f "$SCRIPT_DIR/$f"
   fi
 done
-git -C "$SCRIPT_DIR" merge origin/main --ff-only 2>&1 || echo "WARNING: Could not fast-forward main"
+git -C "$SCRIPT_DIR" merge FETCH_HEAD --ff-only 2>&1 || echo "WARNING: Could not fast-forward main"
 
 # Clean up any leftover worktree/branch from a previous run
 git -C "$SCRIPT_DIR" worktree remove "$WORKTREE_DIR" --force 2>/dev/null || true
@@ -69,7 +70,7 @@ if [[ "$MODE" == "modify" || "$MODE" == "mixed" ]]; then
   echo "=== Modifications to existing code — creating PR ==="
 
   # Push the branch
-  git -C "$WORKTREE_DIR" push -u origin "$BRANCH_NAME" 2>&1 || echo "WARNING: Failed to push branch"
+  git -C "$WORKTREE_DIR" push -u "$AUTH_REMOTE" "$BRANCH_NAME" 2>&1 || echo "WARNING: Failed to push branch"
 
   # Get the issue title for the PR
   ISSUE_TITLE=$(python3 -c "
@@ -110,15 +111,15 @@ else
   echo "=== New files only — merging to main and pushing ==="
 
   # Pull again in case main moved while agent was working
-  git -C "$SCRIPT_DIR" fetch origin main 2>&1
-  git -C "$SCRIPT_DIR" merge origin/main --ff-only 2>&1 || true
+  git -C "$SCRIPT_DIR" fetch "$AUTH_REMOTE" main 2>&1
+  git -C "$SCRIPT_DIR" merge FETCH_HEAD --ff-only 2>&1 || true
 
   # Merge the branch to main and push
   git -C "$SCRIPT_DIR" merge "$BRANCH_NAME" --no-edit 2>&1 || {
     echo "WARNING: Merge conflict, falling back to branch + PR"
-    git -C "$WORKTREE_DIR" push -u origin "$BRANCH_NAME" 2>&1
+    git -C "$WORKTREE_DIR" push -u "$AUTH_REMOTE" "$BRANCH_NAME" 2>&1
   }
-  git -C "$SCRIPT_DIR" push origin main 2>&1 || echo "WARNING: Failed to push main"
+  git -C "$SCRIPT_DIR" push "$AUTH_REMOTE" main 2>&1 || echo "WARNING: Failed to push main"
 
   # Post comment and close issue
   python3 "$HELPER" post-comment "$AGENT_OUTPUT_FILE" "$ISSUE_NUM" "$GITHUB_REPO" "$GITHUB_TOKEN"
