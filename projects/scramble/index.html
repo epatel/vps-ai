@@ -36,7 +36,6 @@ canvas {
     height: 700px;
     pointer-events: none;
     z-index: 5;
-    /* Vignette only - no scanlines, Vectrex didn't have them */
     box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.6);
     border-radius: 20px;
 }
@@ -68,23 +67,18 @@ const glowCanvas = document.getElementById('glow');
 const gctx = glowCanvas.getContext('2d');
 const W = 800, H = 700;
 
-// Vectrex green phosphor palette
+// Vectrex phosphor color - authentic bright white-green
 const VEC = {
-    green:     '#44ff44',
-    brightGreen: '#88ff88',
-    dimGreen:  '#228822',
-    darkGreen: '#115511',
-    yellow:    '#aaff44',
-    blue:      '#4477ff',
-    dimBlue:   '#223388',
-    white:     '#ccffcc',
+    main:      '#ccffcc',
     bright:    '#eeffee',
+    dim:       '#669966',
+    dark:      '#334433',
+    score:     '#99ddff',
 };
 
 const GLOW_BLUR = 6;
-const BRIGHT_GLOW = 14;
 
-// Game state
+// ============ GAME STATE ============
 let state = 'start';
 let score = 0;
 let lives = 3;
@@ -95,11 +89,11 @@ let scrollSpeed = 1.8;
 let frameCount = 0;
 let highScore = 0;
 let level = 1;
-let subLevel = 'A';
+let section = 1; // 1-6
 
-// Player
+// Player ship
 const player = {
-    x: 100, y: 300, w: 30, h: 20,
+    x: 120, y: 300, w: 30, h: 20,
     vx: 0, vy: 0,
     thrust: 0.35,
     maxSpeed: 4,
@@ -107,7 +101,7 @@ const player = {
     alive: true
 };
 
-// Input
+// Input handling
 const keys = {};
 document.addEventListener('keydown', e => {
     keys[e.code] = true;
@@ -121,25 +115,95 @@ document.addEventListener('keydown', e => {
             lives = 3;
             score = 0;
             level = 1;
-            subLevel = 'A';
+            section = 1;
             initGame();
         } else if (state === 'playing') {
             fireBullet();
         }
     }
-    if ((e.code === 'KeyB') && state === 'playing') {
+    if (e.code === 'KeyB' && state === 'playing') {
         dropBomb();
     }
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
 
-// Terrain
-let terrainTop = [];
+// ============ TERRAIN ============
 let terrainBottom = [];
-const SEGMENT_W = 40; // wider segments for more angular look
+const SEGMENT_W = 40;
 const TOTAL_SEGMENTS = 600;
 
-// Game objects
+// Section definitions (each ~100 segments)
+// Section 1: Open hills with rockets and fuel tanks
+// Section 2: Deeper valleys with UFOs
+// Section 3: Tall mountains with fireballs/stars
+// Section 4: City-like flat terrain with tall structures
+// Section 5: Cave-like narrow passages
+// Section 6: Base section - destroy the target
+const SECTION_LENGTH = 100;
+
+function generateTerrain() {
+    terrainBottom = [];
+    let y = H - 200; // start ground level
+
+    for (let i = 0; i < TOTAL_SEGMENTS; i++) {
+        let sec = Math.min(6, Math.floor(i / SECTION_LENGTH) + 1);
+
+        switch (sec) {
+            case 1: // Rolling hills
+                if (i % 4 === 0) {
+                    y += (Math.random() - 0.45) * 50;
+                }
+                y = Math.max(H - 380, Math.min(H - 120, y));
+                break;
+
+            case 2: // Deeper terrain with valleys
+                if (i % 3 === 0) {
+                    y += (Math.random() - 0.5) * 60;
+                }
+                y = Math.max(H - 420, Math.min(H - 100, y));
+                break;
+
+            case 3: // Tall mountains, sharp peaks
+                if (i % 2 === 0) {
+                    y += (Math.random() - 0.5) * 70;
+                }
+                // Create sharp peaks
+                if (Math.random() < 0.08) {
+                    y = H - 350 - Math.random() * 150;
+                }
+                y = Math.max(H - 520, Math.min(H - 100, y));
+                break;
+
+            case 4: // City - flat ground with occasional tall structures
+                if (i % 5 === 0) {
+                    y += (Math.random() - 0.5) * 30;
+                }
+                y = Math.max(H - 250, Math.min(H - 130, y));
+                break;
+
+            case 5: // Cave/maze - narrow with ceiling (terrain goes high)
+                if (i % 3 === 0) {
+                    y += (Math.random() - 0.5) * 50;
+                }
+                y = Math.max(H - 450, Math.min(H - 150, y));
+                // Create step-like terrain
+                if (Math.random() < 0.15) {
+                    y -= 60 + Math.random() * 80;
+                    y = Math.max(H - 500, y);
+                }
+                break;
+
+            case 6: // Base section - relatively flat leading to base
+                y = H - 180 + Math.sin(i * 0.1) * 30;
+                y = Math.max(H - 250, Math.min(H - 120, y));
+                break;
+        }
+
+        terrainBottom.push(y);
+    }
+}
+
+// ============ GAME OBJECTS ============
 let bullets = [];
 let bombs = [];
 let explosions = [];
@@ -148,89 +212,63 @@ let fuelTanks = [];
 let rockets = [];
 let particles = [];
 let enemyBullets = [];
-
-function generateTerrain() {
-    terrainTop = [];
-    terrainBottom = [];
-    let topY = 120;
-    let bottomY = H - 140;
-
-    for (let i = 0; i < TOTAL_SEGMENTS; i++) {
-        let section = Math.floor(i / 80);
-
-        // Sharp zigzag changes every few segments
-        if (i % 3 === 0) {
-            topY += (Math.random() - 0.42) * 40;
-        }
-        topY = Math.max(60, Math.min(260 + section * 8, topY));
-
-        if (i % 3 === 0) {
-            bottomY += (Math.random() - 0.58) * 40;
-        }
-        bottomY = Math.max(H - 280 - section * 5, Math.min(H - 80, bottomY));
-
-        // Ensure minimum gap
-        if (bottomY - topY < 180) {
-            bottomY = topY + 180;
-        }
-
-        // Occasional sharp cliffs (like in image 2)
-        if (i > 50 && Math.random() < 0.02) {
-            // Vertical wall section
-            let wallHeight = 100 + Math.random() * 150;
-            bottomY = topY + 60;
-            terrainTop.push(topY);
-            terrainBottom.push(bottomY);
-            // Next segments restore
-            continue;
-        }
-
-        terrainTop.push(topY);
-        terrainBottom.push(bottomY);
-    }
-}
+let baseTarget = null;
 
 function generateObjects() {
     enemies = [];
     fuelTanks = [];
     rockets = [];
+    baseTarget = null;
 
-    for (let i = 15; i < TOTAL_SEGMENTS - 5; i += Math.floor(Math.random() * 8) + 4) {
+    for (let i = 10; i < TOTAL_SEGMENTS - 5; i++) {
         let bY = terrainBottom[i];
-        let tY = terrainTop[i];
-        if (bY - tY < 150) continue;
+        let sec = Math.min(6, Math.floor(i / SECTION_LENGTH) + 1);
+
+        // Skip some segments randomly
+        if (Math.random() > 0.18) continue;
 
         let roll = Math.random();
-        if (roll < 0.2) {
+
+        if (sec === 6 && i > TOTAL_SEGMENTS - 15) {
+            // Place the base target at the end
+            if (!baseTarget) {
+                baseTarget = {
+                    x: i * SEGMENT_W, y: bY - 40, w: 30, h: 40, alive: true
+                };
+            }
+            continue;
+        }
+
+        if (roll < 0.25) {
             // Fuel tank - rectangular building with X
             fuelTanks.push({
-                x: i * SEGMENT_W, y: bY - 28, w: 24, h: 28, alive: true
+                x: i * SEGMENT_W, y: bY - 24, w: 20, h: 24, alive: true
             });
         } else if (roll < 0.45) {
-            // Rocket on a stand - triangular
+            // Rocket on ground
             rockets.push({
-                x: i * SEGMENT_W, y: bY - 30, w: 16, h: 30, alive: true,
+                x: i * SEGMENT_W, y: bY - 28, w: 14, h: 28, alive: true,
                 launched: false, vy: 0
             });
-        } else if (roll < 0.6) {
-            // Flying UFO - pentagon/diamond shape
-            let ey = tY + 50 + Math.random() * (bY - tY - 150);
+        } else if (roll < 0.65 && (sec === 2 || sec === 3)) {
+            // UFO - only in sections 2-3
+            let ey = bY - 80 - Math.random() * 120;
             enemies.push({
-                x: i * SEGMENT_W, y: ey, w: 24, h: 16, alive: true,
+                x: i * SEGMENT_W, y: ey, w: 22, h: 14, alive: true,
                 type: 'ufo', startY: ey, phase: Math.random() * Math.PI * 2
             });
-        } else if (roll < 0.75) {
-            // Star/asterisk obstacle
-            let ey = tY + 60 + Math.random() * (bY - tY - 160);
+        } else if (roll < 0.75 && sec >= 3) {
+            // Star/fireball - sections 3+
+            let ey = bY - 60 - Math.random() * 100;
             enemies.push({
-                x: i * SEGMENT_W, y: ey, w: 20, h: 20, alive: true,
+                x: i * SEGMENT_W, y: ey, w: 18, h: 18, alive: true,
                 type: 'star', startY: ey, phase: Math.random() * Math.PI * 2
             });
-        } else {
-            // Turret on ground
+        } else if (roll < 0.85) {
+            // Ground turret
             enemies.push({
-                x: i * SEGMENT_W, y: bY - 22, w: 20, h: 22, alive: true,
-                type: 'turret', shootTimer: Math.random() * 180
+                x: i * SEGMENT_W, y: bY - 18, w: 18, h: 18, alive: true,
+                type: 'turret', shootTimer: 60 + Math.random() * 120
             });
         }
     }
@@ -239,7 +277,7 @@ function generateObjects() {
 function initGame() {
     scrollX = 0;
     fuel = MAX_FUEL;
-    player.x = 100;
+    player.x = 120;
     player.y = 300;
     player.vx = 0;
     player.vy = 0;
@@ -253,6 +291,7 @@ function initGame() {
     generateObjects();
 }
 
+// ============ ACTIONS ============
 function fireBullet() {
     bullets.push({
         x: player.x + player.w + 5,
@@ -260,7 +299,6 @@ function fireBullet() {
         vx: 8,
         vy: 0,
         r: 2,
-        life: 1.0
     });
 }
 
@@ -276,7 +314,6 @@ function dropBomb() {
 }
 
 function addExplosion(x, y, size) {
-    // Vectrex-style: radiating lines from center (asterisk/star burst)
     let numLines = 6 + Math.floor(Math.random() * 4);
     for (let i = 0; i < numLines; i++) {
         let angle = (Math.PI * 2 / numLines) * i + Math.random() * 0.3;
@@ -301,6 +338,7 @@ function addExplosion(x, y, size) {
     });
 }
 
+// ============ UPDATE ============
 function updatePlayer() {
     if (keys['ArrowUp'] || keys['KeyW']) player.vy -= player.thrust;
     if (keys['ArrowDown'] || keys['KeyS']) player.vy += player.thrust;
@@ -317,7 +355,7 @@ function updatePlayer() {
     player.y += player.vy;
     player.x += player.vx;
     player.x = Math.max(30, Math.min(280, player.x));
-    player.y = Math.max(40, Math.min(H - 40, player.y));
+    player.y = Math.max(30, Math.min(H - 40, player.y));
 
     fuel -= 0.25;
     if (fuel <= 0) {
@@ -327,13 +365,13 @@ function updatePlayer() {
 }
 
 function playerDeath() {
-    addExplosion(player.x + player.w/2, player.y + player.h/2, 30);
+    addExplosion(player.x + player.w / 2, player.y + player.h / 2, 30);
     lives--;
     if (lives <= 0) {
         state = 'gameover';
         if (score > highScore) highScore = score;
     } else {
-        player.x = 100;
+        player.x = 120;
         player.y = 300;
         player.vx = 0;
         player.vy = 0;
@@ -341,36 +379,32 @@ function playerDeath() {
     }
 }
 
-function getTerrainAtX(worldX) {
-    let seg = Math.floor(worldX / SEGMENT_W);
-    seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
-    return { top: terrainTop[seg], bottom: terrainBottom[seg] };
-}
-
-function getTerrainYAtX(worldX, isTop) {
+function getTerrainYAtX(worldX) {
     let segF = worldX / SEGMENT_W;
     let seg0 = Math.floor(segF);
     let seg1 = seg0 + 1;
     seg0 = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg0));
     seg1 = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg1));
     let t = segF - Math.floor(segF);
-    if (isTop) {
-        return terrainTop[seg0] * (1-t) + terrainTop[seg1] * t;
-    } else {
-        return terrainBottom[seg0] * (1-t) + terrainBottom[seg1] * t;
-    }
+    return terrainBottom[seg0] * (1 - t) + terrainBottom[seg1] * t;
 }
 
 function checkTerrainCollision() {
-    let points = [
-        { x: player.x + scrollX, y: player.y },
-        { x: player.x + player.w + scrollX, y: player.y },
+    let corners = [
         { x: player.x + scrollX, y: player.y + player.h },
         { x: player.x + player.w + scrollX, y: player.y + player.h },
+        { x: player.x + scrollX, y: player.y },
+        { x: player.x + player.w + scrollX, y: player.y },
     ];
-    for (let p of points) {
-        let t = getTerrainAtX(p.x);
-        if (p.y <= t.top || p.y >= t.bottom) {
+    for (let p of corners) {
+        let groundY = getTerrainYAtX(p.x);
+        // Hit ground
+        if (p.y >= groundY) {
+            playerDeath();
+            return true;
+        }
+        // Hit ceiling (top of screen)
+        if (p.y <= 5) {
             playerDeath();
             return true;
         }
@@ -393,29 +427,33 @@ function update() {
     frameCount++;
     scrollX += scrollSpeed;
 
+    // Current section
+    let centerWorldX = scrollX + W / 2;
+    section = Math.min(6, Math.floor(centerWorldX / (SECTION_LENGTH * SEGMENT_W)) + 1);
+
     updatePlayer();
     if (checkTerrainCollision()) return;
 
-    // Update bullets (small dots)
+    // Update bullets
     bullets = bullets.filter(b => {
         b.x += b.vx;
-        let t = getTerrainAtX(b.x + scrollX);
-        if (b.y <= t.top || b.y >= t.bottom) {
+        let groundY = getTerrainYAtX(b.x + scrollX);
+        if (b.y >= groundY) {
             addExplosion(b.x, b.y, 6);
             return false;
         }
         return b.x < W + 20;
     });
 
-    // Update bombs (falling dots)
+    // Update bombs
     bombs = bombs.filter(b => {
         b.vy += b.gravity;
         b.x += b.vx;
         b.y += b.vy;
-        let t = getTerrainAtX(b.x + scrollX);
-        if (b.y >= t.bottom) {
-            addExplosion(b.x, t.bottom - 5, 16);
-            checkBombHits(b.x + scrollX, t.bottom);
+        let groundY = getTerrainYAtX(b.x + scrollX);
+        if (b.y >= groundY) {
+            addExplosion(b.x, groundY - 5, 16);
+            checkBombHits(b.x + scrollX, groundY);
             return false;
         }
         return b.y < H + 20;
@@ -425,7 +463,6 @@ function update() {
     enemyBullets = enemyBullets.filter(b => {
         b.x += b.vx;
         b.y += b.vy;
-        // Check player collision
         let pb = { x: player.x, y: player.y, w: player.w, h: player.h };
         if (pointInRect(b.x, b.y, pb)) {
             playerDeath();
@@ -449,10 +486,9 @@ function update() {
         if (r.launched) {
             r.vy -= 0.04;
             r.y += r.vy;
-            let t = getTerrainAtX(r.x);
-            if (r.y <= t.top) {
+            if (r.y <= 10) {
                 r.alive = false;
-                addExplosion(screenX, t.top, 10);
+                addExplosion(screenX, 10, 10);
             }
         }
 
@@ -483,16 +519,15 @@ function update() {
             e.shootTimer--;
             if (e.shootTimer <= 0 && screenX < W - 50 && screenX > 50) {
                 e.shootTimer = 120 + Math.random() * 60;
-                // Shoot toward player
                 let dx = player.x - screenX;
                 let dy = player.y - e.y;
-                let dist = Math.sqrt(dx*dx + dy*dy);
+                let dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist > 0) {
                     enemyBullets.push({
-                        x: screenX + e.w/2,
+                        x: screenX + e.w / 2,
                         y: e.y,
-                        vx: (dx/dist) * 3,
-                        vy: (dy/dist) * 3,
+                        vx: (dx / dist) * 3,
+                        vy: (dy / dist) * 3,
                         r: 2
                     });
                 }
@@ -503,22 +538,35 @@ function update() {
         let pb = { x: player.x, y: player.y, w: player.w, h: player.h };
         if (rectCollide(eb, pb)) {
             e.alive = false;
-            addExplosion(screenX + e.w/2, e.y + e.h/2, 20);
+            addExplosion(screenX + e.w / 2, e.y + e.h / 2, 20);
             playerDeath();
             return;
         }
     }
 
-    // Bullet hits
+    // Check base target collision
+    if (baseTarget && baseTarget.alive) {
+        let screenX = baseTarget.x - scrollX;
+        if (screenX > -50 && screenX < W + 50) {
+            let tb = { x: screenX, y: baseTarget.y, w: baseTarget.w, h: baseTarget.h };
+            let pb = { x: player.x, y: player.y, w: player.w, h: player.h };
+            if (rectCollide(tb, pb)) {
+                playerDeath();
+                return;
+            }
+        }
+    }
+
+    // Bullet hits on enemies, rockets, fuel tanks, and base
     for (let b of bullets) {
-        let bulletWorld = { x: b.x + scrollX - b.r, y: b.y - b.r, w: b.r*2, h: b.r*2 };
+        let bulletWorld = { x: b.x + scrollX - b.r, y: b.y - b.r, w: b.r * 2, h: b.r * 2 };
 
         for (let e of enemies) {
             if (!e.alive) continue;
             if (rectCollide(bulletWorld, { x: e.x, y: e.y, w: e.w, h: e.h })) {
                 e.alive = false;
                 b.x = -100;
-                addExplosion(e.x - scrollX + e.w/2, e.y + e.h/2, 20);
+                addExplosion(e.x - scrollX + e.w / 2, e.y + e.h / 2, 20);
                 score += (e.type === 'turret') ? 100 : (e.type === 'ufo') ? 150 : 120;
             }
         }
@@ -527,7 +575,7 @@ function update() {
             if (rectCollide(bulletWorld, { x: r.x, y: r.y, w: r.w, h: r.h })) {
                 r.alive = false;
                 b.x = -100;
-                addExplosion(r.x - scrollX + r.w/2, r.y + r.h/2, 14);
+                addExplosion(r.x - scrollX + r.w / 2, r.y + r.h / 2, 14);
                 score += 80;
             }
         }
@@ -536,9 +584,18 @@ function update() {
             if (rectCollide(bulletWorld, { x: f.x, y: f.y, w: f.w, h: f.h })) {
                 f.alive = false;
                 b.x = -100;
-                addExplosion(f.x - scrollX + f.w/2, f.y + f.h/2, 14);
+                addExplosion(f.x - scrollX + f.w / 2, f.y + f.h / 2, 14);
                 fuel = Math.min(fuel + 200, MAX_FUEL);
                 score += 50;
+            }
+        }
+        // Base target
+        if (baseTarget && baseTarget.alive) {
+            if (rectCollide(bulletWorld, { x: baseTarget.x, y: baseTarget.y, w: baseTarget.w, h: baseTarget.h })) {
+                baseTarget.alive = false;
+                b.x = -100;
+                addExplosion(baseTarget.x - scrollX + baseTarget.w / 2, baseTarget.y + baseTarget.h / 2, 30);
+                score += 800;
             }
         }
     }
@@ -562,16 +619,12 @@ function update() {
         return e.alpha > 0;
     });
 
-    // Level progression
+    // Level progression - loop when reaching end
     if (scrollX > (TOTAL_SEGMENTS - 30) * SEGMENT_W) {
         scrollX = 0;
         scrollSpeed += 0.2;
-        if (subLevel === 'A') {
-            subLevel = 'B';
-        } else {
-            subLevel = 'A';
-            level++;
-        }
+        level++;
+        section = 1;
         generateTerrain();
         generateObjects();
         score += 1000;
@@ -584,7 +637,7 @@ function checkBombHits(worldX, groundY) {
         if (!e.alive) continue;
         if (e.type === 'turret' && Math.abs(e.x - worldX) < hitRange && Math.abs(e.y + e.h - groundY) < hitRange) {
             e.alive = false;
-            addExplosion(e.x - scrollX + e.w/2, e.y + e.h/2, 20);
+            addExplosion(e.x - scrollX + e.w / 2, e.y + e.h / 2, 20);
             score += 100;
         }
     }
@@ -592,7 +645,7 @@ function checkBombHits(worldX, groundY) {
         if (!f.alive) continue;
         if (Math.abs(f.x - worldX) < hitRange && Math.abs(f.y + f.h - groundY) < hitRange) {
             f.alive = false;
-            addExplosion(f.x - scrollX + f.w/2, f.y + f.h/2, 14);
+            addExplosion(f.x - scrollX + f.w / 2, f.y + f.h / 2, 14);
             fuel = Math.min(fuel + 200, MAX_FUEL);
             score += 50;
         }
@@ -601,8 +654,16 @@ function checkBombHits(worldX, groundY) {
         if (!r.alive) continue;
         if (Math.abs(r.x - worldX) < hitRange && Math.abs(r.y + r.h - groundY) < hitRange) {
             r.alive = false;
-            addExplosion(r.x - scrollX + r.w/2, r.y + r.h/2, 14);
+            addExplosion(r.x - scrollX + r.w / 2, r.y + r.h / 2, 14);
             score += 80;
+        }
+    }
+    // Base target
+    if (baseTarget && baseTarget.alive) {
+        if (Math.abs(baseTarget.x - worldX) < hitRange && Math.abs(baseTarget.y + baseTarget.h - groundY) < hitRange) {
+            baseTarget.alive = false;
+            addExplosion(baseTarget.x - scrollX + baseTarget.w / 2, baseTarget.y + baseTarget.h / 2, 30);
+            score += 800;
         }
     }
 }
@@ -610,7 +671,7 @@ function checkBombHits(worldX, groundY) {
 // ============ VECTREX-STYLE DRAWING ============
 
 function vecLine(x1, y1, x2, y2, color, width, glowAmt) {
-    color = color || VEC.green;
+    color = color || VEC.main;
     width = width || 1.5;
     glowAmt = glowAmt || GLOW_BLUR;
 
@@ -639,7 +700,7 @@ function vecLine(x1, y1, x2, y2, color, width, glowAmt) {
 
 function vecPoly(points, color, width, close, glowAmt) {
     if (points.length < 2) return;
-    color = color || VEC.green;
+    color = color || VEC.main;
     width = width || 1.5;
     glowAmt = glowAmt || GLOW_BLUR;
 
@@ -673,7 +734,7 @@ function vecPoly(points, color, width, close, glowAmt) {
 }
 
 function vecCircle(x, y, r, color, width, glowAmt) {
-    color = color || VEC.green;
+    color = color || VEC.main;
     width = width || 1.5;
     glowAmt = glowAmt || GLOW_BLUR;
 
@@ -699,7 +760,7 @@ function vecCircle(x, y, r, color, width, glowAmt) {
 }
 
 function vecDot(x, y, r, color, glowAmt) {
-    color = color || VEC.green;
+    color = color || VEC.main;
     glowAmt = glowAmt || GLOW_BLUR;
 
     ctx.fillStyle = color;
@@ -721,13 +782,12 @@ function vecDot(x, y, r, color, glowAmt) {
     gctx.globalAlpha = 1;
 }
 
-// Vectrex-style dot matrix text (like the score display)
-function vecDotText(text, x, y, color, size) {
-    color = color || VEC.blue;
+// Vectrex-style vector text
+function vecText(text, x, y, color, size) {
+    color = color || VEC.score;
     size = size || 3;
     let spacing = size * 4;
 
-    // Simple dot-matrix font (5x5 grid)
     const FONT = {
         '0': [[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
         '1': [[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]],
@@ -748,6 +808,8 @@ function vecDotText(text, x, y, color, size) {
         'G': [[1,1,1],[1,0,0],[1,0,1],[1,0,1],[1,1,1]],
         'H': [[1,0,1],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],
         'I': [[1,1,1],[0,1,0],[0,1,0],[0,1,0],[1,1,1]],
+        'J': [[0,0,1],[0,0,1],[0,0,1],[1,0,1],[1,1,1]],
+        'K': [[1,0,1],[1,0,1],[1,1,0],[1,0,1],[1,0,1]],
         'L': [[1,0,0],[1,0,0],[1,0,0],[1,0,0],[1,1,1]],
         'M': [[1,0,1],[1,1,1],[1,0,1],[1,0,1],[1,0,1]],
         'N': [[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],
@@ -760,8 +822,10 @@ function vecDotText(text, x, y, color, size) {
         'V': [[1,0,1],[1,0,1],[1,0,1],[0,1,0],[0,1,0]],
         'W': [[1,0,1],[1,0,1],[1,0,1],[1,1,1],[1,0,1]],
         'X': [[1,0,1],[1,0,1],[0,1,0],[1,0,1],[1,0,1]],
+        'Y': [[1,0,1],[1,0,1],[0,1,0],[0,1,0],[0,1,0]],
         '-': [[0,0,0],[0,0,0],[1,1,1],[0,0,0],[0,0,0]],
         ' ': [[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],
+        ':': [[0,0,0],[0,1,0],[0,0,0],[0,1,0],[0,0,0]],
     };
 
     let curX = x;
@@ -798,109 +862,113 @@ function vecDotText(text, x, y, color, size) {
 // ============ DRAW FUNCTIONS ============
 
 function drawTerrain() {
-    let topPoints = [];
     let bottomPoints = [];
 
     for (let screenX = 0; screenX <= W; screenX += SEGMENT_W) {
         let seg = Math.floor((screenX + scrollX) / SEGMENT_W);
         seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
-        topPoints.push([screenX, terrainTop[seg]]);
         bottomPoints.push([screenX, terrainBottom[seg]]);
     }
 
-    // Top terrain - sharp zigzag line
-    vecPoly(topPoints, VEC.green, 1.8, false, 10);
+    // Bottom terrain line - the main ground
+    vecPoly(bottomPoints, VEC.main, 1.8, false, 10);
 
-    // Bottom terrain - sharp zigzag line
-    vecPoly(bottomPoints, VEC.green, 1.8, false, 10);
+    // Fill below terrain to screen bottom (dim line effect)
+    for (let i = 0; i < bottomPoints.length - 1; i++) {
+        let x1 = bottomPoints[i][0];
+        let y1 = bottomPoints[i][1];
+        let x2 = bottomPoints[i + 1][0];
+        let y2 = bottomPoints[i + 1][1];
 
-    // Subtle blue horizontal glow lines (CRT phosphor traces as seen in screenshots)
-    for (let i = 0; i < 3; i++) {
-        let glowY = topPoints[0][1] + (Math.random() - 0.5) * 6;
-        ctx.strokeStyle = 'rgba(60, 100, 255, 0.06)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, glowY);
-        ctx.lineTo(W, glowY);
-        ctx.stroke();
+        // Vertical hash lines below terrain for filled ground effect
+        for (let x = x1; x < x2; x += 12) {
+            let t = (x - x1) / (x2 - x1);
+            let y = y1 + (y2 - y1) * t;
+            if (y < H - 5) {
+                ctx.strokeStyle = VEC.dark;
+                ctx.lineWidth = 0.5;
+                ctx.globalAlpha = 0.3;
+                ctx.beginPath();
+                ctx.moveTo(x, y + 2);
+                ctx.lineTo(x, Math.min(y + 40, H));
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+        }
     }
 }
 
 function drawShip(x, y) {
-    // Vectrex ship: circle (cockpit) + arrow/diamond shape
-    // Based on screenshots: a circle with a triangular front
-
     let cx = x + 12;
     let cy = y + 10;
 
-    // Circle body (cockpit)
-    vecCircle(cx, cy, 8, VEC.green, 1.8, 10);
+    // Circle body (cockpit) - like in the Vectrex screenshot
+    vecCircle(cx, cy, 8, VEC.main, 1.8, 10);
 
     // Arrow/nose pointing right
     vecPoly([
-        [cx + 8, cy],      // right of circle
-        [cx + 20, cy - 2], // nose top
-        [cx + 24, cy],     // nose tip
-        [cx + 20, cy + 2], // nose bottom
-        [cx + 8, cy],      // back to circle
-    ], VEC.green, 1.5, false, 8);
+        [cx + 8, cy],
+        [cx + 20, cy - 2],
+        [cx + 24, cy],
+        [cx + 20, cy + 2],
+        [cx + 8, cy],
+    ], VEC.main, 1.5, false, 8);
 
-    // Small tail
-    vecLine(cx - 8, cy, cx - 12, cy - 5, VEC.green, 1.2);
-    vecLine(cx - 8, cy, cx - 12, cy + 5, VEC.green, 1.2);
+    // Tail fins
+    vecLine(cx - 8, cy, cx - 12, cy - 5, VEC.main, 1.2);
+    vecLine(cx - 8, cy, cx - 12, cy + 5, VEC.main, 1.2);
 
     // Exhaust flame (flickering)
     if (frameCount % 3 !== 0) {
         let flameLen = 8 + Math.random() * 10;
-        vecLine(cx - 12, cy - 3, cx - 12 - flameLen, cy, VEC.brightGreen, 1, 8);
-        vecLine(cx - 12, cy + 3, cx - 12 - flameLen, cy, VEC.brightGreen, 1, 8);
+        vecLine(cx - 12, cy - 3, cx - 12 - flameLen, cy, VEC.bright, 1, 8);
+        vecLine(cx - 12, cy + 3, cx - 12 - flameLen, cy, VEC.bright, 1, 8);
     }
 }
 
 function drawObjects() {
-    // Fuel tanks - rectangular buildings with X pattern (as in screenshots)
+    // Fuel tanks - rectangular with X cross (as in Vectrex screenshot)
     for (let f of fuelTanks) {
         if (!f.alive) continue;
         let sx = f.x - scrollX;
         if (sx < -30 || sx > W + 30) continue;
 
-        // Rectangle body
         vecPoly([
             [sx, f.y],
             [sx + f.w, f.y],
             [sx + f.w, f.y + f.h],
             [sx, f.y + f.h]
-        ], VEC.green, 1.5, true, 8);
+        ], VEC.main, 1.5, true, 8);
 
-        // X cross inside (like the screenshots)
-        vecLine(sx + 2, f.y + 2, sx + f.w - 2, f.y + f.h - 2, VEC.green, 1);
-        vecLine(sx + f.w - 2, f.y + 2, sx + 2, f.y + f.h - 2, VEC.green, 1);
+        // X cross inside
+        vecLine(sx + 2, f.y + 2, sx + f.w - 2, f.y + f.h - 2, VEC.main, 1);
+        vecLine(sx + f.w - 2, f.y + 2, sx + 2, f.y + f.h - 2, VEC.main, 1);
     }
 
-    // Rockets - triangular on stands (like the screenshots)
+    // Rockets - triangle on stand
     for (let r of rockets) {
         if (!r.alive) continue;
         let sx = r.x - scrollX;
         if (sx < -30 || sx > W + 30) continue;
 
-        // Triangle body (pointing up)
+        // Triangle body pointing up
         vecPoly([
-            [sx + r.w/2, r.y],           // tip
-            [sx, r.y + r.h * 0.7],       // left base
-            [sx + r.w, r.y + r.h * 0.7]  // right base
-        ], VEC.green, 1.5, true, 8);
+            [sx + r.w / 2, r.y],
+            [sx, r.y + r.h * 0.7],
+            [sx + r.w, r.y + r.h * 0.7]
+        ], VEC.main, 1.5, true, 8);
 
-        // Stand/pedestal
+        // Stand legs
         let baseY = r.y + r.h * 0.7;
-        vecLine(sx + r.w/2 - 4, baseY, sx + r.w/2 - 6, r.y + r.h, VEC.green, 1.2);
-        vecLine(sx + r.w/2 + 4, baseY, sx + r.w/2 + 6, r.y + r.h, VEC.green, 1.2);
-        vecLine(sx + r.w/2 - 6, r.y + r.h, sx + r.w/2 + 6, r.y + r.h, VEC.green, 1);
+        vecLine(sx + r.w / 2 - 4, baseY, sx + r.w / 2 - 6, r.y + r.h, VEC.main, 1.2);
+        vecLine(sx + r.w / 2 + 4, baseY, sx + r.w / 2 + 6, r.y + r.h, VEC.main, 1.2);
+        vecLine(sx + r.w / 2 - 6, r.y + r.h, sx + r.w / 2 + 6, r.y + r.h, VEC.main, 1);
 
-        // Rocket exhaust when launched
+        // Exhaust when launched
         if (r.launched && frameCount % 3 < 2) {
             let exLen = 8 + Math.random() * 12;
-            vecLine(sx + r.w/2 - 3, r.y + r.h * 0.7, sx + r.w/2, r.y + r.h * 0.7 + exLen, VEC.brightGreen, 1.5, BRIGHT_GLOW);
-            vecLine(sx + r.w/2 + 3, r.y + r.h * 0.7, sx + r.w/2, r.y + r.h * 0.7 + exLen, VEC.brightGreen, 1.5, BRIGHT_GLOW);
+            vecLine(sx + r.w / 2 - 3, r.y + r.h * 0.7, sx + r.w / 2, r.y + r.h * 0.7 + exLen, VEC.bright, 1.5, 12);
+            vecLine(sx + r.w / 2 + 3, r.y + r.h * 0.7, sx + r.w / 2, r.y + r.h * 0.7 + exLen, VEC.bright, 1.5, 12);
         }
     }
 
@@ -911,9 +979,8 @@ function drawObjects() {
         if (sx < -40 || sx > W + 40) continue;
 
         if (e.type === 'ufo') {
-            // UFO: pentagon/hexagon shape with dome (like screenshots)
-            let cx = sx + e.w/2;
-            let cy = e.y + e.h/2;
+            let cx = sx + e.w / 2;
+            let cy = e.y + e.h / 2;
 
             // Hexagonal body
             let bodyPts = [];
@@ -924,19 +991,18 @@ function drawObjects() {
                     cy + Math.sin(a) * 7
                 ]);
             }
-            vecPoly(bodyPts, VEC.green, 1.5, true, 8);
+            vecPoly(bodyPts, VEC.main, 1.5, true, 8);
 
-            // Small dome on top
+            // Dome on top
             vecPoly([
                 [cx - 5, cy - 4],
                 [cx, cy - 9],
                 [cx + 5, cy - 4]
-            ], VEC.green, 1.2, false, 6);
+            ], VEC.main, 1.2, false, 6);
 
         } else if (e.type === 'star') {
-            // Star/asterisk shape (as seen in screenshot 1)
-            let cx = sx + e.w/2;
-            let cy = e.y + e.h/2;
+            let cx = sx + e.w / 2;
+            let cy = e.y + e.h / 2;
             let armLen = 10;
             let numArms = 6;
             for (let i = 0; i < numArms; i++) {
@@ -944,54 +1010,80 @@ function drawObjects() {
                 vecLine(cx, cy,
                     cx + Math.cos(a) * armLen,
                     cy + Math.sin(a) * armLen,
-                    VEC.yellow, 1.5, 8);
+                    VEC.main, 1.5, 8);
             }
 
         } else if (e.type === 'turret') {
-            // Turret: base + triangular top with barrel
             let bx = sx, by = e.y;
 
             // Base rectangle
             vecPoly([
-                [bx, by + 12],
-                [bx + e.w, by + 12],
+                [bx, by + 10],
+                [bx + e.w, by + 10],
                 [bx + e.w, by + e.h],
                 [bx, by + e.h]
-            ], VEC.green, 1.5, true, 8);
+            ], VEC.main, 1.5, true, 8);
 
-            // Triangular top
+            // Triangle top
             vecPoly([
-                [bx + 3, by + 12],
-                [bx + e.w/2, by + 2],
-                [bx + e.w - 3, by + 12]
-            ], VEC.green, 1.5, true, 8);
+                [bx + 3, by + 10],
+                [bx + e.w / 2, by + 2],
+                [bx + e.w - 3, by + 10]
+            ], VEC.main, 1.5, true, 8);
 
             // Gun barrel
-            vecLine(bx + e.w - 3, by + 6, bx + e.w + 8, by + 4, VEC.green, 2, 8);
+            vecLine(bx + e.w - 3, by + 6, bx + e.w + 8, by + 4, VEC.main, 2, 8);
+        }
+    }
+
+    // Base target
+    if (baseTarget && baseTarget.alive) {
+        let sx = baseTarget.x - scrollX;
+        if (sx > -50 && sx < W + 50) {
+            let bx = sx, by = baseTarget.y;
+            let bw = baseTarget.w, bh = baseTarget.h;
+
+            // Large structure - rectangle with triangle top
+            vecPoly([
+                [bx, by + bh * 0.4],
+                [bx + bw, by + bh * 0.4],
+                [bx + bw, by + bh],
+                [bx, by + bh]
+            ], VEC.bright, 2, true, 12);
+
+            // Triangle spire
+            vecPoly([
+                [bx + 5, by + bh * 0.4],
+                [bx + bw / 2, by],
+                [bx + bw - 5, by + bh * 0.4]
+            ], VEC.bright, 2, true, 12);
+
+            // Flashing indicator
+            if (frameCount % 10 < 5) {
+                vecDot(bx + bw / 2, by + bh * 0.6, 3, VEC.bright, 14);
+            }
         }
     }
 }
 
 function drawBullets() {
-    // Player bullets - small bright dots (like in screenshots)
     for (let b of bullets) {
-        vecDot(b.x, b.y, b.r, VEC.brightGreen, BRIGHT_GLOW);
+        vecDot(b.x, b.y, b.r, VEC.bright, 10);
     }
 }
 
 function drawBombs() {
-    // Bombs - small falling dots with trail
     for (let b of bombs) {
-        vecDot(b.x, b.y, b.r, VEC.green, 8);
+        vecDot(b.x, b.y, b.r, VEC.main, 8);
         // Trail dots
-        vecDot(b.x - b.vx * 2, b.y - b.vy * 2, 1.5, VEC.dimGreen, 4);
-        vecDot(b.x - b.vx * 4, b.y - b.vy * 4, 1, VEC.darkGreen, 2);
+        vecDot(b.x - b.vx * 2, b.y - b.vy * 2, 1.5, VEC.dim, 4);
+        vecDot(b.x - b.vx * 4, b.y - b.vy * 4, 1, VEC.dark, 2);
     }
 }
 
 function drawEnemyBullets() {
     for (let b of enemyBullets) {
-        vecDot(b.x, b.y, b.r, VEC.yellow, 8);
+        vecDot(b.x, b.y, b.r, VEC.bright, 8);
     }
 }
 
@@ -1001,9 +1093,9 @@ function drawParticles() {
         let endY = p.y + Math.sin(p.angle) * p.len * p.life;
 
         ctx.globalAlpha = p.life;
-        ctx.strokeStyle = VEC.green;
+        ctx.strokeStyle = VEC.main;
         ctx.lineWidth = 1.5;
-        ctx.shadowColor = VEC.green;
+        ctx.shadowColor = VEC.main;
         ctx.shadowBlur = 4;
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
@@ -1013,9 +1105,9 @@ function drawParticles() {
         ctx.globalAlpha = 1;
 
         gctx.globalAlpha = p.life * 0.3;
-        gctx.strokeStyle = VEC.green;
+        gctx.strokeStyle = VEC.main;
         gctx.lineWidth = 2;
-        gctx.shadowColor = VEC.green;
+        gctx.shadowColor = VEC.main;
         gctx.shadowBlur = 8;
         gctx.beginPath();
         gctx.moveTo(p.x, p.y);
@@ -1029,98 +1121,96 @@ function drawParticles() {
 function drawExplosions() {
     for (let e of explosions) {
         let a = Math.max(0, e.alpha);
-        vecCircle(e.x, e.y, e.radius, VEC.green, 1.5 * a, BRIGHT_GLOW);
+        vecCircle(e.x, e.y, e.radius, VEC.main, 1.5 * a, 12);
     }
 }
 
 function drawHUD() {
-    // Score at top center (dot matrix style, blue like in screenshots)
+    // Score at top center
     let scoreStr = score.toString().padStart(5, '0');
     let scoreWidth = scoreStr.length * 12;
-    vecDotText(scoreStr, W/2 - scoreWidth/2, 20, VEC.blue, 3);
+    vecText(scoreStr, W / 2 - scoreWidth / 2, 20, VEC.score, 3);
 
-    // Level indicator at bottom left (like "4-A" in screenshots)
-    vecDotText(level + '-' + subLevel, 20, H - 30, VEC.green, 2.5);
+    // Section indicator at bottom left (like "1-A" in Vectrex)
+    let sectionLabel = level + '-' + section;
+    vecText(sectionLabel, 20, H - 30, VEC.main, 2.5);
 
-    // Fuel bar at bottom (simple horizontal line, yellow/green)
+    // Fuel bar at bottom center
     let fuelPct = fuel / MAX_FUEL;
     let barW = 200 * fuelPct;
-    let barX = W/2 - 100;
-    let barY = H - 24;
+    let barX = W / 2 - 100;
+    let barY = H - 22;
 
-    // Fuel bar (bright line)
     if (barW > 0) {
-        vecLine(barX, barY, barX + barW, barY, VEC.yellow, 3, 8);
+        vecLine(barX, barY, barX + barW, barY, VEC.main, 3, 8);
     }
-
-    // Fuel bar outline (dim)
-    vecLine(barX, barY + 5, barX + 200, barY + 5, VEC.dimGreen, 0.5, 2);
+    // Fuel bar outline
+    vecLine(barX, barY + 5, barX + 200, barY + 5, VEC.dim, 0.5, 2);
 
     // Low fuel warning
     if (fuelPct < 0.2 && Math.floor(frameCount / 20) % 2 === 0) {
-        vecDotText('FUEL', barX - 50, barY - 4, VEC.yellow, 2);
+        vecText('FUEL', barX - 50, barY - 4, VEC.bright, 2);
     }
 
-    // Lives as small ship silhouettes
+    // Lives as small ship silhouettes at bottom right
     for (let i = 0; i < lives; i++) {
         let lx = W - 40 - i * 25;
-        let ly = H - 28;
-        // Tiny circle + arrow for each life
-        vecCircle(lx, ly, 4, VEC.green, 1, 4);
-        vecLine(lx + 4, ly, lx + 10, ly, VEC.green, 1, 4);
+        let ly = H - 26;
+        vecCircle(lx, ly, 4, VEC.main, 1, 4);
+        vecLine(lx + 4, ly, lx + 10, ly, VEC.main, 1, 4);
     }
 }
 
 function drawStartScreen() {
-    let t = Date.now() * 0.003;
-
-    // Title - SCRAMBLE in large dot matrix
-    vecDotText('SCRAMBLE', W/2 - 96, 180, VEC.green, 5);
+    // Title
+    vecText('SCRAMBLE', W / 2 - 96, 180, VEC.main, 5);
 
     // Decorative line
-    vecLine(200, 230, 600, 230, VEC.green, 1.5, 10);
+    vecLine(200, 230, 600, 230, VEC.main, 1.5, 10);
+
+    // Vectrex subtitle
+    vecText('VECTREX', W / 2 - 42, 250, VEC.dim, 2.5);
 
     // Controls
-    vecDotText('ARROWS  MOVE', 240, 300, VEC.green, 2.5);
-    vecDotText('SPACE   FIRE', 240, 330, VEC.green, 2.5);
-    vecDotText('B       BOMB', 240, 360, VEC.green, 2.5);
+    vecText('ARROWS  MOVE', 240, 320, VEC.main, 2.5);
+    vecText('SPACE   FIRE', 240, 350, VEC.main, 2.5);
+    vecText('B       BOMB', 240, 380, VEC.main, 2.5);
 
     // Blink prompt
     if (Math.floor(Date.now() / 700) % 2 === 0) {
-        vecDotText('PRESS SPACE', W/2 - 66, 480, VEC.brightGreen, 3);
+        vecText('PRESS SPACE', W / 2 - 66, 480, VEC.bright, 3);
     }
 
-    // Small ship demo
-    drawShip(W/2 - 15, 420);
+    // Ship demo
+    drawShip(W / 2 - 15, 430);
 
     // Corner decorations
     let m = 50, s = 25;
-    vecLine(m, m, m + s, m, VEC.green, 1.5);
-    vecLine(m, m, m, m + s, VEC.green, 1.5);
-    vecLine(W-m, m, W-m-s, m, VEC.green, 1.5);
-    vecLine(W-m, m, W-m, m+s, VEC.green, 1.5);
-    vecLine(m, H-m, m+s, H-m, VEC.green, 1.5);
-    vecLine(m, H-m, m, H-m-s, VEC.green, 1.5);
-    vecLine(W-m, H-m, W-m-s, H-m, VEC.green, 1.5);
-    vecLine(W-m, H-m, W-m, H-m-s, VEC.green, 1.5);
+    vecLine(m, m, m + s, m, VEC.main, 1.5);
+    vecLine(m, m, m, m + s, VEC.main, 1.5);
+    vecLine(W - m, m, W - m - s, m, VEC.main, 1.5);
+    vecLine(W - m, m, W - m, m + s, VEC.main, 1.5);
+    vecLine(m, H - m, m + s, H - m, VEC.main, 1.5);
+    vecLine(m, H - m, m, H - m - s, VEC.main, 1.5);
+    vecLine(W - m, H - m, W - m - s, H - m, VEC.main, 1.5);
+    vecLine(W - m, H - m, W - m, H - m - s, VEC.main, 1.5);
 }
 
 function drawGameOver() {
     let flash = Math.floor(Date.now() / 500) % 2;
 
-    vecDotText('GAME OVER', W/2 - 108, 240, VEC.green, 5);
+    vecText('GAME OVER', W / 2 - 108, 240, VEC.main, 5);
+    vecLine(180, 280, 620, 280, VEC.main, 1, 8);
 
-    vecLine(180, 280, 620, 280, VEC.green, 1, 8);
-
-    vecDotText('SCORE', W/2 - 60, 330, VEC.dimGreen, 3);
-    vecDotText(score.toString().padStart(6, '0'), W/2 - 72, 360, VEC.brightGreen, 3);
+    vecText('SCORE', W / 2 - 60, 330, VEC.dim, 3);
+    vecText(score.toString().padStart(6, '0'), W / 2 - 72, 360, VEC.bright, 3);
 
     if (score >= highScore && score > 0) {
-        vecDotText('HIGH SCORE', W/2 - 60, 410, VEC.yellow, 2.5);
+        vecText('HIGH SCORE', W / 2 - 60, 410, VEC.main, 2.5);
     }
 
     if (flash) {
-        vecDotText('PRESS SPACE', W/2 - 66, 480, VEC.green, 3);
+        vecText('PRESS SPACE', W / 2 - 66, 480, VEC.main, 3);
     }
 }
 
@@ -1146,7 +1236,7 @@ function draw() {
         return;
     }
 
-    // Playing
+    // Playing state
     drawTerrain();
     drawObjects();
     drawBullets();
