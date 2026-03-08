@@ -864,9 +864,15 @@ function vecText(text, x, y, color, size) {
 function drawTerrain() {
     let bottomPoints = [];
 
-    for (let screenX = 0; screenX <= W; screenX += SEGMENT_W) {
-        let seg = Math.floor((screenX + scrollX) / SEGMENT_W);
+    // Calculate the offset within the first segment for smooth scrolling
+    let firstSeg = Math.floor(scrollX / SEGMENT_W);
+    let subOffset = scrollX - firstSeg * SEGMENT_W;
+
+    // Draw segments with sub-pixel scroll offset for smooth terrain movement
+    for (let i = 0; i <= Math.ceil(W / SEGMENT_W) + 1; i++) {
+        let seg = firstSeg + i;
         seg = Math.max(0, Math.min(TOTAL_SEGMENTS - 1, seg));
+        let screenX = i * SEGMENT_W - subOffset;
         bottomPoints.push([screenX, terrainBottom[seg]]);
     }
 
@@ -899,30 +905,36 @@ function drawTerrain() {
 }
 
 function drawShip(x, y) {
-    let cx = x + 12;
+    let cx = x + 15;
     let cy = y + 10;
 
-    // Circle body (cockpit) - like in the Vectrex screenshot
-    vecCircle(cx, cy, 8, VEC.main, 1.8, 10);
+    // Rotated "A" shape - pointed nose right, two legs spreading left, crossbar
+    // Nose (tip of the A)
+    let nose = [cx + 14, cy];
+    // Top-left corner (upper leg of A)
+    let topLeft = [cx - 12, cy - 10];
+    // Bottom-left corner (lower leg of A)
+    let botLeft = [cx - 12, cy + 10];
 
-    // Arrow/nose pointing right
-    vecPoly([
-        [cx + 8, cy],
-        [cx + 20, cy - 2],
-        [cx + 24, cy],
-        [cx + 20, cy + 2],
-        [cx + 8, cy],
-    ], VEC.main, 1.5, false, 8);
+    // Two legs of the A from nose to back
+    vecLine(nose[0], nose[1], topLeft[0], topLeft[1], VEC.main, 1.8, 10);
+    vecLine(nose[0], nose[1], botLeft[0], botLeft[1], VEC.main, 1.8, 10);
 
-    // Tail fins
-    vecLine(cx - 8, cy, cx - 12, cy - 5, VEC.main, 1.2);
-    vecLine(cx - 8, cy, cx - 12, cy + 5, VEC.main, 1.2);
+    // Back edge connecting the two legs
+    vecLine(topLeft[0], topLeft[1], botLeft[0], botLeft[1], VEC.main, 1.5, 8);
+
+    // Crossbar of the A (horizontal bar across the middle-back area)
+    let barX1 = cx - 2;
+    let barX2 = cx - 10;
+    vecLine(barX1, cy - 5, barX2, cy - 5, VEC.main, 1.5, 8);
+    vecLine(barX1, cy + 5, barX2, cy + 5, VEC.main, 1.5, 8);
+    vecLine(barX2, cy - 5, barX2, cy + 5, VEC.main, 1.5, 8);
 
     // Exhaust flame (flickering)
     if (frameCount % 3 !== 0) {
         let flameLen = 8 + Math.random() * 10;
-        vecLine(cx - 12, cy - 3, cx - 12 - flameLen, cy, VEC.bright, 1, 8);
-        vecLine(cx - 12, cy + 3, cx - 12 - flameLen, cy, VEC.bright, 1, 8);
+        vecLine(topLeft[0], cy - 3, topLeft[0] - flameLen, cy, VEC.bright, 1, 8);
+        vecLine(botLeft[0], cy + 3, botLeft[0] - flameLen, cy, VEC.bright, 1, 8);
     }
 }
 
