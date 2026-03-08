@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status — ai.memention.net</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 20px;
+            max-width: 920px;
+            margin: 0 auto;
+        }
+        header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
+        h1 { font-size: 1.35em; }
+        .poll-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #4caf50; display: inline-block;
+            margin-left: 8px; vertical-align: middle;
+            transition: background .3s;
+        }
+        .subtitle { color: #777; font-size: .82em; margin-bottom: 22px; }
+        .section-title {
+            color: #aaa; font-size: .72em; text-transform: uppercase;
+            letter-spacing: 2px; margin: 22px 0 10px;
+        }
+        .services { display: flex; flex-wrap: wrap; gap: 10px; }
+        .svc {
+            background: #16213e; border-radius: 8px;
+            padding: 14px 10px; flex: 1; min-width: 130px;
+            text-align: center;
+        }
+        .svc .dot {
+            width: 32px; height: 32px; border-radius: 50%;
+            margin: 0 auto 6px; display: flex;
+            align-items: center; justify-content: center;
+            font-size: 16px; color: #fff;
+        }
+        .svc .name { font-weight: 600; font-size: .9em; margin-bottom: 1px; }
+        .svc .path { color: #555; font-size: .75em; margin-bottom: 4px; }
+        .svc .label { font-weight: 700; font-size: .8em; }
+        .uptime { color: #999; font-size: .85em; margin-top: 16px; }
+        .uptime span { color: #e0e0e0; font-weight: 600; }
+        .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+        @media(max-width: 600px) { .metrics { grid-template-columns: 1fr; } }
+        .card { background: #16213e; border-radius: 8px; padding: 14px 16px; }
+        .card .lbl { color: #777; font-size: .78em; margin-bottom: 3px; }
+        .card .val { font-size: 1.45em; font-weight: 700; }
+        .card .det { color: #777; font-size: .78em; margin-top: 1px; }
+        .bar-bg { background: #0f3460; border-radius: 4px; height: 6px; margin-top: 6px; overflow: hidden; }
+        .bar-fg { height: 100%; border-radius: 4px; transition: width .4s, background .4s; }
+        canvas.graph { width: 100%; height: 80px; display: block; margin-top: 10px; border-radius: 4px; }
+        .card .period { color: #444; font-size: .7em; margin-top: 4px; text-align: right; }
+        .footer { margin-top: 28px; padding-top: 14px; border-top: 1px solid #2a2a4a; color: #555; font-size: .78em; text-align: center; }
+        .footer a { color: #777; text-decoration: none; }
+        .footer a:hover { color: #e0e0e0; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ai.memention.net</h1>
+        <div class="poll-dot" id="dot"></div>
+    </header>
+    <div class="subtitle" id="updated">connecting...</div>
+
+    <div class="section-title">Services</div>
+    <div class="services" id="services"></div>
+    <div class="uptime" id="uptime-row"></div>
+
+    <div class="section-title">Metrics</div>
+    <div class="metrics">
+        <div class="card">
+            <div class="lbl">CPU Load</div>
+            <div class="val" id="cpu-val">—</div>
+            <div class="det" id="cpu-det"></div>
+            <canvas class="graph" id="g-cpu"></canvas>
+            <div class="period">10 min</div>
+        </div>
+        <div class="card">
+            <div class="lbl">Memory</div>
+            <div class="val" id="mem-val">—</div>
+            <div class="det" id="mem-det"></div>
+            <div class="bar-bg"><div class="bar-fg" id="mem-bar"></div></div>
+            <canvas class="graph" id="g-mem"></canvas>
+            <div class="period">1 hour</div>
+        </div>
+        <div class="card">
+            <div class="lbl">Disk</div>
+            <div class="val" id="disk-val">—</div>
+            <div class="det" id="disk-det"></div>
+            <div class="bar-bg"><div class="bar-fg" id="disk-bar"></div></div>
+            <canvas class="graph" id="g-disk"></canvas>
+            <div class="period">1 day</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <a href="/status/json">JSON API</a>
+    </div>
+
+    <script>
+        function $(id) { return document.getElementById(id); }
+        function clr(v, lo, hi) { return v > hi ? '#f44336' : v > lo ? '#ff9800' : '#4caf50'; }
+
+        function render(d) {
+            $('updated').textContent = 'Updated ' + d.timestamp.slice(0, 19).replace('T', ' ');
+
+            $('services').innerHTML = d.services.map(function(s) {
+                var c = s.status === 'up' ? '#4caf50' : s.status === 'degraded' ? '#ff9800' : '#f44336';
+                var i = s.status === 'up' ? '✓' : s.status === 'degraded' ? '⚠' : '✗';
+                return '<div class="svc">' +
+                    '<div class="dot" style="background:' + c + '">' + i + '</div>' +
+                    '<div class="name">' + s.name + '</div>' +
+                    '<div class="path">' + s.path + '</div>' +
+                    '<div class="label" style="color:' + c + '">' + s.status.toUpperCase() + '</div>' +
+                    '</div>';
+            }).join('');
+
+            var sys = d.system, cpu = sys.cpu, mem = sys.memory, dk = sys.disk;
+
+            $('uptime-row').innerHTML = 'Uptime <span>' + sys.uptime.human + '</span>';
+
+            var lr = cpu.load_1m / (cpu.cores || 1);
+            $('cpu-val').textContent = cpu.load_1m;
+            $('cpu-val').style.color = clr(lr, 0.7, 1.0);
+            $('cpu-det').textContent = cpu.load_5m + ' / ' + cpu.load_15m + ' (5m/15m) · ' + cpu.cores + ' cores';
+
+            $('mem-val').textContent = mem.percent_used + '%';
+            $('mem-det').textContent = Math.round(mem.used_mb) + ' / ' + Math.round(mem.total_mb) + ' MB';
+            $('mem-bar').style.width = mem.percent_used + '%';
+            $('mem-bar').style.background = clr(mem.percent_used, 70, 90);
+
+            $('disk-val').textContent = dk.percent_used + '%';
+            $('disk-det').textContent = dk.used_gb + ' / ' + dk.total_gb + ' GB';
+            $('disk-bar').style.width = dk.percent_used + '%';
+            $('disk-bar').style.background = clr(dk.percent_used, 70, 90);
+
+            drawGraph('g-cpu', d.history.cpu, '#2196f3', {});
+            drawGraph('g-mem', d.history.memory, '#ff9800', {yMin: 0, yMax: 100});
+            drawGraph('g-disk', d.history.disk, '#9c27b0', {yMin: 0, yMax: 100});
+        }
+
+        function drawGraph(id, data, color, opts) {
+            var cv = $(id);
+            if (!cv) return;
+            var dpr = window.devicePixelRatio || 1;
+            var rc = cv.getBoundingClientRect();
+            cv.width = rc.width * dpr;
+            cv.height = rc.height * dpr;
+            var ctx = cv.getContext('2d');
+            ctx.scale(dpr, dpr);
+            var W = rc.width, H = rc.height;
+            var pad = {t: 6, b: 16, l: 6, r: 38};
+            var pW = W - pad.l - pad.r, pH = H - pad.t - pad.b;
+            ctx.clearRect(0, 0, W, H);
+
+            if (!data || data.length === 0) {
+                ctx.fillStyle = '#444';
+                ctx.font = '11px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('collecting…', W / 2, H / 2);
+                return;
+            }
+
+            var mins = data.map(function(d) { return d[1]; });
+            var maxs = data.map(function(d) { return d[2]; });
+            var all = mins.concat(maxs);
+            var yMn = opts.yMin !== undefined ? opts.yMin : Math.min.apply(null, all);
+            var yMx = opts.yMax !== undefined ? opts.yMax : Math.max.apply(null, all);
+            if (yMn === yMx) { yMn -= 1; yMx += 1; }
+            var yP = (yMx - yMn) * 0.08;
+            if (opts.yMin === undefined) yMn -= yP;
+            if (opts.yMax === undefined) yMx += yP;
+            var yR = yMx - yMn;
+
+            function px(i) { return pad.l + (data.length > 1 ? i / (data.length - 1) * pW : pW / 2); }
+            function py(v) { return pad.t + pH - (v - yMn) / yR * pH; }
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+            ctx.lineWidth = 1;
+            for (var g = 0; g <= 3; g++) {
+                var gy = pad.t + pH / 3 * g;
+                ctx.beginPath();
+                ctx.moveTo(pad.l, gy);
+                ctx.lineTo(pad.l + pW, gy);
+                ctx.stroke();
+            }
+
+            ctx.beginPath();
+            data.forEach(function(d, i) { i === 0 ? ctx.moveTo(px(i), py(d[2])) : ctx.lineTo(px(i), py(d[2])); });
+            for (var i = data.length - 1; i >= 0; i--) ctx.lineTo(px(i), py(data[i][1]));
+            ctx.closePath();
+            ctx.fillStyle = color + '20';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.lineJoin = 'round';
+            data.forEach(function(d, i) { i === 0 ? ctx.moveTo(px(i), py(d[3])) : ctx.lineTo(px(i), py(d[3])); });
+            ctx.stroke();
+
+            var last = data[data.length - 1];
+            ctx.beginPath();
+            ctx.arc(px(data.length - 1), py(last[3]), 3, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            ctx.fillStyle = '#555';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText(yMx.toFixed(1), W - 2, pad.t + 9);
+            ctx.fillText(yMn.toFixed(1), W - 2, pad.t + pH);
+
+            ctx.fillStyle = '#444';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(data[0][0], pad.l, H - 2);
+            if (data.length > 1) {
+                ctx.textAlign = 'right';
+                ctx.fillText(last[0], pad.l + pW, H - 2);
+            }
+        }
+
+        var dot = $('dot');
+        async function poll() {
+            try {
+                var r = await fetch('/status/json');
+                var d = await r.json();
+                render(d);
+                dot.style.background = '#4caf50';
+            } catch (e) {
+                dot.style.background = '#f44336';
+            }
+        }
+        poll();
+        setInterval(poll, 10000);
+    </script>
+</body>
+</html>

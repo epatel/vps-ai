@@ -7,7 +7,7 @@
 #
 
 declare -A SERVICE_MAP=(
-  # ["projects/my-project"]="my-service"
+  ["projects/status-page"]="status-page"
 )
 
 # Get list of changed files in this merge
