@@ -180,6 +180,7 @@
       minimal: renderMinimalTemplate,
       developer: renderDeveloperTemplate,
       social: renderSocialTemplate,
+      qrcode: renderQRCodeTemplate,
     };
 
     (templates[state.template] || renderConferenceTemplate)(spec);
@@ -470,6 +471,132 @@
       ctx.fillStyle = accent;
       ctx.font = '13px sans-serif';
       ctx.fillText(state.extra, 100, height / 2 + 28);
+    }
+  }
+
+  function renderQRCodeTemplate(spec) {
+    const { width, height } = spec;
+    const accent = state.accentColor;
+    const isPortrait = height > width;
+
+    // Generate QR code from extra field (handle/URL)
+    const qrContent = state.extra || state.name || 'badge';
+    let qr = null;
+    try {
+      qr = qrcode(0, 'M');
+      qr.addData(qrContent);
+      qr.make();
+    } catch (e) {
+      // Fallback for very long data
+      qr = qrcode(0, 'L');
+      qr.addData(qrContent);
+      qr.make();
+    }
+
+    const moduleCount = qr.getModuleCount();
+
+    if (isPortrait) {
+      // Top accent bar
+      ctx.fillStyle = accent;
+      ctx.fillRect(0, 0, width, 50);
+
+      // Event name in bar
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(state.company, width / 2, 32);
+
+      // Name
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.textAlign = 'center';
+      fitText(ctx, state.name, width / 2, 90, width - 40, 28);
+
+      // Title
+      ctx.fillStyle = '#444444';
+      ctx.font = '16px sans-serif';
+      fitText(ctx, state.title, width / 2, 116, width - 40, 16);
+
+      // Divider
+      ctx.fillStyle = accent;
+      ctx.fillRect(width / 2 - 30, 132, 60, 3);
+
+      // QR code - centered
+      const qrAreaSize = Math.min(width - 40, height - 220);
+      const cellSize = Math.floor(qrAreaSize / moduleCount);
+      const qrSize = cellSize * moduleCount;
+      const qrX = (width - qrSize) / 2;
+      const qrY = 150;
+
+      // White background for QR
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(qrX - 8, qrY - 8, qrSize + 16, qrSize + 16);
+
+      // Draw QR modules
+      ctx.fillStyle = '#000000';
+      for (let row = 0; row < moduleCount; row++) {
+        for (let col = 0; col < moduleCount; col++) {
+          if (qr.isDark(row, col)) {
+            ctx.fillRect(qrX + col * cellSize, qrY + row * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+
+      // Extra text below QR
+      const textY = qrY + qrSize + 28;
+      ctx.fillStyle = '#555555';
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(state.extra, width / 2, textY);
+
+      // Bottom bar
+      ctx.fillStyle = accent;
+      ctx.fillRect(0, height - 30, width, 30);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '12px sans-serif';
+      ctx.fillText('Scan me!', width / 2, height - 10);
+    } else {
+      // Landscape layout
+      ctx.fillStyle = accent;
+      ctx.fillRect(0, 0, 6, height);
+
+      // QR code on the left
+      const qrAreaSize = Math.min(height - 20, width / 2 - 20);
+      const cellSize = Math.floor(qrAreaSize / moduleCount);
+      const qrSize = cellSize * moduleCount;
+      const qrX = 16;
+      const qrY = (height - qrSize) / 2;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
+
+      ctx.fillStyle = '#000000';
+      for (let row = 0; row < moduleCount; row++) {
+        for (let col = 0; col < moduleCount; col++) {
+          if (qr.isDark(row, col)) {
+            ctx.fillRect(qrX + col * cellSize, qrY + row * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+
+      // Text on the right
+      const textX = qrX + qrSize + 20;
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 22px sans-serif';
+      ctx.textAlign = 'left';
+      fitText(ctx, state.name, textX, height / 2 - 20, width - textX - 12, 22);
+
+      ctx.fillStyle = '#444444';
+      ctx.font = '14px sans-serif';
+      fitText(ctx, state.title, textX, height / 2 + 4, width - textX - 12, 14);
+
+      ctx.fillStyle = '#555555';
+      ctx.font = '13px sans-serif';
+      ctx.fillText(state.company, textX, height / 2 + 24);
+
+      ctx.fillStyle = accent;
+      ctx.font = '12px sans-serif';
+      ctx.fillText(state.extra, textX, height / 2 + 44);
     }
   }
 
