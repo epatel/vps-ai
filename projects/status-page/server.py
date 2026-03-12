@@ -19,6 +19,7 @@ SERVICES = [
     ("Webhook", "/webhook", "port", 5000),
     ("Scramble", "/scramble", "file", None),
     ("Breakout", "/breakout", "file", None),
+    ("Badge", "/badge", "file", None),
 ]
 
 # History buffers: each entry is [time_label, min, max, avg]
