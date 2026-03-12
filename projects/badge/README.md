@@ -85,8 +85,10 @@ App                              Badge
  ├── Data chunk N (0x12) ────────► │
  │                                 │
  ├── CRC Verify (0x13) ──────────► │
+ │ ◄──────────────────────── ACK ──┤
  │                                 │
  ├── Display (0x14) ─────────────► │
+ │ ◄──────────────────────── ACK ──┤
  │                                 │
 ```
 
@@ -117,7 +119,9 @@ Data is sent plane by plane. For multi-plane formats (BWR has 2 planes), the `pl
 **BW** (2-color) — 1 bit per pixel, column-major Y-flipped layout:
 - 8 horizontal pixels packed per byte
 - Index formula: `(x / 8) * height + (height - 1 - y)`
-- Single plane
+- Two planes sent: BW plane + zeroed second plane
+
+**Note:** The TAG badge (240×416) always uses BWYR encoding regardless of the selected palette. The palette choice only affects which colors are available during dithering.
 
 ## Files
 
