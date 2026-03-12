@@ -443,6 +443,12 @@ input:focus, select:focus {
       <label for="badgeExtra">Extra Line</label>
       <input type="text" id="badgeExtra" placeholder="@handle or hashtag" value="@flutterdev">
 
+      <div id="qrContentGroup" style="display:none;">
+        <label for="qrContent">QR Code Content (URL or text)</label>
+        <input type="text" id="qrContent" placeholder="https://example.com or any text" value="">
+        <p style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">This is what gets encoded in the QR code. Leave empty to use the Extra Line.</p>
+      </div>
+
       <label>Accent Color</label>
       <div class="color-row">
         <button class="color-btn active" data-color="#e94560" style="background:#e94560" title="Red"></button>

@@ -36,6 +36,7 @@
     title: 'Mobile Engineer',
     company: 'Flutter & Friends',
     extra: '@flutterdev',
+    qrContent: '',
     accentColor: '#e94560',
     palette: 'bwyr',
     dither: 'floydSteinberg',
@@ -185,11 +186,14 @@
 
     (templates[state.template] || renderConferenceTemplate)(spec);
 
-    // Apply dithering
-    const palette = PALETTES[state.palette];
-    const imageData = ctx.getImageData(0, 0, spec.width, spec.height);
-    ditherImage(imageData, palette, state.dither);
-    ctx.putImageData(imageData, 0, 0);
+    // Skip dithering for QR code template - dithering corrupts QR modules
+    // making the code unscannable. QR codes are already pure black & white.
+    if (state.template !== 'qrcode') {
+      const palette = PALETTES[state.palette];
+      const imageData = ctx.getImageData(0, 0, spec.width, spec.height);
+      ditherImage(imageData, palette, state.dither);
+      ctx.putImageData(imageData, 0, 0);
+    }
   }
 
   function renderConferenceTemplate(spec) {
@@ -479,15 +483,16 @@
     const accent = state.accentColor;
     const isPortrait = height > width;
 
-    // Generate QR code from extra field (handle/URL)
-    const qrContent = state.extra || state.name || 'badge';
+    // Generate QR code from dedicated qrContent field, falling back to extra field
+    const qrContent = state.qrContent || state.extra || state.name || 'badge';
     let qr = null;
     try {
-      qr = qrcode(0, 'M');
+      // Use error correction level L for smaller QR (larger cells = easier scanning)
+      qr = qrcode(0, 'L');
       qr.addData(qrContent);
       qr.make();
     } catch (e) {
-      // Fallback for very long data
+      // Fallback: let library auto-select version
       qr = qrcode(0, 'L');
       qr.addData(qrContent);
       qr.make();
@@ -521,16 +526,19 @@
       ctx.fillStyle = accent;
       ctx.fillRect(width / 2 - 30, 132, 60, 3);
 
-      // QR code - centered
-      const qrAreaSize = Math.min(width - 40, height - 220);
-      const cellSize = Math.floor(qrAreaSize / moduleCount);
+      // QR code - centered, with adequate quiet zone for scanning
+      const quietZone = 4; // modules of quiet zone (QR spec requires >= 4)
+      const qrAreaSize = Math.min(width - 20, height - 220);
+      const cellSize = Math.max(3, Math.floor(qrAreaSize / (moduleCount + quietZone * 2)));
       const qrSize = cellSize * moduleCount;
+      const totalQrSize = cellSize * (moduleCount + quietZone * 2);
       const qrX = (width - qrSize) / 2;
       const qrY = 150;
 
-      // White background for QR
+      // White background for QR with quiet zone
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(qrX - 8, qrY - 8, qrSize + 16, qrSize + 16);
+      const quietPx = cellSize * quietZone;
+      ctx.fillRect(qrX - quietPx, qrY - quietPx, qrSize + quietPx * 2, qrSize + quietPx * 2);
 
       // Draw QR modules
       ctx.fillStyle = '#000000';
@@ -560,15 +568,17 @@
       ctx.fillStyle = accent;
       ctx.fillRect(0, 0, 6, height);
 
-      // QR code on the left
-      const qrAreaSize = Math.min(height - 20, width / 2 - 20);
-      const cellSize = Math.floor(qrAreaSize / moduleCount);
+      // QR code on the left with proper quiet zone
+      const quietZoneL = 4;
+      const qrAreaSize = Math.min(height - 16, width / 2 - 20);
+      const cellSize = Math.max(2, Math.floor(qrAreaSize / (moduleCount + quietZoneL * 2)));
       const qrSize = cellSize * moduleCount;
       const qrX = 16;
       const qrY = (height - qrSize) / 2;
 
+      const quietPxL = cellSize * quietZoneL;
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
+      ctx.fillRect(qrX - quietPxL, qrY - quietPxL, qrSize + quietPxL * 2, qrSize + quietPxL * 2);
 
       ctx.fillStyle = '#000000';
       for (let row = 0; row < moduleCount; row++) {
@@ -983,6 +993,9 @@
         btn.classList.add('active');
         state.template = btn.dataset.template;
         state.mode = 'template';
+        // Show/hide QR content input
+        document.getElementById('qrContentGroup').style.display =
+          state.template === 'qrcode' ? 'block' : 'none';
         render();
       });
     });
@@ -995,6 +1008,12 @@
         state[key] = el.value;
         if (state.mode === 'template') render();
       });
+    });
+
+    // QR content input
+    document.getElementById('qrContent').addEventListener('input', (e) => {
+      state.qrContent = e.target.value;
+      if (state.mode === 'template' && state.template === 'qrcode') render();
     });
 
     // Accent color
