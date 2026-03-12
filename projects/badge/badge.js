@@ -728,12 +728,20 @@
     }
   }
 
-  // Returns an array of planes (Uint8Array[]) matching the Dart ImageConverter format.
+  // Returns an array of planes (Uint8Array[]) matching the badge hardware format.
   // Each plane is sent separately over BLE with its planeIndex as the type byte.
+  // The 3.7" TAG badge (240x416) always uses BWYR 2-bit encoding regardless of palette.
+  // The palette selection only affects dithering (which colors are available).
   function convertImageToBinary(imageData, spec) {
     const { width, height, data } = imageData;
-    const palette = state.palette;
 
+    // TAG badge (240x416) always expects BWYR format encoding
+    if (width === 240 && height === 416) {
+      return convertBWYR(data, width, height);
+    }
+
+    // Other badge sizes use palette-specific encoding
+    const palette = state.palette;
     if (palette === 'bwyr') {
       return convertBWYR(data, width, height);
     } else if (palette === 'bwr') {
