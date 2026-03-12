@@ -22,25 +22,102 @@ Web app for designing and sending images to e-paper badges over BLE (Bluetooth L
 3. Click **Connect Badge** and select your badge from the BLE device list
 4. Click **Write to Badge** to send the image
 
-## BLE Protocol
+## BLE Communication
 
-Communication uses Nordic UART Service (NUS):
-- **Service**: `6e400001-b5a3-f393-e0a9-e50e24dcca9e`
-- **Write**: `6e400002-b5a3-f393-e0a9-e50e24dcca9e`
-- **Notify**: `6e400003-b5a3-f393-e0a9-e50e24dcca9e`
+### Connection
 
-The 0xA5 display protocol sequence:
-1. **Handshake** (`0x11`) — initialize connection, wait for acknowledgement
-2. **Data** (`0x12`) — send image data in 220-byte chunks with big-endian addressing
-3. **CRC Verify** (`0x13`) — verify data integrity
-4. **Display** (`0x14`) — trigger e-paper refresh
+The app connects via Web Bluetooth to devices with name prefix `TAG`. Communication uses the Nordic UART Service (NUS):
+
+| Role | UUID |
+|------|------|
+| **Service** | `6e400001-b5a3-f393-e0a9-e50e24dcca9e` |
+| **Write** (TX) | `6e400002-b5a3-f393-e0a9-e50e24dcca9e` |
+| **Notify** (RX) | `6e400003-b5a3-f393-e0a9-e50e24dcca9e` |
+
+The Write characteristic sends commands and data to the badge. The Notify characteristic receives acknowledgements from the badge. A 5-second timeout applies when waiting for responses.
+
+### 0xA5 Protocol
+
+All packets start with `0xA5`. There are two packet types:
+
+**Command packet** (4 bytes):
+
+```
+┌──────┬──────┬──────┬──────────┐
+│ 0xA5 │ 0x00 │ cmd  │ checksum │
+└──────┴──────┴──────┴──────────┘
+```
+
+**Data packet** (variable length):
+
+```
+┌──────┬────────┬──────┬────────────┬──────────┬──────────┬────────────┬──────────┐
+│ 0xA5 │ length │ 0x12 │ planeIndex │ addr_hi  │ addr_lo  │ data[0..N] │ checksum │
+└──────┴────────┴──────┴────────────┴──────────┴──────────┴────────────┴──────────┘
+```
+
+- `length` = data length + 3 (accounts for planeIndex + 2 address bytes)
+- Address is big-endian (high byte first), representing the byte offset into the image plane
+- Maximum data chunk size: 220 bytes
+
+**Checksum**: Sum of all bytes from index 1 onward, masked to `0xFF`.
+
+### Commands
+
+| Command | Code | Description |
+|---------|------|-------------|
+| Handshake | `0x11` | Initialize connection. Badge responds with `[..., 0x11, 0x00]` at byte positions 2–3 |
+| Data | `0x12` | Send image data chunk with plane index and address |
+| CRC Verify | `0x13` | Verify data integrity after all chunks are sent |
+| Display | `0x14` | Trigger e-paper refresh to show the image |
+
+### Transfer Sequence
+
+```
+App                              Badge
+ │                                 │
+ ├── Handshake (0x11) ───────────► │
+ │ ◄──────────── ACK (0x11,0x00) ──┤
+ │                                 │
+ ├── Data chunk 0 (0x12) ────────► │
+ ├── Data chunk 1 (0x12) ────────► │
+ ├── ...                           │
+ ├── Data chunk N (0x12) ────────► │
+ │                                 │
+ ├── CRC Verify (0x13) ──────────► │
+ │                                 │
+ ├── Display (0x14) ─────────────► │
+ │                                 │
+```
+
+Data is sent plane by plane. For multi-plane formats (BWR has 2 planes), the `planeIndex` field identifies which plane the chunk belongs to.
 
 ## Image Format
 
-- **BWYR**: 2 bits per pixel, column-major layout — 4 horizontal pixels packed per byte, `index = (x / 4) * height + y`
-- **BWR/BW**: 1 bit per pixel, column-major Y-flipped layout — 8 horizontal pixels packed per byte, `index = (x / 8) * height + (height - 1 - y)`
+### Supported Sizes
 
-Color values (BWYR): `00` = black, `01` = white, `10` = yellow, `11` = red
+| Size | Display |
+|------|---------|
+| 240×416 | 3.7" (default for TAG_SR9837) |
+| 296×152 | 2.9" |
+| 296×128 | 2.6" |
+
+### Pixel Encoding
+
+**BWYR** (4-color) — 2 bits per pixel, column-major layout:
+- 4 horizontal pixels packed per byte
+- Index formula: `(x / 4) * height + y`
+- Color values: `00` = black, `01` = white, `10` = yellow, `11` = red
+
+**BWR** (3-color) — 1 bit per pixel per plane, column-major Y-flipped layout:
+- 8 horizontal pixels packed per byte
+- Index formula: `(x / 8) * height + (height - 1 - y)`
+- Two planes: BW plane (black/white) + Red plane (red pixels)
+
+**BW** (2-color) — 1 bit per pixel, column-major Y-flipped layout:
+- 8 horizontal pixels packed per byte
+- Index formula: `(x / 8) * height + (height - 1 - y)`
+- Single plane
 
 ## Files
 
