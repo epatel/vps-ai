@@ -893,16 +893,21 @@
     const outputSize = Math.ceil(totalPixels / 4);
     const output = new Uint8Array(outputSize);
 
+    // BWYR palette for closest-color matching (handles non-dithered pixels too)
+    const bwyrPalette = PALETTES.bwyr;
+
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const idx = (y * width + x) * 4;
         const r = data[idx], g = data[idx + 1], b = data[idx + 2];
 
-        const luminance = r * 0.3 + g * 0.59 + b * 0.11;
-        let colorValue = luminance <= 95 ? 0 : 1;
-
-        if (r > 95 && g > 95 && b < 95) colorValue = 2; // Yellow
-        else if (r > 95 && g < 95 && b < 95) colorValue = 3; // Red
+        const closest = findClosestColor(r, g, b, bwyrPalette);
+        // Map palette entry to 2-bit value: Black=0, White=1, Yellow=2, Red=3
+        let colorValue;
+        if (closest[0] === 0) colorValue = 0;           // Black
+        else if (closest[1] === 255 && closest[2] === 255) colorValue = 1; // White
+        else if (closest[1] === 255) colorValue = 2;     // Yellow
+        else colorValue = 3;                              // Red
 
         // Column-major: 4 horizontal pixels per byte, 416 bytes per column-group
         const outIdx = (x >> 2) * height + y;
