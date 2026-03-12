@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Friends Badge - E-Paper Badge Writer</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --surface2: #0f3460;
+  --accent: #e94560;
+  --accent2: #f5c518;
+  --text: #eee;
+  --text-dim: #999;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.header {
+  text-align: center;
+  padding: 24px 16px 8px;
+}
+.header h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.header p { color: var(--text-dim); font-size: 0.9rem; margin-top: 4px; }
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 700px) {
+  .app { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.panel h2 {
+  font-size: 1rem;
+  margin-bottom: 16px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+/* Badge preview */
+.preview-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.badge-frame {
+  background: #222;
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  display: inline-block;
+  position: relative;
+}
+.badge-frame::before {
+  content: '';
+  position: absolute;
+  top: 6px; left: 6px; right: 6px; bottom: 6px;
+  border: 1px solid #444;
+  border-radius: 12px;
+  pointer-events: none;
+}
+#badgeCanvas {
+  display: block;
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+.preview-info {
+  margin-top: 12px;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* Editor tabs */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.tab {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  background: var(--bg);
+  color: var(--text-dim);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.tab.active {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Form */
+label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  margin-top: 12px;
+}
+label:first-child { margin-top: 0; }
+
+input[type="text"], select {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border 0.2s;
+}
+input:focus, select:focus {
+  border-color: var(--accent);
+}
+
+.color-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.color-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border 0.2s, transform 0.1s;
+}
+.color-btn.active { border-color: var(--accent); transform: scale(1.15); }
+.color-btn:hover { transform: scale(1.1); }
+
+/* Image upload */
+.upload-zone {
+  border: 2px dashed #444;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  margin-top: 8px;
+}
+.upload-zone:hover { border-color: var(--accent); }
+.upload-zone.dragover { border-color: var(--accent2); background: rgba(245,197,24,0.05); }
+.upload-zone p { color: var(--text-dim); font-size: 0.85rem; }
+#imageFileInput { display: none; }
+
+.uploaded-preview {
+  margin-top: 8px;
+  text-align: center;
+}
+.uploaded-preview img {
+  max-width: 100%;
+  max-height: 150px;
+  border-radius: 8px;
+}
+
+/* Dither select */
+.dither-options {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.dither-btn {
+  padding: 6px 12px;
+  border: 1px solid #444;
+  background: var(--bg);
+  color: var(--text-dim);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+.dither-btn.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--surface2);
+}
+
+/* BLE Section */
+.ble-section {
+  grid-column: 1 / -1;
+}
+.ble-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+.btn-primary:hover { filter: brightness(1.15); }
+.btn-primary:disabled {
+  background: #555;
+  cursor: not-allowed;
+  filter: none;
+}
+.btn-secondary {
+  background: var(--surface2);
+  color: var(--text);
+}
+.btn-secondary:hover { filter: brightness(1.2); }
+
+.btn-download {
+  background: var(--accent2);
+  color: #111;
+}
+.btn-download:hover { filter: brightness(1.1); }
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #666;
+}
+.status-dot.connected { background: #4caf50; }
+.status-dot.error { background: var(--accent); }
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  margin-top: 12px;
+  overflow: hidden;
+  display: none;
+}
+.progress-bar.active { display: block; }
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.3s;
+}
+
+.ble-not-supported {
+  color: var(--accent);
+  font-size: 0.85rem;
+  padding: 12px;
+  background: rgba(233,69,96,0.1);
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* Palette selector */
+.palette-options {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.palette-btn {
+  padding: 6px 12px;
+  border: 1px solid #444;
+  background: var(--bg);
+  color: var(--text-dim);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.2s;
+}
+.palette-btn.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--surface2);
+}
+.palette-preview {
+  display: inline-flex;
+  gap: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.palette-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+  border: 1px solid #555;
+}
+
+/* Template buttons */
+.template-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.template-btn {
+  padding: 10px;
+  border: 1px solid #444;
+  background: var(--bg);
+  color: var(--text-dim);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-align: center;
+  transition: all 0.2s;
+}
+.template-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.template-btn.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--surface2);
+}
+.template-icon {
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+}
+
+.footer {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+.footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Friends Badge</h1>
+  <p>Design and write images to e-paper badges via BLE</p>
+</div>
+
+<div class="app">
+  <!-- Left: Preview -->
+  <div class="panel preview-area">
+    <h2>Preview</h2>
+    <div class="badge-frame">
+      <canvas id="badgeCanvas" width="240" height="416"></canvas>
+    </div>
+    <div class="preview-info">
+      240 &times; 416 px &mdash; 3.7" e-paper
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+      <button class="btn btn-download" id="downloadBtn" title="Download badge as PNG">Download PNG</button>
+    </div>
+  </div>
+
+  <!-- Right: Editor -->
+  <div class="panel">
+    <h2>Editor</h2>
+    <div class="tabs">
+      <button class="tab active" data-tab="template">Template</button>
+      <button class="tab" data-tab="image">Image</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- Template Tab -->
+    <div class="tab-content active" id="tab-template">
+      <label>Choose a layout</label>
+      <div class="template-grid">
+        <button class="template-btn active" data-template="conference">
+          <div class="template-icon">🎪</div>
+          Conference
+        </button>
+        <button class="template-btn" data-template="minimal">
+          <div class="template-icon">✨</div>
+          Minimal
+        </button>
+        <button class="template-btn" data-template="developer">
+          <div class="template-icon">💻</div>
+          Developer
+        </button>
+        <button class="template-btn" data-template="social">
+          <div class="template-icon">🦋</div>
+          Social
+        </button>
+      </div>
+
+      <label for="badgeName">Name</label>
+      <input type="text" id="badgeName" placeholder="Your Name" value="Flutter Dev">
+
+      <label for="badgeTitle">Title / Role</label>
+      <input type="text" id="badgeTitle" placeholder="Flutter Developer" value="Mobile Engineer">
+
+      <label for="badgeCompany">Company / Event</label>
+      <input type="text" id="badgeCompany" placeholder="Flutter & Friends 2025" value="Flutter & Friends">
+
+      <label for="badgeExtra">Extra Line</label>
+      <input type="text" id="badgeExtra" placeholder="@handle or hashtag" value="@flutterdev">
+
+      <label>Accent Color</label>
+      <div class="color-row">
+        <button class="color-btn active" data-color="#e94560" style="background:#e94560" title="Red"></button>
+        <button class="color-btn" data-color="#f5c518" style="background:#f5c518" title="Yellow"></button>
+        <button class="color-btn" data-color="#000000" style="background:#000000; border:1px solid #555" title="Black"></button>
+        <button class="color-btn" data-color="#ffffff" style="background:#ffffff" title="White"></button>
+      </div>
+    </div>
+
+    <!-- Image Tab -->
+    <div class="tab-content" id="tab-image">
+      <label>Upload an image</label>
+      <div class="upload-zone" id="uploadZone">
+        <p>Click or drag an image here</p>
+        <p style="font-size:0.75rem; margin-top:4px;">Supports JPG, PNG, GIF, WebP</p>
+        <input type="file" id="imageFileInput" accept="image/*">
+      </div>
+      <div class="uploaded-preview" id="uploadedPreview"></div>
+
+      <label>Dithering Algorithm</label>
+      <div class="dither-options">
+        <button class="dither-btn active" data-dither="floydSteinberg">Floyd-Steinberg</button>
+        <button class="dither-btn" data-dither="atkinson">Atkinson</button>
+        <button class="dither-btn" data-dither="stucki">Stucki</button>
+        <button class="dither-btn" data-dither="none">None</button>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="tab-content" id="tab-settings">
+      <label>Color Palette</label>
+      <div class="palette-options">
+        <button class="palette-btn active" data-palette="bwyr">
+          <span class="palette-preview">
+            <span class="palette-swatch" style="background:#000"></span>
+            <span class="palette-swatch" style="background:#fff"></span>
+            <span class="palette-swatch" style="background:#ff0"></span>
+            <span class="palette-swatch" style="background:#f00"></span>
+          </span>
+          BWYR
+        </button>
+        <button class="palette-btn" data-palette="bwr">
+          <span class="palette-preview">
+            <span class="palette-swatch" style="background:#000"></span>
+            <span class="palette-swatch" style="background:#fff"></span>
+            <span class="palette-swatch" style="background:#f00"></span>
+          </span>
+          BWR
+        </button>
+        <button class="palette-btn" data-palette="bw">
+          <span class="palette-preview">
+            <span class="palette-swatch" style="background:#000"></span>
+            <span class="palette-swatch" style="background:#fff"></span>
+          </span>
+          BW
+        </button>
+      </div>
+
+      <label>Badge Size</label>
+      <select id="badgeSize">
+        <option value="240x416" selected>3.7" (240 &times; 416)</option>
+        <option value="296x152">2.9" (296 &times; 152)</option>
+        <option value="296x128">2.6" (296 &times; 128)</option>
+      </select>
+
+      <label>Orientation</label>
+      <select id="badgeOrientation">
+        <option value="portrait" selected>Portrait</option>
+        <option value="landscape">Landscape</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- BLE Section -->
+  <div class="panel ble-section">
+    <h2>Send to Badge</h2>
+    <div id="bleSupported">
+      <div class="ble-row">
+        <button class="btn btn-primary" id="bleConnectBtn">Connect Badge</button>
+        <button class="btn btn-secondary" id="bleSendBtn" disabled>Write to Badge</button>
+        <div class="status-indicator">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Not connected</span>
+        </div>
+      </div>
+      <div class="progress-bar" id="progressBar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+    <div class="ble-not-supported" id="bleNotSupported" style="display:none">
+      Web Bluetooth is not supported in this browser. Use Chrome or Edge on desktop/Android.
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Inspired by <a href="https://github.com/flutter-and-friends/friends_badge" target="_blank">flutter-and-friends/friends_badge</a>
+</div>
+
+<script src="badge.js"></script>
+</body>
+</html>
