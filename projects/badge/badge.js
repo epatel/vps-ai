@@ -45,6 +45,7 @@
     mode: 'template', // 'template' or 'image'
     bleDevice: null,
     bleCharacteristic: null,
+    bleNotifyCharacteristic: null,
     connected: false,
   };
 
@@ -543,35 +544,73 @@
   const BLE_WRITE_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
   const BLE_NOTIFY_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
-  // Badge protocol constants
-  const PROTO_START = 0xbb;
-  const PROTO_END = 0x7e;
+  // Badge protocol constants (0xA5 protocol from decompiled badge firmware)
+  const PROTO_START = 0xa5;
+  const CMD_HANDSHAKE = 0x11;
+  const CMD_DATA = 0x12;
+  const CMD_CRC_VERIFY = 0x13;
+  const CMD_DISPLAY = 0x14;
 
-  // Build a protocol packet: [0xBB, address, command, length, ...data, checksum, 0x7E]
-  function buildPacket(address, command, data) {
-    const dataArr = data || [];
-    const length = dataArr.length;
-    // Checksum = sum of address + command + length + data bytes, masked to 0xff
-    let checksum = address + command + length;
-    for (let i = 0; i < dataArr.length; i++) {
-      checksum += dataArr[i];
+  // Checksum: sum of all bytes after the start byte, masked to 0xFF
+  function calcChecksum(packet) {
+    let sum = 0;
+    for (let i = 1; i < packet.length; i++) {
+      sum = (sum + packet[i]) & 0xff;
     }
-    checksum &= 0xff;
+    return sum;
+  }
 
-    const packet = new Uint8Array(5 + dataArr.length);
+  // Build a simple command packet: [0xA5, 0x00, cmd, checksum]
+  function buildCommandPacket(cmd) {
+    return new Uint8Array([PROTO_START, 0x00, cmd, cmd & 0xff]);
+  }
+
+  // Build an 0xA5 data packet: [0xA5, length, 0x12, planeIndex, addrHi, addrLo, ...data, checksum]
+  // Address is big-endian (high byte first)
+  function buildDataPacket(planeIndex, offset, chunk) {
+    const length = chunk.length + 3;
+    const packet = new Uint8Array(6 + chunk.length + 1);
     packet[0] = PROTO_START;
-    packet[1] = address;
-    packet[2] = command;
-    packet[3] = length;
-    for (let i = 0; i < dataArr.length; i++) {
-      packet[4 + i] = dataArr[i];
+    packet[1] = length;
+    packet[2] = CMD_DATA;
+    packet[3] = planeIndex;
+    packet[4] = (offset >> 8) & 0xff; // high byte (big-endian)
+    packet[5] = offset & 0xff;        // low byte
+    packet.set(chunk, 6);
+    packet[packet.length - 1] = calcChecksum(packet.subarray(0, packet.length - 1));
+    return packet;
+  }
+
+  // Notification queue for awaiting badge responses
+  const _notifyWaiters = [];
+
+  function _onNotification(event) {
+    const value = new Uint8Array(event.target.value.buffer);
+    console.log(
+      'Badge response:',
+      Array.from(value)
+        .map((b) => '0x' + b.toString(16).padStart(2, '0'))
+        .join(' '),
+    );
+    if (_notifyWaiters.length > 0) {
+      const waiter = _notifyWaiters.shift();
+      waiter(value);
     }
-    packet[4 + dataArr.length] = checksum;
-    // End byte goes in a separate position
-    const fullPacket = new Uint8Array(5 + dataArr.length + 1);
-    fullPacket.set(packet);
-    fullPacket[fullPacket.length - 1] = PROTO_END;
-    return fullPacket;
+  }
+
+  function waitForNotification(timeoutMs = 5000) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const idx = _notifyWaiters.indexOf(wrappedResolve);
+        if (idx >= 0) _notifyWaiters.splice(idx, 1);
+        reject(new Error('Badge notification timeout'));
+      }, timeoutMs);
+      function wrappedResolve(value) {
+        clearTimeout(timer);
+        resolve(value);
+      }
+      _notifyWaiters.push(wrappedResolve);
+    });
   }
 
   async function bleConnect() {
@@ -579,7 +618,10 @@
       setStatus('Scanning...', false);
       const device = await navigator.bluetooth.requestDevice({
         filters: [
-          { services: [BLE_SERVICE_UUID] },
+          { 
+//            services: [BLE_SERVICE_UUID],
+            namePrefix: 'TAG',
+           },
         ],
         optionalServices: [BLE_SERVICE_UUID],
       });
@@ -593,22 +635,18 @@
       state.bleCharacteristic = writeChar;
       state.connected = true;
 
-      // Subscribe to notify characteristic for badge responses
-      try {
-        const notifyChar = await service.getCharacteristic(BLE_NOTIFY_UUID);
-        await notifyChar.startNotifications();
-        notifyChar.addEventListener('characteristicvaluechanged', (event) => {
-          const value = new Uint8Array(event.target.value.buffer);
-          console.log('Badge response:', Array.from(value).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
-        });
-      } catch (notifyErr) {
-        console.warn('Could not subscribe to notifications:', notifyErr.message);
-      }
+      // Subscribe to notify characteristic for badge responses (required for handshake)
+      const notifyChar = await service.getCharacteristic(BLE_NOTIFY_UUID);
+      await notifyChar.startNotifications();
+      notifyChar.addEventListener('characteristicvaluechanged', _onNotification);
+      state.bleNotifyCharacteristic = notifyChar;
 
       device.addEventListener('gattserverdisconnected', () => {
         state.connected = false;
         state.bleDevice = null;
         state.bleCharacteristic = null;
+        state.bleNotifyCharacteristic = null;
+        _notifyWaiters.length = 0;
         setStatus('Disconnected', false);
         document.getElementById('bleSendBtn').disabled = true;
       });
@@ -630,38 +668,52 @@
 
     const spec = getSpec();
     const imageData = ctx.getImageData(0, 0, spec.width, spec.height);
-    const binaryData = convertImageToBinary(imageData, spec);
+    const imagePlanes = convertImageToBinary(imageData, spec);
 
     const progressBar = document.getElementById('progressBar');
     const progressFill = document.getElementById('progressFill');
     progressBar.classList.add('active');
 
     try {
-      setStatus('Sending...', true);
+      setStatus('Handshake...', true);
 
-      // Send init command (CMD_setRFIDConfig with start flag)
-      await state.bleCharacteristic.writeValue(buildPacket(0x00, 0x01, [0x01]));
-      await delay(50);
-
-      // Send image data in chunks using protocol framing
-      // Max data per packet: ~190 bytes (leave room for framing overhead within BLE MTU)
-      const chunkSize = 190;
-      let counter = 0;
-
-      for (let i = 0; i < binaryData.length; i += chunkSize) {
-        const chunk = Array.from(binaryData.slice(i, i + chunkSize));
-        const address = counter & 0xff;
-        // CMD 0x07 (upRFIDData) for image data chunks
-        await state.bleCharacteristic.writeValue(buildPacket(address, 0x07, chunk));
-        counter++;
-
-        const progress = ((i + chunk.length) / binaryData.length) * 100;
-        progressFill.style.width = progress + '%';
-        await delay(20);
+      // Handshake
+      await state.bleCharacteristic.writeValue(buildCommandPacket(CMD_HANDSHAKE));
+      const handshakeResp = await waitForNotification(5000);
+      if (handshakeResp.length < 4 || handshakeResp[2] !== 0x11 || handshakeResp[3] !== 0x00) {
+        throw new Error('Handshake failed: ' + Array.from(handshakeResp).map(b => '0x' + b.toString(16)).join(' '));
       }
 
-      // Send termination command
-      await state.bleCharacteristic.writeValue(buildPacket(0x00, 0x05, [0x00]));
+      setStatus('Sending image...', true);
+
+      // Send image planes using 0xA5 data command with BIG-ENDIAN addresses
+      const chunkSize = 220;
+      const totalBytes = imagePlanes.reduce((sum, p) => sum + p.length, 0);
+      let sentBytes = 0;
+
+      for (let planeIndex = 0; planeIndex < imagePlanes.length; planeIndex++) {
+        const planeData = imagePlanes[planeIndex];
+        const totalChunks = Math.ceil(planeData.length / chunkSize);
+
+        for (let i = 0; i < totalChunks; i++) {
+          const offset = i * chunkSize;
+          const chunk = planeData.slice(offset, offset + chunkSize);
+          await state.bleCharacteristic.writeValue(buildDataPacket(planeIndex, offset, chunk));
+
+          sentBytes += chunk.length;
+          progressFill.style.width = ((sentBytes / totalBytes) * 100) + '%';
+        }
+      }
+
+      // Verify CRC
+      setStatus('Verifying...', true);
+      await state.bleCharacteristic.writeValue(buildCommandPacket(CMD_CRC_VERIFY));
+      await waitForNotification(5000);
+
+      // Send display command
+      setStatus('Refreshing display...', true);
+      await state.bleCharacteristic.writeValue(buildCommandPacket(CMD_DISPLAY));
+      await waitForNotification(5000);
 
       progressFill.style.width = '100%';
       setStatus('Image sent successfully!', true);
@@ -676,10 +728,8 @@
     }
   }
 
-  function delay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
+  // Returns an array of planes (Uint8Array[]) matching the Dart ImageConverter format.
+  // Each plane is sent separately over BLE with its planeIndex as the type byte.
   function convertImageToBinary(imageData, spec) {
     const { width, height, data } = imageData;
     const palette = state.palette;
@@ -709,11 +759,12 @@
         if (r > 95 && g > 95 && b < 95) colorValue = 2; // Yellow
         else if (r > 95 && g < 95 && b < 95) colorValue = 3; // Red
 
-        const outIdx = Math.floor(x / 4) * height + y;
+        // Column-major: 4 horizontal pixels per byte, 416 bytes per column-group
+        const outIdx = (x >> 2) * height + y;
         output[outIdx] = (output[outIdx] << 2) | colorValue;
       }
     }
-    return output;
+    return [output];
   }
 
   function convertBWR(data, width, height) {
@@ -732,16 +783,13 @@
         const isRed = r > 95 && g < 95 && b < 95;
         const v2 = isRed ? 1 : 0;
 
-        const outIdx = Math.floor(x / 8) * height + (height - 1 - y);
+        // Column-major, Y-flipped: 8 horizontal pixels per byte
+        const outIdx = (x >> 3) * height + (height - 1 - y);
         bw[outIdx] = (bw[outIdx] << 1) | v1;
         red[outIdx] = (red[outIdx] << 1) | v2;
       }
     }
-
-    const combined = new Uint8Array(bw.length + red.length);
-    combined.set(bw, 0);
-    combined.set(red, bw.length);
-    return combined;
+    return [bw, red];
   }
 
   function convertBW(data, width, height) {
@@ -758,15 +806,12 @@
         const luminance = r * 0.3 + g * 0.59 + b * 0.11;
         const v1 = luminance <= 95 ? 1 : 0;
 
-        const outIdx = Math.floor(x / 8) * height + (height - 1 - y);
+        // Column-major, Y-flipped: 8 horizontal pixels per byte
+        const outIdx = (x >> 3) * height + (height - 1 - y);
         bw[outIdx] = (bw[outIdx] << 1) | v1;
       }
     }
-
-    const combined = new Uint8Array(bw.length + layer2.length);
-    combined.set(bw, 0);
-    combined.set(layer2, bw.length);
-    return combined;
+    return [bw, layer2];
   }
 
   function setStatus(text, connected, error) {
