@@ -538,9 +538,41 @@
   }
 
   // ─── BLE Communication ───
-  // E-paper badge BLE protocol (based on common e-ink badge protocols)
-  const BLE_SERVICE_UUID = '00010203-0405-0607-0809-0a0b0c0d1912';
-  const BLE_WRITE_UUID = '00010203-0405-0607-0809-0a0b0c0d2b12';
+  // Nordic UART Service (NUS) UUIDs for friends_badge
+  const BLE_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+  const BLE_WRITE_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+  const BLE_NOTIFY_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+  // Badge protocol constants
+  const PROTO_START = 0xbb;
+  const PROTO_END = 0x7e;
+
+  // Build a protocol packet: [0xBB, address, command, length, ...data, checksum, 0x7E]
+  function buildPacket(address, command, data) {
+    const dataArr = data || [];
+    const length = dataArr.length;
+    // Checksum = sum of address + command + length + data bytes, masked to 0xff
+    let checksum = address + command + length;
+    for (let i = 0; i < dataArr.length; i++) {
+      checksum += dataArr[i];
+    }
+    checksum &= 0xff;
+
+    const packet = new Uint8Array(5 + dataArr.length);
+    packet[0] = PROTO_START;
+    packet[1] = address;
+    packet[2] = command;
+    packet[3] = length;
+    for (let i = 0; i < dataArr.length; i++) {
+      packet[4 + i] = dataArr[i];
+    }
+    packet[4 + dataArr.length] = checksum;
+    // End byte goes in a separate position
+    const fullPacket = new Uint8Array(5 + dataArr.length + 1);
+    fullPacket.set(packet);
+    fullPacket[fullPacket.length - 1] = PROTO_END;
+    return fullPacket;
+  }
 
   async function bleConnect() {
     try {
@@ -555,11 +587,23 @@
       setStatus('Connecting...', false);
       const server = await device.gatt.connect();
       const service = await server.getPrimaryService(BLE_SERVICE_UUID);
-      const characteristic = await service.getCharacteristic(BLE_WRITE_UUID);
+      const writeChar = await service.getCharacteristic(BLE_WRITE_UUID);
 
       state.bleDevice = device;
-      state.bleCharacteristic = characteristic;
+      state.bleCharacteristic = writeChar;
       state.connected = true;
+
+      // Subscribe to notify characteristic for badge responses
+      try {
+        const notifyChar = await service.getCharacteristic(BLE_NOTIFY_UUID);
+        await notifyChar.startNotifications();
+        notifyChar.addEventListener('characteristicvaluechanged', (event) => {
+          const value = new Uint8Array(event.target.value.buffer);
+          console.log('Badge response:', Array.from(value).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+        });
+      } catch (notifyErr) {
+        console.warn('Could not subscribe to notifications:', notifyErr.message);
+      }
 
       device.addEventListener('gattserverdisconnected', () => {
         state.connected = false;
@@ -595,34 +639,29 @@
     try {
       setStatus('Sending...', true);
 
-      // Send specification command
-      await state.bleCharacteristic.writeValue(
-        new Uint8Array([0xd0, 0xd1, 0x03, 0x00, 0x01])
-      );
+      // Send init command (CMD_setRFIDConfig with start flag)
+      await state.bleCharacteristic.writeValue(buildPacket(0x00, 0x01, [0x01]));
+      await delay(50);
 
-      const chunkSize = 200; // BLE MTU-safe chunk size
-      const totalChunks = Math.ceil(binaryData.length / chunkSize);
+      // Send image data in chunks using protocol framing
+      // Max data per packet: ~190 bytes (leave room for framing overhead within BLE MTU)
+      const chunkSize = 190;
+      let counter = 0;
 
       for (let i = 0; i < binaryData.length; i += chunkSize) {
-        const chunk = binaryData.slice(i, i + chunkSize);
-        const isLast = i + chunkSize >= binaryData.length;
-        const command = new Uint8Array([
-          0xd0, 0xd1,
-          isLast ? 0x02 : 0x01,
-          0x00,
-          chunk.length,
-          ...chunk,
-        ]);
-        await state.bleCharacteristic.writeValue(command);
+        const chunk = Array.from(binaryData.slice(i, i + chunkSize));
+        const address = counter & 0xff;
+        // CMD 0x07 (upRFIDData) for image data chunks
+        await state.bleCharacteristic.writeValue(buildPacket(address, 0x07, chunk));
+        counter++;
 
         const progress = ((i + chunk.length) / binaryData.length) * 100;
         progressFill.style.width = progress + '%';
+        await delay(20);
       }
 
-      // Terminate
-      await state.bleCharacteristic.writeValue(
-        new Uint8Array([0xd0, 0xd1, 0x03, 0x00, 0x00])
-      );
+      // Send termination command
+      await state.bleCharacteristic.writeValue(buildPacket(0x00, 0x05, [0x00]));
 
       progressFill.style.width = '100%';
       setStatus('Image sent successfully!', true);
@@ -635,6 +674,10 @@
       setStatus('Send failed: ' + err.message, false, true);
       progressBar.classList.remove('active');
     }
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   function convertImageToBinary(imageData, spec) {
