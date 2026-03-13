@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +26,7 @@ jobs:
           flutter pub get
           flutter build web --base-href /flutter_demo/ --release
 
-      - name: Create PR with build output
+      - name: Push build output to branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -40,10 +39,4 @@ jobs:
           git checkout -b "$BRANCH"
           git commit -m "Build flutter_demo web output"
           git push -u origin "$BRANCH"
-          gh pr create \
-            --title "Build flutter_demo web output" \
-            --body "Automated build of flutter_demo web output triggered by push to main." \
-            --base main \
-            --head "$BRANCH"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "Branch '$BRANCH' pushed. Create a PR manually to merge."
