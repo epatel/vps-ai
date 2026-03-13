@@ -4,7 +4,8 @@ Web app for designing and sending images to e-paper badges over BLE (Bluetooth L
 
 ## Features
 
-- **Template editor** with four layouts: Conference, Minimal, Developer, Social
+- **Template editor** with six layouts: Conference, Minimal, Developer, Social, QR Code, Mix
+- **Mix layout editor** with draggable text blocks and optional QR code
 - **Image upload** with crop-to-fit and dithering (Floyd-Steinberg, Atkinson, Stucki)
 - **Color palettes**: Black/White/Yellow/Red (BWYR), Black/White/Red (BWR), Black/White (BW)
 - **BLE writing** via Web Bluetooth API to compatible e-paper badges
