@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -26,14 +27,23 @@ jobs:
           flutter pub get
           flutter build web --base-href /flutter_demo/ --release
 
-      - name: Commit build output
+      - name: Create PR with build output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f projects/flutter_demo/build/web
           if git diff --cached --quiet; then
             echo "No changes to commit"
-          else
-            git commit -m "Build flutter_demo web output"
-            git push
+            exit 0
           fi
+          BRANCH="build/flutter-demo-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git commit -m "Build flutter_demo web output"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --title "Build flutter_demo web output" \
+            --body "Automated build of flutter_demo web output triggered by push to main." \
+            --base main \
+            --head "$BRANCH"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
