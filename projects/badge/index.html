@@ -88,10 +88,32 @@ body {
   border-radius: 12px;
   pointer-events: none;
 }
+.badge-stage {
+  position: relative;
+}
 #badgeCanvas {
   display: block;
   border-radius: 4px;
   image-rendering: pixelated;
+}
+.badge-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.badge-overlay[hidden] {
+  display: none;
+}
+.badge-draggable {
+  position: absolute;
+  pointer-events: auto;
+  cursor: grab;
+  user-select: none;
+  border: 1px dashed rgba(233, 69, 96, 0.8);
+  border-radius: 6px;
+}
+.badge-draggable.dragging {
+  cursor: grabbing;
 }
 .preview-info {
   margin-top: 12px;
@@ -386,7 +408,10 @@ input:focus, select:focus {
   <div class="panel preview-area">
     <h2>Preview</h2>
     <div class="badge-frame">
-      <canvas id="badgeCanvas" width="240" height="416"></canvas>
+      <div class="badge-stage">
+        <canvas id="badgeCanvas" width="240" height="416"></canvas>
+        <div class="badge-overlay" id="badgeOverlay" hidden></div>
+      </div>
     </div>
     <div class="preview-info">
       240 &times; 416 px &mdash; 3.7" e-paper
@@ -429,6 +454,10 @@ input:focus, select:focus {
           <div class="template-icon">📱</div>
           QR Code
         </button>
+        <button class="template-btn" data-template="mix">
+          <div class="template-icon">🔀</div>
+          Mix
+        </button>
       </div>
 
       <label for="badgeName">Name</label>
@@ -443,9 +472,20 @@ input:focus, select:focus {
       <label for="badgeExtra">Extra Line</label>
       <input type="text" id="badgeExtra" placeholder="@handle or hashtag" value="@flutterdev">
 
+      <label>Optional Background Image</label>
+      <div class="upload-zone" id="templateBgUploadZone">
+        <p>Click or drag a background image here</p>
+        <p style="font-size:0.75rem; margin-top:4px;">Shown behind template content</p>
+        <input type="file" id="templateBgFileInput" accept="image/*">
+      </div>
+      <div class="uploaded-preview" id="templateBgPreview"></div>
+      <button class="btn btn-secondary" id="clearTemplateBgBtn" style="display:none; margin-top:8px; width:100%;">Remove Background Image</button>
+
       <div id="qrContentGroup" style="display:none;">
         <label for="qrContent">QR Code Content (URL or text)</label>
         <input type="text" id="qrContent" placeholder="https://example.com or any text" value="">
+        <label for="qrSize">QR Code Size: <span id="qrSizeValue">50%</span></label>
+        <input type="range" id="qrSize" min="50" max="100" step="1" value="50">
         <p style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">This is what gets encoded in the QR code. Leave empty to use the Extra Line.</p>
       </div>
 

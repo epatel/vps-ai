@@ -28,6 +28,9 @@
       [255, 0, 0],
     ],
   };
+  const MIX_PADDING = 6;
+  const MIX_TEXT_CHIP_PADDING_X = 6;
+  const MIX_TEXT_CHIP_PADDING_Y = 4;
 
   // ─── State ───
   const state = {
@@ -37,11 +40,14 @@
     company: 'Flutter & Friends',
     extra: '@flutterdev',
     qrContent: '',
+    qrScalePercent: 50,
     accentColor: '#e94560',
     palette: 'bwyr',
     dither: 'floydSteinberg',
     sizeKey: '240x416',
     orientation: 'portrait',
+    mixLayout: {},
+    templateBackgroundImage: null,
     uploadedImage: null,
     mode: 'template', // 'template' or 'image'
     bleDevice: null,
@@ -53,6 +59,7 @@
   // ─── Elements ───
   const canvas = document.getElementById('badgeCanvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const badgeOverlay = document.getElementById('badgeOverlay');
 
   // ─── Dithering Algorithms ───
   const DITHER_KERNELS = {
@@ -167,6 +174,214 @@
     return [r, g, b];
   }
 
+  function drawImageCover(img, width, height) {
+    const imgRatio = img.width / img.height;
+    const targetRatio = width / height;
+
+    let sx;
+    let sy;
+    let sw;
+    let sh;
+
+    if (imgRatio > targetRatio) {
+      sh = img.height;
+      sw = sh * targetRatio;
+      sx = (img.width - sw) / 2;
+      sy = 0;
+    } else {
+      sw = img.width;
+      sh = sw / targetRatio;
+      sx = 0;
+      sy = (img.height - sh) / 2;
+    }
+
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, width, height);
+  }
+
+  function getMixLayoutKey() {
+    return `${state.sizeKey}:${state.orientation}`;
+  }
+
+  function getMixLayoutBucket() {
+    const key = getMixLayoutKey();
+    if (!state.mixLayout[key]) {
+      state.mixLayout[key] = {};
+    }
+    return state.mixLayout[key];
+  }
+
+  function setMixItemPosition(key, x, y) {
+    const layout = getMixLayoutBucket();
+    layout[key] = { x, y };
+  }
+
+  function getMixQrContent() {
+    return state.qrContent.trim();
+  }
+
+  function getQrScaleFraction() {
+    return state.qrScalePercent / 100;
+  }
+
+  function shouldSkipDithering() {
+    return state.template === 'qrcode' || (state.template === 'mix' && !!getMixQrContent());
+  }
+
+  function buildQrCode(content) {
+    if (!content) return null;
+
+    const qr = qrcode(0, 'L');
+    qr.addData(content);
+    qr.make();
+    return qr;
+  }
+
+  function getMixQrItem(spec, qr) {
+    if (!qr) return null;
+
+    const { width, height } = spec;
+    const moduleCount = qr.getModuleCount();
+    const minimumQrSize = moduleCount * 2;
+    const targetSize = Math.round(width * getQrScaleFraction());
+    const size = Math.max(
+      minimumQrSize,
+      Math.min(width - MIX_PADDING * 2, height - MIX_PADDING * 2, targetSize),
+    );
+    const layout = getMixLayoutBucket();
+
+    return {
+      key: 'qr',
+      label: 'QR Code',
+      kind: 'qr',
+      size,
+      x: layout.qr?.x ?? Math.round((width - size) / 2),
+      y: layout.qr?.y ?? height - size - MIX_PADDING,
+    };
+  }
+
+  function getMixTextItems(spec) {
+    const { width, height } = spec;
+    const isPortrait = height > width;
+    const accent = state.accentColor;
+    const layout = getMixLayoutBucket();
+
+    const defaults = isPortrait
+      ? [
+          {
+            key: 'company',
+            label: 'Company',
+            text: state.company,
+            kind: 'text',
+            x: 12,
+            y: 16,
+            maxWidth: width - 24,
+            fontSize: 16,
+            font: 'bold 16px sans-serif',
+            color: accent,
+          },
+          {
+            key: 'name',
+            label: 'Name',
+            text: state.name,
+            kind: 'text',
+            x: 12,
+            y: 58,
+            maxWidth: width - 24,
+            fontSize: 34,
+            font: 'bold 34px sans-serif',
+            color: '#000000',
+          },
+          {
+            key: 'title',
+            label: 'Title',
+            text: state.title,
+            kind: 'text',
+            x: 12,
+            y: 104,
+            maxWidth: width - 24,
+            fontSize: 18,
+            font: '18px sans-serif',
+            color: '#333333',
+          },
+          {
+            key: 'extra',
+            label: 'Extra',
+            text: state.extra,
+            kind: 'text',
+            x: 12,
+            y: 138,
+            maxWidth: width - 24,
+            fontSize: 16,
+            font: '16px sans-serif',
+            color: accent,
+          },
+        ]
+      : [
+          {
+            key: 'company',
+            label: 'Company',
+            text: state.company,
+            kind: 'text',
+            x: 12,
+            y: 12,
+            maxWidth: width - 24,
+            fontSize: 14,
+            font: 'bold 14px sans-serif',
+            color: accent,
+          },
+          {
+            key: 'name',
+            label: 'Name',
+            text: state.name,
+            kind: 'text',
+            x: 12,
+            y: 40,
+            maxWidth: width - 24,
+            fontSize: 28,
+            font: 'bold 28px sans-serif',
+            color: '#000000',
+          },
+          {
+            key: 'title',
+            label: 'Title',
+            text: state.title,
+            kind: 'text',
+            x: 12,
+            y: 78,
+            maxWidth: width - 24,
+            fontSize: 16,
+            font: '16px sans-serif',
+            color: '#333333',
+          },
+          {
+            key: 'extra',
+            label: 'Extra',
+            text: state.extra,
+            kind: 'text',
+            x: 12,
+            y: 108,
+            maxWidth: width - 24,
+            fontSize: 14,
+            font: '14px sans-serif',
+            color: accent,
+          },
+        ];
+
+    return defaults.map((item) => ({
+      ...item,
+      ...(layout[item.key] || {}),
+    }));
+  }
+
+  function getMixDraggableItems(spec) {
+    const items = getMixTextItems(spec);
+    const qr = buildQrCode(getMixQrContent());
+    const qrItem = getMixQrItem(spec, qr);
+
+    if (qrItem) items.unshift(qrItem);
+    return items;
+  }
+
   function renderTemplate() {
     const spec = getSpec();
     canvas.width = spec.width;
@@ -176,19 +391,32 @@
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, spec.width, spec.height);
 
+    if (state.templateBackgroundImage) {
+      drawImageCover(state.templateBackgroundImage, spec.width, spec.height);
+    }
+
+    // When a QR is visible, dither the background layer first so the QR and
+    // foreground text can still be rendered sharply on top.
+    if (state.templateBackgroundImage && shouldSkipDithering()) {
+      const palette = PALETTES[state.palette];
+      const backgroundImageData = ctx.getImageData(0, 0, spec.width, spec.height);
+      ditherImage(backgroundImageData, palette, state.dither);
+      ctx.putImageData(backgroundImageData, 0, 0);
+    }
+
     const templates = {
       conference: renderConferenceTemplate,
       minimal: renderMinimalTemplate,
       developer: renderDeveloperTemplate,
       social: renderSocialTemplate,
+      mix: renderMixTemplate,
       qrcode: renderQRCodeTemplate,
     };
 
     (templates[state.template] || renderConferenceTemplate)(spec);
 
-    // Skip dithering for QR code template - dithering corrupts QR modules
-    // making the code unscannable. QR codes are already pure black & white.
-    if (state.template !== 'qrcode') {
+    // Skip dithering when a QR is visible so the modules stay scannable.
+    if (!shouldSkipDithering()) {
       const palette = PALETTES[state.palette];
       const imageData = ctx.getImageData(0, 0, spec.width, spec.height);
       ditherImage(imageData, palette, state.dither);
@@ -478,6 +706,50 @@
     }
   }
 
+  function renderMixTemplate(spec) {
+    const { width, height } = spec;
+    const accent = state.accentColor;
+    const isPortrait = height > width;
+    const qrContent = getMixQrContent();
+    const qr = buildQrCode(qrContent);
+    const qrItem = getMixQrItem(spec, qr);
+
+    ctx.fillStyle = accent;
+    if (isPortrait) {
+      ctx.fillRect(0, 0, width, 12);
+      ctx.fillRect(0, height - 12, width, 12);
+    } else {
+      ctx.fillRect(0, 0, 10, height);
+      ctx.fillRect(width - 10, 0, 10, height);
+    }
+
+    if (qrItem) {
+      const moduleCount = qr.getModuleCount();
+      const cellSize = Math.max(2, Math.floor(qrItem.size / moduleCount));
+      const qrSize = cellSize * moduleCount;
+      const offsetX = qrItem.x + Math.floor((qrItem.size - qrSize) / 2);
+      const offsetY = qrItem.y + Math.floor((qrItem.size - qrSize) / 2);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(qrItem.x, qrItem.y, qrItem.size, qrItem.size);
+
+      ctx.fillStyle = '#000000';
+      for (let row = 0; row < moduleCount; row++) {
+        for (let col = 0; col < moduleCount; col++) {
+          if (qr.isDark(row, col)) {
+            ctx.fillRect(offsetX + col * cellSize, offsetY + row * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+    }
+
+    const items = getMixTextItems(spec);
+    items.forEach((item) => {
+      if (!item.text.trim()) return;
+      drawMixTextItem(item);
+    });
+  }
+
   function renderQRCodeTemplate(spec) {
     const { width, height } = spec;
     const accent = state.accentColor;
@@ -485,18 +757,7 @@
 
     // Generate QR code from dedicated qrContent field, falling back to extra field
     const qrContent = state.qrContent || state.extra || state.name || 'badge';
-    let qr = null;
-    try {
-      // Use error correction level L for smaller QR (larger cells = easier scanning)
-      qr = qrcode(0, 'L');
-      qr.addData(qrContent);
-      qr.make();
-    } catch (e) {
-      // Fallback: let library auto-select version
-      qr = qrcode(0, 'L');
-      qr.addData(qrContent);
-      qr.make();
-    }
+    const qr = buildQrCode(qrContent);
 
     const moduleCount = qr.getModuleCount();
 
@@ -528,7 +789,7 @@
 
       // QR code - centered, with adequate quiet zone for scanning
       const quietZone = 4; // modules of quiet zone (QR spec requires >= 4)
-      const qrAreaSize = Math.min(width - 20, height - 220);
+      const qrAreaSize = Math.min(Math.round(width * getQrScaleFraction()), width - 20, height - 220);
       const cellSize = Math.max(3, Math.floor(qrAreaSize / (moduleCount + quietZone * 2)));
       const qrSize = cellSize * moduleCount;
       const totalQrSize = cellSize * (moduleCount + quietZone * 2);
@@ -570,7 +831,7 @@
 
       // QR code on the left with proper quiet zone
       const quietZoneL = 4;
-      const qrAreaSize = Math.min(height - 16, width / 2 - 20);
+      const qrAreaSize = Math.min(Math.round(width * getQrScaleFraction()), height - 16, width - 32);
       const cellSize = Math.max(2, Math.floor(qrAreaSize / (moduleCount + quietZoneL * 2)));
       const qrSize = cellSize * moduleCount;
       const qrX = 16;
@@ -634,6 +895,80 @@
     ctx.fillText(text, x, y);
   }
 
+  function fitTextTop(ctx, text, x, y, maxWidth, fontSize) {
+    const previousBaseline = ctx.textBaseline;
+    ctx.textBaseline = 'top';
+    fitText(ctx, text, x, y, maxWidth, fontSize);
+    ctx.textBaseline = previousBaseline;
+  }
+
+  function getFittedFontSize(ctx, text, maxWidth, fontSize) {
+    let size = fontSize;
+    ctx.font = ctx.font.replace(/\d+px/, size + 'px');
+    while (ctx.measureText(text).width > maxWidth && size > 8) {
+      size -= 1;
+      ctx.font = ctx.font.replace(/\d+px/, size + 'px');
+    }
+    return size;
+  }
+
+  function getMixTextRenderMetrics(item) {
+    const previousAlign = ctx.textAlign;
+    const previousBaseline = ctx.textBaseline;
+    const previousFont = ctx.font;
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.font = item.font;
+    const fittedSize = getFittedFontSize(ctx, item.text, item.maxWidth, item.fontSize);
+    ctx.font = item.font.replace(/\d+px/, fittedSize + 'px');
+
+    const metrics = ctx.measureText(item.text);
+    const textWidth = Math.min(item.maxWidth, Math.ceil(metrics.width));
+    const textHeight = Math.ceil(
+      (metrics.actualBoundingBoxAscent || fittedSize * 0.8) +
+      (metrics.actualBoundingBoxDescent || fittedSize * 0.2),
+    );
+
+    ctx.textAlign = previousAlign;
+    ctx.textBaseline = previousBaseline;
+    ctx.font = previousFont;
+
+    return {
+      fittedSize,
+      rectX: item.x - MIX_TEXT_CHIP_PADDING_X,
+      rectY: item.y - MIX_TEXT_CHIP_PADDING_Y,
+      rectWidth: textWidth + MIX_TEXT_CHIP_PADDING_X * 2,
+      rectHeight: textHeight + MIX_TEXT_CHIP_PADDING_Y * 2,
+    };
+  }
+
+  function drawMixTextItem(item) {
+    const previousAlign = ctx.textAlign;
+    const previousBaseline = ctx.textBaseline;
+    const previousFont = ctx.font;
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const renderMetrics = getMixTextRenderMetrics(item);
+    ctx.font = item.font.replace(/\d+px/, renderMetrics.fittedSize + 'px');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(
+      renderMetrics.rectX,
+      renderMetrics.rectY,
+      renderMetrics.rectWidth,
+      renderMetrics.rectHeight,
+    );
+
+    ctx.fillStyle = item.color;
+    ctx.fillText(item.text, item.x, item.y);
+
+    ctx.textAlign = previousAlign;
+    ctx.textBaseline = previousBaseline;
+    ctx.font = previousFont;
+  }
+
   function renderUploadedImage() {
     if (!state.uploadedImage) return;
     const spec = getSpec();
@@ -641,24 +976,7 @@
     canvas.height = spec.height;
 
     const img = state.uploadedImage;
-    // Crop-fit to badge dimensions
-    const imgRatio = img.width / img.height;
-    const badgeRatio = spec.width / spec.height;
-
-    let sx, sy, sw, sh;
-    if (imgRatio > badgeRatio) {
-      sh = img.height;
-      sw = sh * badgeRatio;
-      sx = (img.width - sw) / 2;
-      sy = 0;
-    } else {
-      sw = img.width;
-      sh = sw / badgeRatio;
-      sx = 0;
-      sy = (img.height - sh) / 2;
-    }
-
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, spec.width, spec.height);
+    drawImageCover(img, spec.width, spec.height);
 
     // Apply dithering
     const palette = PALETTES[state.palette];
@@ -673,6 +991,104 @@
     } else {
       renderTemplate();
     }
+    syncBadgeOverlay();
+  }
+
+  let activeDrag = null;
+
+  function syncBadgeOverlay() {
+    const isVisible = state.mode === 'template' && state.template === 'mix';
+    badgeOverlay.hidden = !isVisible;
+
+    if (!isVisible) {
+      badgeOverlay.innerHTML = '';
+      return;
+    }
+
+    const items = getMixDraggableItems(getSpec());
+    badgeOverlay.innerHTML = '';
+
+    items.forEach((item) => {
+      if (item.kind === 'text' && !item.text.trim()) return;
+
+      const el = document.createElement('div');
+      el.className = 'badge-draggable';
+      el.dataset.item = item.key;
+      el.style.zIndex = item.kind === 'qr' ? '1' : '2';
+
+      if (item.kind === 'qr') {
+        el.textContent = item.label;
+        el.style.left = `${item.x}px`;
+        el.style.top = `${item.y}px`;
+        el.style.width = `${item.size}px`;
+        el.style.height = `${item.size}px`;
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        el.style.whiteSpace = 'normal';
+        el.style.textAlign = 'center';
+        el.style.font = '600 12px sans-serif';
+        el.style.color = '#000000';
+      } else {
+        const renderMetrics = getMixTextRenderMetrics(item);
+        el.style.left = `${renderMetrics.rectX}px`;
+        el.style.top = `${renderMetrics.rectY}px`;
+        el.style.width = `${renderMetrics.rectWidth}px`;
+        el.style.height = `${renderMetrics.rectHeight}px`;
+        el.style.background = 'transparent';
+      }
+
+      el.addEventListener('pointerdown', (event) => {
+        const bounds = badgeOverlay.getBoundingClientRect();
+        const dragX = item.kind === 'qr' ? item.x : parseFloat(el.style.left);
+        const dragY = item.kind === 'qr' ? item.y : parseFloat(el.style.top);
+        activeDrag = {
+          key: item.key,
+          kind: item.kind,
+          pointerId: event.pointerId,
+          offsetX: event.clientX - bounds.left - dragX,
+          offsetY: event.clientY - bounds.top - dragY,
+        };
+
+        el.classList.add('dragging');
+        el.setPointerCapture(event.pointerId);
+      });
+
+      el.addEventListener('pointermove', (event) => {
+        if (!activeDrag || activeDrag.key !== item.key || activeDrag.pointerId !== event.pointerId) return;
+        updateDraggedMixItem(el, event);
+      });
+
+      const stopDrag = (event) => {
+        if (!activeDrag || activeDrag.key !== item.key || activeDrag.pointerId !== event.pointerId) return;
+        updateDraggedMixItem(el, event);
+        activeDrag = null;
+        el.classList.remove('dragging');
+        render();
+      };
+
+      el.addEventListener('pointerup', stopDrag);
+      el.addEventListener('pointercancel', stopDrag);
+
+      badgeOverlay.appendChild(el);
+    });
+  }
+
+  function updateDraggedMixItem(el, event) {
+    const bounds = badgeOverlay.getBoundingClientRect();
+    const spec = getSpec();
+    const maxX = Math.max(MIX_PADDING, spec.width - el.offsetWidth - MIX_PADDING);
+    const maxY = Math.max(MIX_PADDING, spec.height - el.offsetHeight - MIX_PADDING);
+    const x = Math.max(MIX_PADDING, Math.min(maxX, event.clientX - bounds.left - activeDrag.offsetX));
+    const y = Math.max(MIX_PADDING, Math.min(maxY, event.clientY - bounds.top - activeDrag.offsetY));
+
+    const nextX = activeDrag.kind === 'text' ? x + MIX_TEXT_CHIP_PADDING_X : x;
+    const nextY = activeDrag.kind === 'text' ? y + MIX_TEXT_CHIP_PADDING_Y : y;
+
+    setMixItemPosition(activeDrag.key, nextX, nextY);
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    renderTemplate();
   }
 
   // ─── BLE Communication ───
@@ -974,6 +1390,17 @@
 
   // ─── Event Handlers ───
   function initEventHandlers() {
+    const syncQrFieldVisibility = () => {
+      document.getElementById('qrContentGroup').style.display =
+        state.template === 'qrcode' || state.template === 'mix' ? 'block' : 'none';
+    };
+    const qrSizeInput = document.getElementById('qrSize');
+    const qrSizeValue = document.getElementById('qrSizeValue');
+    const syncQrSizeLabel = () => {
+      qrSizeInput.value = String(state.qrScalePercent);
+      qrSizeValue.textContent = `${state.qrScalePercent}%`;
+    };
+
     // Tabs
     document.querySelectorAll('.tab').forEach((tab) => {
       tab.addEventListener('click', () => {
@@ -998,9 +1425,7 @@
         btn.classList.add('active');
         state.template = btn.dataset.template;
         state.mode = 'template';
-        // Show/hide QR content input
-        document.getElementById('qrContentGroup').style.display =
-          state.template === 'qrcode' ? 'block' : 'none';
+        syncQrFieldVisibility();
         render();
       });
     });
@@ -1018,7 +1443,12 @@
     // QR content input
     document.getElementById('qrContent').addEventListener('input', (e) => {
       state.qrContent = e.target.value;
-      if (state.mode === 'template' && state.template === 'qrcode') render();
+      if (state.mode === 'template' && (state.template === 'qrcode' || state.template === 'mix')) render();
+    });
+    qrSizeInput.addEventListener('input', (e) => {
+      state.qrScalePercent = Number(e.target.value);
+      syncQrSizeLabel();
+      if (state.mode === 'template' && (state.template === 'qrcode' || state.template === 'mix')) render();
     });
 
     // Accent color
@@ -1034,20 +1464,36 @@
     // Image upload
     const uploadZone = document.getElementById('uploadZone');
     const imageInput = document.getElementById('imageFileInput');
+    const templateBgUploadZone = document.getElementById('templateBgUploadZone');
+    const templateBgFileInput = document.getElementById('templateBgFileInput');
+    const clearTemplateBgBtn = document.getElementById('clearTemplateBgBtn');
 
-    uploadZone.addEventListener('click', () => imageInput.click());
-    uploadZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      uploadZone.classList.add('dragover');
-    });
-    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
-    uploadZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      uploadZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) handleImageFile(e.dataTransfer.files[0]);
-    });
-    imageInput.addEventListener('change', () => {
-      if (imageInput.files.length) handleImageFile(imageInput.files[0]);
+    function bindImageUpload(zone, input, onFile) {
+      zone.addEventListener('click', () => input.click());
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+      });
+      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) onFile(e.dataTransfer.files[0]);
+      });
+      input.addEventListener('change', () => {
+        if (input.files.length) onFile(input.files[0]);
+      });
+    }
+
+    bindImageUpload(uploadZone, imageInput, (file) => handleImageFile(file, 'uploaded'));
+    bindImageUpload(templateBgUploadZone, templateBgFileInput, (file) => handleImageFile(file, 'templateBackground'));
+
+    clearTemplateBgBtn.addEventListener('click', () => {
+      state.templateBackgroundImage = null;
+      templateBgFileInput.value = '';
+      document.getElementById('templateBgPreview').innerHTML = '';
+      clearTemplateBgBtn.style.display = 'none';
+      if (state.mode === 'template') render();
     });
 
     // Dither buttons
@@ -1104,14 +1550,29 @@
       document.getElementById('bleSupported').style.display = 'none';
       document.getElementById('bleNotSupported').style.display = 'block';
     }
+
+    syncQrFieldVisibility();
+    syncQrSizeLabel();
   }
 
-  function handleImageFile(file) {
+  function handleImageFile(file, target = 'uploaded') {
     if (!file.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
+        if (target === 'templateBackground') {
+          state.templateBackgroundImage = img;
+          const preview = document.getElementById('templateBgPreview');
+          preview.innerHTML = `<img src="${e.target.result}" alt="Template background">
+            <p style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">
+              ${img.width} &times; ${img.height} px
+            </p>`;
+          document.getElementById('clearTemplateBgBtn').style.display = 'block';
+          if (state.mode === 'template') render();
+          return;
+        }
+
         state.uploadedImage = img;
         state.mode = 'image';
 
