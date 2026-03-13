@@ -108,3 +108,12 @@ The token in `.env.issues` must be created manually at GitHub → Settings → D
 ## Projects
 
 Agent-created projects live under `projects/`. Services are managed via systemd — add entries to `hooks/post-merge` to auto-restart on deploy.
+
+| Project | Description |
+|---------|-------------|
+| [badge](projects/badge/) | E-paper badge designer/writer over BLE |
+| [breakout](projects/breakout/) | Breakout game (single-page HTML) |
+| [flutter_demo](projects/flutter_demo/) | Flutter web demo app (auto-built via GitHub Actions) |
+| [poem](projects/poem/) | A poem |
+| [scramble](projects/scramble/) | Word scramble game (single-page HTML) |
+| [status-page](projects/status-page/) | Server status page (Python + systemd service) |
