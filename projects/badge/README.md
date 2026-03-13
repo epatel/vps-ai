@@ -18,9 +18,10 @@ Web app for designing and sending images to e-paper badges over BLE (Bluetooth L
 ## Usage
 
 1. Open `index.html` in Chrome or Edge (Web Bluetooth required)
-2. Design your badge using the template editor or upload an image
-3. Click **Connect Badge** and select your badge from the BLE device list
-4. Click **Write to Badge** to send the image
+2. Activate the badge by reading its NFC tag
+3. Design your badge using the template editor or upload an image
+4. Click **Connect Badge** and select your badge from the BLE device list
+5. Click **Write to Badge** to send the image
 
 ## BLE Communication
 
