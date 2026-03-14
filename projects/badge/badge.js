@@ -1456,7 +1456,51 @@
     });
   }
 
+  function syncBleControls() {
+    const connectBtn = document.getElementById('bleConnectBtn');
+    const sendBtn = document.getElementById('bleSendBtn');
+    connectBtn.textContent = state.connected ? 'Disconnect Badge' : 'Connect Badge';
+    sendBtn.disabled = !state.connected;
+  }
+
+  function bleResetConnection(statusText = 'Disconnected', error = false) {
+    state.connected = false;
+    state.bleDevice = null;
+    state.bleCharacteristic = null;
+    state.bleNotifyCharacteristic = null;
+    _notifyWaiters.length = 0;
+    setStatus(statusText, false, error);
+    syncBleControls();
+  }
+
+  async function bleDisconnect() {
+    const device = state.bleDevice;
+    const notifyChar = state.bleNotifyCharacteristic;
+
+    try {
+      if (notifyChar) {
+        notifyChar.removeEventListener('characteristicvaluechanged', _onNotification);
+        try {
+          await notifyChar.stopNotifications();
+        } catch (err) {
+          console.warn('Failed to stop notifications:', err);
+        }
+      }
+
+      if (device?.gatt?.connected) {
+        device.gatt.disconnect();
+      }
+    } finally {
+      bleResetConnection('Disconnected');
+    }
+  }
+
   async function bleConnect() {
+    if (state.connected) {
+      await bleDisconnect();
+      return;
+    }
+
     try {
       setStatus('Scanning...', false);
       const device = await navigator.bluetooth.requestDevice({
@@ -1484,18 +1528,10 @@
       notifyChar.addEventListener('characteristicvaluechanged', _onNotification);
       state.bleNotifyCharacteristic = notifyChar;
 
-      device.addEventListener('gattserverdisconnected', () => {
-        state.connected = false;
-        state.bleDevice = null;
-        state.bleCharacteristic = null;
-        state.bleNotifyCharacteristic = null;
-        _notifyWaiters.length = 0;
-        setStatus('Disconnected', false);
-        document.getElementById('bleSendBtn').disabled = true;
-      });
+      device.addEventListener('gattserverdisconnected', () => bleResetConnection('Disconnected'), { once: true });
 
       setStatus(`Connected: ${device.name || 'Badge'}`, true);
-      document.getElementById('bleSendBtn').disabled = false;
+      syncBleControls();
     } catch (err) {
       if (err.name === 'NotFoundError') {
         setStatus('No device selected', false);
@@ -1966,6 +2002,7 @@
     if ('bluetooth' in navigator) {
       document.getElementById('bleConnectBtn').addEventListener('click', bleConnect);
       document.getElementById('bleSendBtn').addEventListener('click', bleSendImage);
+      syncBleControls();
     } else {
       document.getElementById('bleSupported').style.display = 'none';
       document.getElementById('bleNotSupported').style.display = 'block';
