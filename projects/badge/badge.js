@@ -32,6 +32,111 @@
   const MIX_TEXT_CHIP_PADDING_X = 6;
   const MIX_TEXT_CHIP_PADDING_Y = 4;
 
+  // ─── Palette color helpers ───
+  function rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+  }
+
+  function hexToRgb(hex) {
+    const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [0, 0, 0];
+  }
+
+  function getPaletteHexColors() {
+    return PALETTES[state.palette].map(([r, g, b]) => rgbToHex(r, g, b));
+  }
+
+  function snapToNearestPaletteColor(hex) {
+    const [r, g, b] = hexToRgb(hex);
+    const palette = PALETTES[state.palette];
+    let bestDist = Infinity;
+    let bestColor = palette[0];
+    for (const [pr, pg, pb] of palette) {
+      const dist = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestColor = [pr, pg, pb];
+      }
+    }
+    return rgbToHex(...bestColor);
+  }
+
+  function updateSwatchColor(swatch, hex) {
+    swatch.style.background = hex;
+    const itemKey = swatch.dataset.item;
+    const kind = swatch.dataset.kind;
+    if (state.itemColors[itemKey]) {
+      state.itemColors[itemKey][kind] = hex;
+    }
+  }
+
+  function buildPalettePopup(swatch) {
+    const popup = swatch.querySelector('.palette-popup');
+    popup.innerHTML = '';
+    const colors = getPaletteHexColors();
+    const currentColor = state.itemColors[swatch.dataset.item]?.[swatch.dataset.kind] || '#000000';
+    colors.forEach(hex => {
+      const sw = document.createElement('div');
+      sw.className = 'palette-popup-swatch' + (hex === currentColor ? ' selected' : '');
+      sw.style.background = hex;
+      if (hex === '#000000' || hex === '#000') {
+        sw.style.border = '2px solid #555';
+        if (hex === currentColor) sw.style.borderColor = 'var(--accent)';
+      }
+      sw.addEventListener('click', (e) => {
+        e.stopPropagation();
+        updateSwatchColor(swatch, hex);
+        popup.classList.remove('open');
+        swatch.classList.remove('active-pick');
+        if (state.mode === 'template') render();
+      });
+      popup.appendChild(sw);
+    });
+  }
+
+  function refreshAllSwatches() {
+    document.querySelectorAll('.item-color-swatch').forEach(swatch => {
+      const itemKey = swatch.dataset.item;
+      const kind = swatch.dataset.kind;
+      if (state.itemColors[itemKey]) {
+        const snapped = snapToNearestPaletteColor(state.itemColors[itemKey][kind]);
+        state.itemColors[itemKey][kind] = snapped;
+        swatch.style.background = snapped;
+      }
+    });
+    // Also snap the accent color
+    state.accentColor = snapToNearestPaletteColor(state.accentColor);
+    rebuildAccentRow();
+  }
+
+  function rebuildAccentRow() {
+    const row = document.getElementById('accentColorRow');
+    if (!row) return;
+    row.innerHTML = '';
+    const colors = getPaletteHexColors();
+    colors.forEach(hex => {
+      const btn = document.createElement('button');
+      btn.className = 'color-btn' + (hex === state.accentColor ? ' active' : '');
+      btn.dataset.color = hex;
+      btn.style.background = hex;
+      if (hex === '#000000') btn.style.border = '1px solid #555';
+      btn.addEventListener('click', () => {
+        row.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.accentColor = hex;
+        // Sync accent-linked item color swatches
+        const accentItems = ['company', 'extra'];
+        accentItems.forEach((key) => {
+          state.itemColors[key].text = hex;
+          const swatch = document.getElementById(key + 'TextColor');
+          if (swatch) swatch.style.background = hex;
+        });
+        render();
+      });
+      row.appendChild(btn);
+    });
+  }
+
   // ─── State ───
   const state = {
     template: 'conference',
@@ -41,12 +146,12 @@
     extra: '@flutterdev',
     qrContent: '',
     qrScalePercent: 50,
-    accentColor: '#e94560',
+    accentColor: '#ff0000',
     itemColors: {
       name:    { text: '#000000', bg: '#ffffff' },
-      title:   { text: '#333333', bg: '#ffffff' },
-      company: { text: '#e94560', bg: '#ffffff' },
-      extra:   { text: '#e94560', bg: '#ffffff' },
+      title:   { text: '#000000', bg: '#ffffff' },
+      company: { text: '#ff0000', bg: '#ffffff' },
+      extra:   { text: '#ff0000', bg: '#ffffff' },
     },
     palette: 'bwyr',
     dither: 'floydSteinberg',
@@ -1471,27 +1576,44 @@
         document.querySelectorAll('.color-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         state.accentColor = btn.dataset.color;
-        // Sync accent-linked item color pickers
+        // Sync accent-linked item color swatches
+        const accentColor = snapToNearestPaletteColor(btn.dataset.color);
         const accentItems = ['company', 'extra'];
         accentItems.forEach((key) => {
-          state.itemColors[key].text = btn.dataset.color;
-          const picker = document.getElementById(key + 'TextColor');
-          if (picker) picker.value = btn.dataset.color;
+          state.itemColors[key].text = accentColor;
+          const swatch = document.getElementById(key + 'TextColor');
+          if (swatch) swatch.style.background = accentColor;
         });
         render();
       });
     });
 
-    // Per-item color pickers (text & background)
-    document.querySelectorAll('.item-color-picker').forEach((picker) => {
-      picker.addEventListener('input', () => {
-        const itemKey = picker.dataset.item;
-        const kind = picker.dataset.kind;
-        if (state.itemColors[itemKey]) {
-          state.itemColors[itemKey][kind] = picker.value;
-          if (state.mode === 'template') render();
-        }
+    // Per-item palette color swatches (text & background)
+    document.querySelectorAll('.item-color-swatch').forEach((swatch) => {
+      buildPalettePopup(swatch);
+      swatch.addEventListener('click', (e) => {
+        // Close any other open popups
+        document.querySelectorAll('.palette-popup.open').forEach(p => {
+          if (p.parentElement !== swatch) {
+            p.classList.remove('open');
+            p.parentElement.classList.remove('active-pick');
+          }
+        });
+        const popup = swatch.querySelector('.palette-popup');
+        buildPalettePopup(swatch);
+        popup.classList.toggle('open');
+        swatch.classList.toggle('active-pick');
       });
+    });
+
+    // Close palette popups on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.item-color-swatch')) {
+        document.querySelectorAll('.palette-popup.open').forEach(p => {
+          p.classList.remove('open');
+          p.parentElement.classList.remove('active-pick');
+        });
+      }
     });
 
     // Image upload
@@ -1545,6 +1667,8 @@
         document.querySelectorAll('.palette-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         state.palette = btn.dataset.palette;
+        // Snap all item colors to the new palette and rebuild popups
+        refreshAllSwatches();
         render();
       });
     });
