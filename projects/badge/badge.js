@@ -42,6 +42,12 @@
     qrContent: '',
     qrScalePercent: 50,
     accentColor: '#e94560',
+    itemColors: {
+      name:    { text: '#000000', bg: '#ffffff' },
+      title:   { text: '#333333', bg: '#ffffff' },
+      company: { text: '#e94560', bg: '#ffffff' },
+      extra:   { text: '#e94560', bg: '#ffffff' },
+    },
     palette: 'bwyr',
     dither: 'floydSteinberg',
     sizeKey: '240x416',
@@ -262,7 +268,7 @@
   function getMixTextItems(spec) {
     const { width, height } = spec;
     const isPortrait = height > width;
-    const accent = state.accentColor;
+    const ic = state.itemColors;
     const layout = getMixLayoutBucket();
 
     const defaults = isPortrait
@@ -277,7 +283,8 @@
             maxWidth: width - 24,
             fontSize: 16,
             font: 'bold 16px sans-serif',
-            color: accent,
+            color: ic.company.text,
+            bgColor: ic.company.bg,
           },
           {
             key: 'name',
@@ -289,7 +296,8 @@
             maxWidth: width - 24,
             fontSize: 34,
             font: 'bold 34px sans-serif',
-            color: '#000000',
+            color: ic.name.text,
+            bgColor: ic.name.bg,
           },
           {
             key: 'title',
@@ -301,7 +309,8 @@
             maxWidth: width - 24,
             fontSize: 18,
             font: '18px sans-serif',
-            color: '#333333',
+            color: ic.title.text,
+            bgColor: ic.title.bg,
           },
           {
             key: 'extra',
@@ -313,7 +322,8 @@
             maxWidth: width - 24,
             fontSize: 16,
             font: '16px sans-serif',
-            color: accent,
+            color: ic.extra.text,
+            bgColor: ic.extra.bg,
           },
         ]
       : [
@@ -327,7 +337,8 @@
             maxWidth: width - 24,
             fontSize: 14,
             font: 'bold 14px sans-serif',
-            color: accent,
+            color: ic.company.text,
+            bgColor: ic.company.bg,
           },
           {
             key: 'name',
@@ -339,7 +350,8 @@
             maxWidth: width - 24,
             fontSize: 28,
             font: 'bold 28px sans-serif',
-            color: '#000000',
+            color: ic.name.text,
+            bgColor: ic.name.bg,
           },
           {
             key: 'title',
@@ -351,7 +363,8 @@
             maxWidth: width - 24,
             fontSize: 16,
             font: '16px sans-serif',
-            color: '#333333',
+            color: ic.title.text,
+            bgColor: ic.title.bg,
           },
           {
             key: 'extra',
@@ -363,7 +376,8 @@
             maxWidth: width - 24,
             fontSize: 14,
             font: '14px sans-serif',
-            color: accent,
+            color: ic.extra.text,
+            bgColor: ic.extra.bg,
           },
         ];
 
@@ -953,7 +967,7 @@
     const renderMetrics = getMixTextRenderMetrics(item);
     ctx.font = item.font.replace(/\d+px/, renderMetrics.fittedSize + 'px');
 
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = item.bgColor || '#ffffff';
     ctx.fillRect(
       renderMetrics.rectX,
       renderMetrics.rectY,
@@ -1457,7 +1471,26 @@
         document.querySelectorAll('.color-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         state.accentColor = btn.dataset.color;
+        // Sync accent-linked item color pickers
+        const accentItems = ['company', 'extra'];
+        accentItems.forEach((key) => {
+          state.itemColors[key].text = btn.dataset.color;
+          const picker = document.getElementById(key + 'TextColor');
+          if (picker) picker.value = btn.dataset.color;
+        });
         render();
+      });
+    });
+
+    // Per-item color pickers (text & background)
+    document.querySelectorAll('.item-color-picker').forEach((picker) => {
+      picker.addEventListener('input', () => {
+        const itemKey = picker.dataset.item;
+        const kind = picker.dataset.kind;
+        if (state.itemColors[itemKey]) {
+          state.itemColors[itemKey][kind] = picker.value;
+          if (state.mode === 'template') render();
+        }
       });
     });
 
