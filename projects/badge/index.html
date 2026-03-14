@@ -564,10 +564,10 @@ input:focus, select:focus {
 
   <!-- BLE Section -->
   <div class="panel ble-section">
-    <h2>Send to Badge</h2>
+    <h2>Send to Badge <span style="font-size:0.65rem; text-transform:none; letter-spacing:0; font-weight:400; color:var(--text-dim);">(Activate by reading NFC)</span></h2>
     <div id="bleSupported">
       <div class="ble-row">
-        <button class="btn btn-primary" id="bleConnectBtn" title="Activate by reading NFC">Connect Badge</button>
+        <button class="btn btn-primary" id="bleConnectBtn">Connect Badge</button>
         <button class="btn btn-secondary" id="bleSendBtn" disabled>Write to Badge</button>
         <div class="status-indicator">
           <span class="status-dot" id="statusDot"></span>
