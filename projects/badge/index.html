@@ -186,27 +186,52 @@ input[type="text"], select {
   align-items: center;
   flex-shrink: 0;
 }
-.item-color-picker {
+.item-color-swatch {
   width: 28px;
   height: 28px;
-  border: 1px solid #444;
+  border: 2px solid #444;
   border-radius: 6px;
-  padding: 1px;
   cursor: pointer;
-  background: var(--bg);
-  -webkit-appearance: none;
-  appearance: none;
+  position: relative;
+  transition: border-color 0.2s, transform 0.1s;
 }
-.item-color-picker::-webkit-color-swatch-wrapper {
-  padding: 0;
+.item-color-swatch:hover {
+  transform: scale(1.1);
 }
-.item-color-picker::-webkit-color-swatch {
-  border: none;
+.item-color-swatch.active-pick {
+  border-color: var(--accent);
+}
+.palette-popup {
+  display: none;
+  position: absolute;
+  bottom: 34px;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 6px;
+  gap: 4px;
+  z-index: 100;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  flex-wrap: wrap;
+  min-width: 40px;
+}
+.palette-popup.open {
+  display: flex;
+}
+.palette-popup-swatch {
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.2s;
 }
-.item-color-picker::-moz-color-swatch {
-  border: none;
-  border-radius: 4px;
+.palette-popup-swatch:hover {
+  transform: scale(1.15);
+}
+.palette-popup-swatch.selected {
+  border-color: var(--accent);
 }
 .item-color-label-row {
   display: flex;
@@ -521,8 +546,8 @@ input:focus, select:focus {
       <div class="input-with-colors">
         <input type="text" id="badgeName" placeholder="Your Name" value="Flutter Dev">
         <div class="item-color-group">
-          <input type="color" class="item-color-picker" id="nameTextColor" data-item="name" data-kind="text" value="#000000" title="Text color">
-          <input type="color" class="item-color-picker" id="nameBgColor" data-item="name" data-kind="bg" value="#ffffff" title="Background color">
+          <div class="item-color-swatch" id="nameTextColor" data-item="name" data-kind="text" style="background:#000000" title="Text color"><div class="palette-popup"></div></div>
+          <div class="item-color-swatch" id="nameBgColor" data-item="name" data-kind="bg" style="background:#ffffff" title="Background color"><div class="palette-popup"></div></div>
         </div>
       </div>
 
@@ -533,8 +558,8 @@ input:focus, select:focus {
       <div class="input-with-colors">
         <input type="text" id="badgeTitle" placeholder="Flutter Developer" value="Mobile Engineer">
         <div class="item-color-group">
-          <input type="color" class="item-color-picker" id="titleTextColor" data-item="title" data-kind="text" value="#333333" title="Text color">
-          <input type="color" class="item-color-picker" id="titleBgColor" data-item="title" data-kind="bg" value="#ffffff" title="Background color">
+          <div class="item-color-swatch" id="titleTextColor" data-item="title" data-kind="text" style="background:#000000" title="Text color"><div class="palette-popup"></div></div>
+          <div class="item-color-swatch" id="titleBgColor" data-item="title" data-kind="bg" style="background:#ffffff" title="Background color"><div class="palette-popup"></div></div>
         </div>
       </div>
 
@@ -545,8 +570,8 @@ input:focus, select:focus {
       <div class="input-with-colors">
         <input type="text" id="badgeCompany" placeholder="Flutter & Friends 2025" value="Flutter & Friends">
         <div class="item-color-group">
-          <input type="color" class="item-color-picker" id="companyTextColor" data-item="company" data-kind="text" value="#e94560" title="Text color">
-          <input type="color" class="item-color-picker" id="companyBgColor" data-item="company" data-kind="bg" value="#ffffff" title="Background color">
+          <div class="item-color-swatch" id="companyTextColor" data-item="company" data-kind="text" style="background:#ff0000" title="Text color"><div class="palette-popup"></div></div>
+          <div class="item-color-swatch" id="companyBgColor" data-item="company" data-kind="bg" style="background:#ffffff" title="Background color"><div class="palette-popup"></div></div>
         </div>
       </div>
 
@@ -557,8 +582,8 @@ input:focus, select:focus {
       <div class="input-with-colors">
         <input type="text" id="badgeExtra" placeholder="@handle or hashtag" value="@flutterdev">
         <div class="item-color-group">
-          <input type="color" class="item-color-picker" id="extraTextColor" data-item="extra" data-kind="text" value="#e94560" title="Text color">
-          <input type="color" class="item-color-picker" id="extraBgColor" data-item="extra" data-kind="bg" value="#ffffff" title="Background color">
+          <div class="item-color-swatch" id="extraTextColor" data-item="extra" data-kind="text" style="background:#ff0000" title="Text color"><div class="palette-popup"></div></div>
+          <div class="item-color-swatch" id="extraBgColor" data-item="extra" data-kind="bg" style="background:#ffffff" title="Background color"><div class="palette-popup"></div></div>
         </div>
       </div>
 
@@ -580,9 +605,9 @@ input:focus, select:focus {
       </div>
 
       <label>Accent Color</label>
-      <div class="color-row">
-        <button class="color-btn active" data-color="#e94560" style="background:#e94560" title="Red"></button>
-        <button class="color-btn" data-color="#f5c518" style="background:#f5c518" title="Yellow"></button>
+      <div class="color-row" id="accentColorRow">
+        <button class="color-btn active" data-color="#ff0000" style="background:#ff0000" title="Red"></button>
+        <button class="color-btn" data-color="#ffff00" style="background:#ffff00" title="Yellow"></button>
         <button class="color-btn" data-color="#000000" style="background:#000000; border:1px solid #555" title="Black"></button>
         <button class="color-btn" data-color="#ffffff" style="background:#ffffff" title="White"></button>
       </div>
