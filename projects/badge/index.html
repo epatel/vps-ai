@@ -169,6 +169,60 @@ input[type="text"], select {
   outline: none;
   transition: border 0.2s;
 }
+
+/* Text item color pickers */
+.input-with-colors {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.input-with-colors input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+.item-color-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.item-color-picker {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 1px;
+  cursor: pointer;
+  background: var(--bg);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.item-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.item-color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+.item-color-picker::-moz-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+.item-color-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.item-color-labels {
+  display: flex;
+  gap: 4px;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+.item-color-labels span {
+  width: 28px;
+  text-align: center;
+}
 input:focus, select:focus {
   border-color: var(--accent);
 }
@@ -460,17 +514,53 @@ input:focus, select:focus {
         </button>
       </div>
 
-      <label for="badgeName">Name</label>
-      <input type="text" id="badgeName" placeholder="Your Name" value="Flutter Dev">
+      <div class="item-color-label-row">
+        <label for="badgeName">Name</label>
+        <div class="item-color-labels"><span>Text</span><span>Bg</span></div>
+      </div>
+      <div class="input-with-colors">
+        <input type="text" id="badgeName" placeholder="Your Name" value="Flutter Dev">
+        <div class="item-color-group">
+          <input type="color" class="item-color-picker" id="nameTextColor" data-item="name" data-kind="text" value="#000000" title="Text color">
+          <input type="color" class="item-color-picker" id="nameBgColor" data-item="name" data-kind="bg" value="#ffffff" title="Background color">
+        </div>
+      </div>
 
-      <label for="badgeTitle">Title / Role</label>
-      <input type="text" id="badgeTitle" placeholder="Flutter Developer" value="Mobile Engineer">
+      <div class="item-color-label-row">
+        <label for="badgeTitle">Title / Role</label>
+        <div class="item-color-labels"><span>Text</span><span>Bg</span></div>
+      </div>
+      <div class="input-with-colors">
+        <input type="text" id="badgeTitle" placeholder="Flutter Developer" value="Mobile Engineer">
+        <div class="item-color-group">
+          <input type="color" class="item-color-picker" id="titleTextColor" data-item="title" data-kind="text" value="#333333" title="Text color">
+          <input type="color" class="item-color-picker" id="titleBgColor" data-item="title" data-kind="bg" value="#ffffff" title="Background color">
+        </div>
+      </div>
 
-      <label for="badgeCompany">Company / Event</label>
-      <input type="text" id="badgeCompany" placeholder="Flutter & Friends 2025" value="Flutter & Friends">
+      <div class="item-color-label-row">
+        <label for="badgeCompany">Company / Event</label>
+        <div class="item-color-labels"><span>Text</span><span>Bg</span></div>
+      </div>
+      <div class="input-with-colors">
+        <input type="text" id="badgeCompany" placeholder="Flutter & Friends 2025" value="Flutter & Friends">
+        <div class="item-color-group">
+          <input type="color" class="item-color-picker" id="companyTextColor" data-item="company" data-kind="text" value="#e94560" title="Text color">
+          <input type="color" class="item-color-picker" id="companyBgColor" data-item="company" data-kind="bg" value="#ffffff" title="Background color">
+        </div>
+      </div>
 
-      <label for="badgeExtra">Extra Line</label>
-      <input type="text" id="badgeExtra" placeholder="@handle or hashtag" value="@flutterdev">
+      <div class="item-color-label-row">
+        <label for="badgeExtra">Extra Line</label>
+        <div class="item-color-labels"><span>Text</span><span>Bg</span></div>
+      </div>
+      <div class="input-with-colors">
+        <input type="text" id="badgeExtra" placeholder="@handle or hashtag" value="@flutterdev">
+        <div class="item-color-group">
+          <input type="color" class="item-color-picker" id="extraTextColor" data-item="extra" data-kind="text" value="#e94560" title="Text color">
+          <input type="color" class="item-color-picker" id="extraBgColor" data-item="extra" data-kind="bg" value="#ffffff" title="Background color">
+        </div>
+      </div>
 
       <label>Optional Background Image</label>
       <div class="upload-zone" id="templateBgUploadZone">
