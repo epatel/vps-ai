@@ -31,6 +31,9 @@
   const MIX_PADDING = 6;
   const MIX_TEXT_CHIP_PADDING_X = 6;
   const MIX_TEXT_CHIP_PADDING_Y = 4;
+  const STORAGE_KEY = 'friends-badge-state-v1';
+  const ITEM_COLOR_KEYS = ['name', 'title', 'company', 'extra'];
+  const TRANSPARENT_COLOR = 'transparent';
 
   // ─── Palette color helpers ───
   function rgbToHex(r, g, b) {
@@ -44,6 +47,27 @@
 
   function getPaletteHexColors() {
     return PALETTES[state.palette].map(([r, g, b]) => rgbToHex(r, g, b));
+  }
+
+  function setColorPreview(el, color) {
+    if (color === TRANSPARENT_COLOR) {
+      el.style.backgroundColor = '#ffffff';
+      el.style.backgroundImage =
+        'linear-gradient(45deg, #bbb 25%, transparent 25%, transparent 75%, #bbb 75%, #bbb), ' +
+        'linear-gradient(45deg, #bbb 25%, transparent 25%, transparent 75%, #bbb 75%, #bbb)';
+      el.style.backgroundPosition = '0 0, 6px 6px';
+      el.style.backgroundSize = '12px 12px';
+      return;
+    }
+
+    el.style.background = color;
+    el.style.backgroundImage = 'none';
+  }
+
+  function getSelectableColors(kind) {
+    const colors = getPaletteHexColors();
+    if (kind === 'bg') colors.unshift(TRANSPARENT_COLOR);
+    return colors;
   }
 
   function snapToNearestPaletteColor(hex) {
@@ -62,24 +86,32 @@
   }
 
   function updateSwatchColor(swatch, hex) {
-    swatch.style.background = hex;
+    setColorPreview(swatch, hex);
     const itemKey = swatch.dataset.item;
     const kind = swatch.dataset.kind;
     if (state.itemColors[itemKey]) {
       state.itemColors[itemKey][kind] = hex;
+      if (state.itemColorTouched[itemKey]) {
+        state.itemColorTouched[itemKey][kind] = true;
+      }
     }
   }
 
   function buildPalettePopup(swatch) {
     const popup = swatch.querySelector('.palette-popup');
     popup.innerHTML = '';
-    const colors = getPaletteHexColors();
-    const currentColor = state.itemColors[swatch.dataset.item]?.[swatch.dataset.kind] || '#000000';
+    const kind = swatch.dataset.kind;
+    const colors = getSelectableColors(kind);
+    const currentColor = state.itemColors[swatch.dataset.item]?.[kind] || (kind === 'bg' ? '#ffffff' : '#000000');
     colors.forEach(hex => {
       const sw = document.createElement('div');
       sw.className = 'palette-popup-swatch' + (hex === currentColor ? ' selected' : '');
-      sw.style.background = hex;
-      if (hex === '#000000' || hex === '#000') {
+      setColorPreview(sw, hex);
+      if (hex === TRANSPARENT_COLOR) {
+        sw.title = 'Transparent';
+        sw.style.border = '2px dashed #777';
+        if (hex === currentColor) sw.style.borderColor = 'var(--accent)';
+      } else if (hex === '#000000' || hex === '#000') {
         sw.style.border = '2px solid #555';
         if (hex === currentColor) sw.style.borderColor = 'var(--accent)';
       }
@@ -99,9 +131,12 @@
       const itemKey = swatch.dataset.item;
       const kind = swatch.dataset.kind;
       if (state.itemColors[itemKey]) {
-        const snapped = snapToNearestPaletteColor(state.itemColors[itemKey][kind]);
+        const current = state.itemColors[itemKey][kind];
+        const snapped = kind === 'bg' && current === TRANSPARENT_COLOR
+          ? TRANSPARENT_COLOR
+          : snapToNearestPaletteColor(current);
         state.itemColors[itemKey][kind] = snapped;
-        swatch.style.background = snapped;
+        setColorPreview(swatch, snapped);
       }
     });
     // Also snap the accent color
@@ -128,6 +163,7 @@
         const accentItems = ['company', 'extra'];
         accentItems.forEach((key) => {
           state.itemColors[key].text = hex;
+          state.itemColorTouched[key].text = true;
           const swatch = document.getElementById(key + 'TextColor');
           if (swatch) swatch.style.background = hex;
         });
@@ -153,12 +189,21 @@
       company: { text: '#ff0000', bg: '#ffffff' },
       extra:   { text: '#ff0000', bg: '#ffffff' },
     },
+    itemColorTouched: {
+      name:    { text: false, bg: false },
+      title:   { text: false, bg: false },
+      company: { text: false, bg: false },
+      extra:   { text: false, bg: false },
+    },
     palette: 'bwyr',
     dither: 'floydSteinberg',
     sizeKey: '240x416',
     orientation: 'portrait',
+    activeTab: 'template',
     mixLayout: {},
+    templateBackgroundDataUrl: null,
     templateBackgroundImage: null,
+    uploadedImageDataUrl: null,
     uploadedImage: null,
     mode: 'template', // 'template' or 'image'
     bleDevice: null,
@@ -166,6 +211,89 @@
     bleNotifyCharacteristic: null,
     connected: false,
   };
+
+  function getPersistedState() {
+    return {
+      template: state.template,
+      name: state.name,
+      title: state.title,
+      company: state.company,
+      extra: state.extra,
+      qrContent: state.qrContent,
+      qrScalePercent: state.qrScalePercent,
+      accentColor: state.accentColor,
+      itemColors: state.itemColors,
+      itemColorTouched: state.itemColorTouched,
+      palette: state.palette,
+      dither: state.dither,
+      sizeKey: state.sizeKey,
+      orientation: state.orientation,
+      activeTab: state.activeTab,
+      mixLayout: state.mixLayout,
+      templateBackgroundDataUrl: state.templateBackgroundDataUrl,
+      uploadedImageDataUrl: state.uploadedImageDataUrl,
+    };
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(getPersistedState()));
+    } catch (err) {
+      console.warn('Unable to save badge state:', err);
+    }
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+
+      const saved = JSON.parse(raw);
+      if (saved && typeof saved === 'object') {
+        if (typeof saved.template === 'string') state.template = saved.template;
+        if (typeof saved.name === 'string') state.name = saved.name;
+        if (typeof saved.title === 'string') state.title = saved.title;
+        if (typeof saved.company === 'string') state.company = saved.company;
+        if (typeof saved.extra === 'string') state.extra = saved.extra;
+        if (typeof saved.qrContent === 'string') state.qrContent = saved.qrContent;
+        if (typeof saved.qrScalePercent === 'number') state.qrScalePercent = saved.qrScalePercent;
+        if (typeof saved.accentColor === 'string') state.accentColor = saved.accentColor;
+        if (typeof saved.palette === 'string' && PALETTES[saved.palette]) state.palette = saved.palette;
+        if (saved.dither in DITHER_KERNELS) state.dither = saved.dither;
+        if (saved.sizeKey in BADGE_SPECS) state.sizeKey = saved.sizeKey;
+        if (saved.orientation === 'portrait' || saved.orientation === 'landscape') {
+          state.orientation = saved.orientation;
+        }
+        if (saved.activeTab === 'template' || saved.activeTab === 'image' || saved.activeTab === 'settings') {
+          state.activeTab = saved.activeTab;
+        }
+        if (saved.mixLayout && typeof saved.mixLayout === 'object') state.mixLayout = saved.mixLayout;
+        if (typeof saved.templateBackgroundDataUrl === 'string') {
+          state.templateBackgroundDataUrl = saved.templateBackgroundDataUrl;
+        }
+        if (typeof saved.uploadedImageDataUrl === 'string') {
+          state.uploadedImageDataUrl = saved.uploadedImageDataUrl;
+        }
+
+        ITEM_COLOR_KEYS.forEach((key) => {
+          if (saved.itemColors?.[key]) {
+            if (typeof saved.itemColors[key].text === 'string') {
+              state.itemColors[key].text = saved.itemColors[key].text;
+            }
+            if (typeof saved.itemColors[key].bg === 'string') {
+              state.itemColors[key].bg = saved.itemColors[key].bg;
+            }
+          }
+          if (saved.itemColorTouched?.[key]) {
+            state.itemColorTouched[key].text = !!saved.itemColorTouched[key].text;
+            state.itemColorTouched[key].bg = !!saved.itemColorTouched[key].bg;
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('Unable to load badge state:', err);
+    }
+  }
 
   // ─── Elements ───
   const canvas = document.getElementById('badgeCanvas');
@@ -501,6 +629,58 @@
     return items;
   }
 
+  function getItemColors(key, fallbackText, fallbackBg = null) {
+    const itemColors = state.itemColors[key] || {};
+    const touched = state.itemColorTouched[key] || {};
+    return {
+      text: touched.text ? itemColors.text : fallbackText,
+      bg: touched.bg ? itemColors.bg : fallbackBg,
+    };
+  }
+
+  function drawTextBackground(text, x, y, bgColor) {
+    if (!bgColor || bgColor === TRANSPARENT_COLOR) return;
+
+    const metrics = ctx.measureText(text);
+    const width = Math.ceil(metrics.width);
+    const ascent = Math.ceil(metrics.actualBoundingBoxAscent || 0);
+    const descent = Math.ceil(metrics.actualBoundingBoxDescent || 0);
+    const textHeight = ascent + descent || Math.ceil(parseInt(ctx.font, 10) || 16);
+
+    let rectX = x;
+    if (ctx.textAlign === 'center') rectX -= width / 2;
+    else if (ctx.textAlign === 'right' || ctx.textAlign === 'end') rectX -= width;
+
+    let rectY = y - (ascent || textHeight);
+    if (ctx.textBaseline === 'top' || ctx.textBaseline === 'hanging') rectY = y;
+    else if (ctx.textBaseline === 'middle') rectY = y - textHeight / 2;
+    else if (ctx.textBaseline === 'bottom' || ctx.textBaseline === 'ideographic') rectY = y - textHeight;
+
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(
+      Math.floor(rectX - MIX_TEXT_CHIP_PADDING_X),
+      Math.floor(rectY - MIX_TEXT_CHIP_PADDING_Y),
+      Math.ceil(width + MIX_TEXT_CHIP_PADDING_X * 2),
+      Math.ceil(textHeight + MIX_TEXT_CHIP_PADDING_Y * 2),
+    );
+  }
+
+  function fillTextStyled(text, x, y, colors) {
+    drawTextBackground(text, x, y, colors.bg);
+    ctx.fillStyle = colors.text;
+    ctx.fillText(text, x, y);
+  }
+
+  function fitTextStyled(text, x, y, maxWidth, fontSize, colors) {
+    let size = fontSize;
+    ctx.font = ctx.font.replace(/\d+px/, size + 'px');
+    while (ctx.measureText(text).width > maxWidth && size > 8) {
+      size -= 1;
+      ctx.font = ctx.font.replace(/\d+px/, size + 'px');
+    }
+    fillTextStyled(text, x, y, colors);
+  }
+
   function renderTemplate() {
     const spec = getSpec();
     canvas.width = spec.width;
@@ -547,32 +727,33 @@
     const { width, height } = spec;
     const accent = state.accentColor;
     const isPortrait = height > width;
+    const nameColors = getItemColors('name', '#000000');
+    const titleColors = getItemColors('title', '#333333');
+    const extraColors = getItemColors('extra', '#555555');
 
     if (isPortrait) {
+      const companyColors = getItemColors('company', '#ffffff');
       // Top accent bar
       ctx.fillStyle = accent;
       ctx.fillRect(0, 0, width, 60);
 
       // Event name in bar
-      ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 16px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(state.company, width / 2, 38);
+      fillTextStyled(state.company, width / 2, 38, companyColors);
 
       // Decorative line
       ctx.fillStyle = accent;
       ctx.fillRect(20, 80, width - 40, 3);
 
       // Name
-      ctx.fillStyle = '#000000';
       ctx.font = 'bold 36px sans-serif';
       ctx.textAlign = 'center';
-      fitText(ctx, state.name, width / 2, 140, width - 40, 36);
+      fitTextStyled(state.name, width / 2, 140, width - 40, 36, nameColors);
 
       // Title
-      ctx.fillStyle = '#333333';
       ctx.font = '20px sans-serif';
-      fitText(ctx, state.title, width / 2, 180, width - 40, 20);
+      fitTextStyled(state.title, width / 2, 180, width - 40, 20, titleColors);
 
       // Decorative element
       ctx.fillStyle = accent;
@@ -585,9 +766,8 @@
       ctx.fillText(state.name.charAt(0).toUpperCase(), cx, 250);
 
       // Extra line
-      ctx.fillStyle = '#555555';
       ctx.font = '16px sans-serif';
-      ctx.fillText(state.extra, width / 2, 310);
+      fillTextStyled(state.extra, width / 2, 310, extraColors);
 
       // Bottom decoration
       ctx.fillStyle = accent;
@@ -598,58 +778,53 @@
       ctx.font = '14px sans-serif';
       ctx.fillText('Flutter & Friends', width / 2, height - 16);
     } else {
+      const companyColors = getItemColors('company', '#555555');
       // Landscape conference
       ctx.fillStyle = accent;
       ctx.fillRect(0, 0, 8, height);
 
-      ctx.fillStyle = '#000000';
       ctx.font = 'bold 28px sans-serif';
       ctx.textAlign = 'left';
-      fitText(ctx, state.name, 24, 40, width - 48, 28);
+      fitTextStyled(state.name, 24, 40, width - 48, 28, nameColors);
 
-      ctx.fillStyle = '#333333';
       ctx.font = '16px sans-serif';
-      fitText(ctx, state.title, 24, 68, width - 48, 16);
+      fitTextStyled(state.title, 24, 68, width - 48, 16, titleColors);
 
-      ctx.fillStyle = '#555555';
       ctx.font = '14px sans-serif';
-      ctx.fillText(state.company, 24, 96);
+      fillTextStyled(state.company, 24, 96, companyColors);
 
       ctx.fillStyle = accent;
       ctx.fillRect(24, 110, width - 48, 2);
 
-      ctx.fillStyle = '#555555';
       ctx.font = '13px sans-serif';
-      ctx.fillText(state.extra, 24, height - 16);
+      fillTextStyled(state.extra, 24, height - 16, extraColors);
     }
   }
 
   function renderMinimalTemplate(spec) {
     const { width, height } = spec;
     const isPortrait = height > width;
+    const nameColors = getItemColors('name', '#000000');
+    const titleColors = getItemColors('title', '#666666');
+    const extraColors = getItemColors('extra', '#999999');
 
     if (isPortrait) {
-      ctx.fillStyle = '#000000';
       ctx.font = 'bold 42px sans-serif';
       ctx.textAlign = 'center';
-      fitText(ctx, state.name, width / 2, height / 2 - 20, width - 40, 42);
+      fitTextStyled(state.name, width / 2, height / 2 - 20, width - 40, 42, nameColors);
 
-      ctx.fillStyle = '#666666';
       ctx.font = '18px sans-serif';
-      fitText(ctx, state.title, width / 2, height / 2 + 20, width - 40, 18);
+      fitTextStyled(state.title, width / 2, height / 2 + 20, width - 40, 18, titleColors);
 
-      ctx.fillStyle = '#999999';
       ctx.font = '14px sans-serif';
-      ctx.fillText(state.extra, width / 2, height / 2 + 50);
+      fillTextStyled(state.extra, width / 2, height / 2 + 50, extraColors);
     } else {
-      ctx.fillStyle = '#000000';
       ctx.font = 'bold 32px sans-serif';
       ctx.textAlign = 'center';
-      fitText(ctx, state.name, width / 2, height / 2 - 10, width - 32, 32);
+      fitTextStyled(state.name, width / 2, height / 2 - 10, width - 32, 32, nameColors);
 
-      ctx.fillStyle = '#666666';
       ctx.font = '16px sans-serif';
-      fitText(ctx, state.title, width / 2, height / 2 + 18, width - 32, 16);
+      fitTextStyled(state.title, width / 2, height / 2 + 18, width - 32, 16, titleColors);
     }
   }
 
@@ -657,6 +832,10 @@
     const { width, height } = spec;
     const accent = state.accentColor;
     const isPortrait = height > width;
+    const nameColors = getItemColors('name', accent);
+    const titleColors = getItemColors('title', '#333333');
+    const companyColors = getItemColors('company', '#333333');
+    const extraColors = getItemColors('extra', accent);
 
     // Terminal-style background
     ctx.fillStyle = '#ffffff';
@@ -683,33 +862,29 @@
       ctx.textAlign = 'left';
 
       ctx.fillText('> name:', 16, y);
-      ctx.fillStyle = accent;
       ctx.font = 'bold 14px monospace';
-      fitText(ctx, `  "${state.name}"`, 16, y + 22, width - 32, 14);
+      fitTextStyled(`  "${state.name}"`, 16, y + 22, width - 32, 14, nameColors);
 
       y += 52;
       ctx.fillStyle = '#000000';
       ctx.font = '14px monospace';
       ctx.fillText('> role:', 16, y);
-      ctx.fillStyle = '#333333';
       ctx.font = '14px monospace';
-      fitText(ctx, `  "${state.title}"`, 16, y + 22, width - 32, 14);
+      fitTextStyled(`  "${state.title}"`, 16, y + 22, width - 32, 14, titleColors);
 
       y += 52;
       ctx.fillStyle = '#000000';
       ctx.font = '14px monospace';
       ctx.fillText('> org:', 16, y);
-      ctx.fillStyle = '#333333';
       ctx.font = '14px monospace';
-      fitText(ctx, `  "${state.company}"`, 16, y + 22, width - 32, 14);
+      fitTextStyled(`  "${state.company}"`, 16, y + 22, width - 32, 14, companyColors);
 
       y += 52;
       ctx.fillStyle = '#000000';
       ctx.font = '14px monospace';
       ctx.fillText('> handle:', 16, y);
-      ctx.fillStyle = accent;
       ctx.font = '14px monospace';
-      fitText(ctx, `  "${state.extra}"`, 16, y + 22, width - 32, 14);
+      fitTextStyled(`  "${state.extra}"`, 16, y + 22, width - 32, 14, extraColors);
 
       // Blinking cursor
       y += 56;
@@ -735,12 +910,10 @@
       ctx.fillStyle = '#000000';
       ctx.font = '13px monospace';
       let y = 48;
-      ctx.fillText(`name: "${state.name}"`, 12, y);
-      ctx.fillText(`role: "${state.title}"`, 12, y + 22);
-      ctx.fillStyle = '#333';
-      ctx.fillText(`org:  "${state.company}"`, 12, y + 44);
-      ctx.fillStyle = accent;
-      ctx.fillText(`${state.extra}`, 12, y + 66);
+      fillTextStyled(`name: "${state.name}"`, 12, y, nameColors);
+      fillTextStyled(`role: "${state.title}"`, 12, y + 22, titleColors);
+      fillTextStyled(`org:  "${state.company}"`, 12, y + 44, companyColors);
+      fillTextStyled(`${state.extra}`, 12, y + 66, extraColors);
     }
   }
 
@@ -748,8 +921,12 @@
     const { width, height } = spec;
     const accent = state.accentColor;
     const isPortrait = height > width;
+    const nameColors = getItemColors('name', '#000000');
+    const titleColors = getItemColors('title', '#444444');
+    const companyColors = getItemColors('company', '#333333');
 
     if (isPortrait) {
+      const extraColors = getItemColors('extra', '#ffffff', accent);
       // Large centered initial with circle
       const circleR = 50;
       const circleY = 120;
@@ -764,33 +941,29 @@
       ctx.fillText(state.name.charAt(0).toUpperCase(), width / 2, circleY + 18);
 
       // Name
-      ctx.fillStyle = '#000000';
       ctx.font = 'bold 30px sans-serif';
-      fitText(ctx, state.name, width / 2, 210, width - 30, 30);
+      fitTextStyled(state.name, width / 2, 210, width - 30, 30, nameColors);
 
       // Title
-      ctx.fillStyle = '#444444';
       ctx.font = '18px sans-serif';
-      fitText(ctx, state.title, width / 2, 245, width - 30, 18);
+      fitTextStyled(state.title, width / 2, 245, width - 30, 18, titleColors);
 
       // Divider
       ctx.fillStyle = accent;
       ctx.fillRect(width / 2 - 30, 268, 60, 3);
 
       // Company
-      ctx.fillStyle = '#333333';
       ctx.font = '16px sans-serif';
-      ctx.fillText(state.company, width / 2, 300);
+      fillTextStyled(state.company, width / 2, 300, companyColors);
 
       // Handle with icon-like box
-      ctx.fillStyle = accent;
+      ctx.font = 'bold 14px sans-serif';
       const handleW = ctx.measureText(state.extra).width + 24;
       const handleX = (width - handleW) / 2;
       roundRect(ctx, handleX, 330, handleW, 32, 16);
+      ctx.fillStyle = extraColors.bg;
       ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillText(state.extra, width / 2, 351);
+      fillTextStyled(state.extra, width / 2, 351, { text: extraColors.text, bg: null });
 
       // Bottom pattern: small dots
       ctx.fillStyle = accent;
@@ -801,6 +974,7 @@
         ctx.fill();
       }
     } else {
+      const extraColors = getItemColors('extra', accent);
       // Landscape social
       const circleR = 30;
       ctx.fillStyle = accent;
@@ -813,15 +987,12 @@
       ctx.fillText(state.name.charAt(0).toUpperCase(), 50, height / 2 + 11);
 
       ctx.textAlign = 'left';
-      ctx.fillStyle = '#000000';
       ctx.font = 'bold 22px sans-serif';
-      fitText(ctx, state.name, 100, height / 2 - 14, width - 120, 22);
-      ctx.fillStyle = '#444';
+      fitTextStyled(state.name, 100, height / 2 - 14, width - 120, 22, nameColors);
       ctx.font = '14px sans-serif';
-      fitText(ctx, `${state.title} - ${state.company}`, 100, height / 2 + 8, width - 120, 14);
-      ctx.fillStyle = accent;
+      fitTextStyled(`${state.title} - ${state.company}`, 100, height / 2 + 8, width - 120, 14, titleColors);
       ctx.font = '13px sans-serif';
-      ctx.fillText(state.extra, 100, height / 2 + 28);
+      fillTextStyled(state.extra, 100, height / 2 + 28, extraColors);
     }
   }
 
@@ -873,6 +1044,9 @@
     const { width, height } = spec;
     const accent = state.accentColor;
     const isPortrait = height > width;
+    const nameColors = getItemColors('name', '#000000');
+    const titleColors = getItemColors('title', '#444444');
+    const extraColors = getItemColors('extra', '#555555');
 
     // Generate QR code from dedicated qrContent field, falling back to extra field
     const qrContent = state.qrContent || state.extra || state.name || 'badge';
@@ -881,26 +1055,24 @@
     const moduleCount = qr.getModuleCount();
 
     if (isPortrait) {
+      const companyColors = getItemColors('company', '#ffffff');
       // Top accent bar
       ctx.fillStyle = accent;
       ctx.fillRect(0, 0, width, 50);
 
       // Event name in bar
-      ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 16px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(state.company, width / 2, 32);
+      fillTextStyled(state.company, width / 2, 32, companyColors);
 
       // Name
-      ctx.fillStyle = '#000000';
       ctx.font = 'bold 28px sans-serif';
       ctx.textAlign = 'center';
-      fitText(ctx, state.name, width / 2, 90, width - 40, 28);
+      fitTextStyled(state.name, width / 2, 90, width - 40, 28, nameColors);
 
       // Title
-      ctx.fillStyle = '#444444';
       ctx.font = '16px sans-serif';
-      fitText(ctx, state.title, width / 2, 116, width - 40, 16);
+      fitTextStyled(state.title, width / 2, 116, width - 40, 16, titleColors);
 
       // Divider
       ctx.fillStyle = accent;
@@ -932,10 +1104,9 @@
 
       // Extra text below QR
       const textY = qrY + qrSize + 28;
-      ctx.fillStyle = '#555555';
       ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(state.extra, width / 2, textY);
+      fillTextStyled(state.extra, width / 2, textY, extraColors);
 
       // Bottom bar
       ctx.fillStyle = accent;
@@ -944,6 +1115,7 @@
       ctx.font = '12px sans-serif';
       ctx.fillText('Scan me!', width / 2, height - 10);
     } else {
+      const companyColors = getItemColors('company', '#555555');
       // Landscape layout
       ctx.fillStyle = accent;
       ctx.fillRect(0, 0, 6, height);
@@ -971,22 +1143,18 @@
 
       // Text on the right
       const textX = qrX + qrSize + 20;
-      ctx.fillStyle = '#000000';
       ctx.font = 'bold 22px sans-serif';
       ctx.textAlign = 'left';
-      fitText(ctx, state.name, textX, height / 2 - 20, width - textX - 12, 22);
+      fitTextStyled(state.name, textX, height / 2 - 20, width - textX - 12, 22, nameColors);
 
-      ctx.fillStyle = '#444444';
       ctx.font = '14px sans-serif';
-      fitText(ctx, state.title, textX, height / 2 + 4, width - textX - 12, 14);
+      fitTextStyled(state.title, textX, height / 2 + 4, width - textX - 12, 14, titleColors);
 
-      ctx.fillStyle = '#555555';
       ctx.font = '13px sans-serif';
-      ctx.fillText(state.company, textX, height / 2 + 24);
+      fillTextStyled(state.company, textX, height / 2 + 24, getItemColors('company', '#555555'));
 
-      ctx.fillStyle = accent;
       ctx.font = '12px sans-serif';
-      ctx.fillText(state.extra, textX, height / 2 + 44);
+      fillTextStyled(state.extra, textX, height / 2 + 44, getItemColors('extra', accent));
     }
   }
 
@@ -1072,13 +1240,15 @@
     const renderMetrics = getMixTextRenderMetrics(item);
     ctx.font = item.font.replace(/\d+px/, renderMetrics.fittedSize + 'px');
 
-    ctx.fillStyle = item.bgColor || '#ffffff';
-    ctx.fillRect(
-      renderMetrics.rectX,
-      renderMetrics.rectY,
-      renderMetrics.rectWidth,
-      renderMetrics.rectHeight,
-    );
+    if (item.bgColor && item.bgColor !== TRANSPARENT_COLOR) {
+      ctx.fillStyle = item.bgColor;
+      ctx.fillRect(
+        renderMetrics.rectX,
+        renderMetrics.rectY,
+        renderMetrics.rectWidth,
+        renderMetrics.rectHeight,
+      );
+    }
 
     ctx.fillStyle = item.color;
     ctx.fillText(item.text, item.x, item.y);
@@ -1111,6 +1281,7 @@
       renderTemplate();
     }
     syncBadgeOverlay();
+    saveState();
   }
 
   let activeDrag = null;
@@ -1507,6 +1678,103 @@
     if (error) dot.classList.add('error');
   }
 
+  function syncPreviewInfo() {
+    const spec = getSpec();
+    document.querySelector('.preview-info').innerHTML =
+      `${spec.width} &times; ${spec.height} px &mdash; ${BADGE_SPECS[state.sizeKey].label} e-paper`;
+  }
+
+  function setActiveTab(target) {
+    state.activeTab = target;
+    document.querySelectorAll('.tab').forEach((tab) => {
+      tab.classList.toggle('active', tab.dataset.tab === target);
+    });
+    document.querySelectorAll('.tab-content').forEach((content) => {
+      content.classList.toggle('active', content.id === 'tab-' + target);
+    });
+  }
+
+  function syncUiFromState() {
+    document.getElementById('badgeName').value = state.name;
+    document.getElementById('badgeTitle').value = state.title;
+    document.getElementById('badgeCompany').value = state.company;
+    document.getElementById('badgeExtra').value = state.extra;
+    document.getElementById('qrContent').value = state.qrContent;
+    document.getElementById('badgeSize').value = state.sizeKey;
+    document.getElementById('badgeOrientation').value = state.orientation;
+    setActiveTab(state.activeTab);
+
+    document.querySelectorAll('.template-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.template === state.template);
+    });
+    document.querySelectorAll('.dither-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.dither === state.dither);
+    });
+    document.querySelectorAll('.palette-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.palette === state.palette);
+    });
+
+    refreshAllSwatches();
+    syncPreviewInfo();
+  }
+
+  function setImagePreview(target, dataUrl, img) {
+    if (target === 'templateBackground') {
+      const preview = document.getElementById('templateBgPreview');
+      preview.innerHTML = `<img src="${dataUrl}" alt="Template background">
+        <p style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">
+          ${img.width} &times; ${img.height} px
+        </p>`;
+      document.getElementById('clearTemplateBgBtn').style.display = 'block';
+      return;
+    }
+
+    const preview = document.getElementById('uploadedPreview');
+    preview.innerHTML = `<img src="${dataUrl}" alt="Uploaded">
+      <p style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">
+        ${img.width} &times; ${img.height} px
+      </p>`;
+  }
+
+  function loadImageFromDataUrl(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  }
+
+  async function restorePersistedImages() {
+    if (state.templateBackgroundDataUrl) {
+      try {
+        const img = await loadImageFromDataUrl(state.templateBackgroundDataUrl);
+        state.templateBackgroundImage = img;
+        setImagePreview('templateBackground', state.templateBackgroundDataUrl, img);
+      } catch (err) {
+        console.warn('Unable to restore template background:', err);
+        state.templateBackgroundDataUrl = null;
+      }
+    }
+
+    if (state.uploadedImageDataUrl) {
+      try {
+        const img = await loadImageFromDataUrl(state.uploadedImageDataUrl);
+        state.uploadedImage = img;
+        setImagePreview('uploaded', state.uploadedImageDataUrl, img);
+      } catch (err) {
+        console.warn('Unable to restore uploaded image:', err);
+        state.uploadedImageDataUrl = null;
+      }
+    }
+
+    if (state.activeTab === 'image' && state.uploadedImage) {
+      state.mode = 'image';
+    } else {
+      state.mode = 'template';
+    }
+  }
+
   // ─── Event Handlers ───
   function initEventHandlers() {
     const syncQrFieldVisibility = () => {
@@ -1523,11 +1791,8 @@
     // Tabs
     document.querySelectorAll('.tab').forEach((tab) => {
       tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach((c) => c.classList.remove('active'));
-        tab.classList.add('active');
         const target = tab.dataset.tab;
-        document.getElementById('tab-' + target).classList.add('active');
+        setActiveTab(target);
         if (target === 'image' && state.uploadedImage) {
           state.mode = 'image';
         } else {
@@ -1581,6 +1846,7 @@
         const accentItems = ['company', 'extra'];
         accentItems.forEach((key) => {
           state.itemColors[key].text = accentColor;
+          state.itemColorTouched[key].text = true;
           const swatch = document.getElementById(key + 'TextColor');
           if (swatch) swatch.style.background = accentColor;
         });
@@ -1644,6 +1910,7 @@
     bindImageUpload(templateBgUploadZone, templateBgFileInput, (file) => handleImageFile(file, 'templateBackground'));
 
     clearTemplateBgBtn.addEventListener('click', () => {
+      state.templateBackgroundDataUrl = null;
       state.templateBackgroundImage = null;
       templateBgFileInput.value = '';
       document.getElementById('templateBgPreview').innerHTML = '';
@@ -1676,18 +1943,14 @@
     // Badge size
     document.getElementById('badgeSize').addEventListener('change', (e) => {
       state.sizeKey = e.target.value;
-      const spec = getSpec();
-      document.querySelector('.preview-info').innerHTML =
-        `${spec.width} &times; ${spec.height} px &mdash; ${BADGE_SPECS[state.sizeKey].label} e-paper`;
+      syncPreviewInfo();
       render();
     });
 
     // Orientation
     document.getElementById('badgeOrientation').addEventListener('change', (e) => {
       state.orientation = e.target.value;
-      const spec = getSpec();
-      document.querySelector('.preview-info').innerHTML =
-        `${spec.width} &times; ${spec.height} px &mdash; ${BADGE_SPECS[state.sizeKey].label} e-paper`;
+      syncPreviewInfo();
       render();
     });
 
@@ -1716,38 +1979,36 @@
     if (!file.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = (e) => {
+      const dataUrl = e.target.result;
       const img = new Image();
       img.onload = () => {
         if (target === 'templateBackground') {
+          state.templateBackgroundDataUrl = dataUrl;
           state.templateBackgroundImage = img;
-          const preview = document.getElementById('templateBgPreview');
-          preview.innerHTML = `<img src="${e.target.result}" alt="Template background">
-            <p style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">
-              ${img.width} &times; ${img.height} px
-            </p>`;
-          document.getElementById('clearTemplateBgBtn').style.display = 'block';
+          setImagePreview('templateBackground', dataUrl, img);
           if (state.mode === 'template') render();
           return;
         }
 
+        state.uploadedImageDataUrl = dataUrl;
         state.uploadedImage = img;
+        state.activeTab = 'image';
         state.mode = 'image';
-
-        // Show preview
-        const preview = document.getElementById('uploadedPreview');
-        preview.innerHTML = `<img src="${e.target.result}" alt="Uploaded">
-          <p style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">
-            ${img.width} &times; ${img.height} px
-          </p>`;
+        setActiveTab('image');
+        setImagePreview('uploaded', dataUrl, img);
 
         render();
       };
-      img.src = e.target.result;
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
   }
 
   // ─── Init ───
+  loadState();
   initEventHandlers();
-  render();
+  syncUiFromState();
+  restorePersistedImages().finally(() => {
+    render();
+  });
 })();
