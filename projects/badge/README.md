@@ -5,9 +5,11 @@ Web app for designing and sending images to e-paper badges over BLE (Bluetooth L
 ## Features
 
 - **Template editor** with six layouts: Conference, Minimal, Developer, Social, QR Code, Mix
+- **Per-field styling** with palette-aware text and background swatches, including transparent text backgrounds
 - **Mix layout editor** with draggable text blocks and optional QR code
 - **Image upload** with crop-to-fit and dithering (Floyd-Steinberg, Atkinson, Stucki)
 - **Color palettes**: Black/White/Yellow/Red (BWYR), Black/White/Red (BWR), Black/White (BW)
+- **Saved editor state** in `localStorage`, including template settings, colors, layout positions, and uploaded images
 - **BLE writing** via Web Bluetooth API to compatible e-paper badges
 - **Download** badge designs as PNG
 
@@ -21,8 +23,15 @@ Web app for designing and sending images to e-paper badges over BLE (Bluetooth L
 1. Open `index.html` in Chrome or Edge (Web Bluetooth required)
 2. Activate the badge by reading its NFC tag
 3. Design your badge using the template editor or upload an image
-4. Click **Connect Badge** and select your badge from the BLE device list
-5. Click **Write to Badge** to send the image
+4. Your editor state is saved locally in the browser and restored on reload
+5. Click **Connect Badge** and select your badge from the BLE device list
+6. Click **Write to Badge** to send the image
+
+## Sample Image
+
+Sample portrait image included for testing image upload or template backgrounds:
+
+![Sample portrait](assets/epatel.jpg)
 
 ## BLE Communication
 
@@ -128,7 +137,8 @@ Data is sent plane by plane. For multi-plane formats (BWR has 2 planes), the `pl
 ## Files
 
 - `index.html` — UI with badge preview, template editor, image upload, and BLE controls
-- `badge.js` — rendering, dithering, image conversion, and BLE communication
+- `badge.js` — rendering, dithering, image conversion, BLE communication, and local persistence
+- `assets/epatel.jpg` — sample portrait image for upload/background testing
 - `insp/` — reference Flutter implementation ([friends_badge](https://github.com/flutter-and-friends/friends_badge))
 
 ## Credits
