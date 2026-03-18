@@ -1,0 +1,133 @@
+import 'package:flutter/foundation.dart';
+import '../models/todo.dart';
+import '../services/api_service.dart';
+
+class TodoProvider extends ChangeNotifier {
+  final ApiService _api;
+  List<Todo> _todos = [];
+  bool _isLoading = false;
+  String? _error;
+
+  TodoProvider(this._api);
+
+  List<Todo> get todos => _todos;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+
+  Future<void> loadTodos() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _todos = await _api.getTodos();
+      _isLoading = false;
+      notifyListeners();
+    } on ApiException catch (e) {
+      _error = e.message;
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to load todos';
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> addTodo(String title, {String description = ''}) async {
+    try {
+      final todo = await _api.createTodo(title, description: description);
+      _todos.add(todo);
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _error = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Failed to create todo';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> toggleDone(Todo todo) async {
+    final newDone = !todo.done;
+    try {
+      final updated = await _api.updateTodo(todo.id, done: newDone);
+      final index = _todos.indexWhere((t) => t.id == todo.id);
+      if (index != -1) {
+        _todos[index] = updated;
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      _error = 'Failed to update todo';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updateTodo(String id, {String? title, String? description}) async {
+    try {
+      final updated = await _api.updateTodo(id, title: title, description: description);
+      final index = _todos.indexWhere((t) => t.id == id);
+      if (index != -1) {
+        _todos[index] = updated;
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      _error = 'Failed to update todo';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> deleteTodo(String id) async {
+    try {
+      await _api.deleteTodo(id);
+      _todos.removeWhere((t) => t.id == id);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to delete todo';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> reorder(int oldIndex, int newIndex) async {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final item = _todos.removeAt(oldIndex);
+    _todos.insert(newIndex, item);
+    notifyListeners();
+
+    // Calculate new sort orders
+    final items = <Map<String, dynamic>>[];
+    for (int i = 0; i < _todos.length; i++) {
+      _todos[i].sortOrder = (i + 1).toDouble();
+      items.add({'id': _todos[i].id, 'sort_order': _todos[i].sortOrder});
+    }
+
+    try {
+      await _api.reorderTodos(items);
+    } catch (e) {
+      // Reload on failure
+      await loadTodos();
+    }
+  }
+
+  void clear() {
+    _todos = [];
+    _error = null;
+    notifyListeners();
+  }
+
+  void clearError() {
+    _error = null;
+    notifyListeners();
+  }
+}
