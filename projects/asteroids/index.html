@@ -335,14 +335,28 @@
                             const predX = prev.sx + prev.svx * SERVER_FPS * dt + prev.ex * decay;
                             const predY = prev.sy + prev.svy * SERVER_FPS * dt + prev.ey * decay;
                             const predAngle = prev.sAngle + prev.eAngle * decay;
-                            drEntities[key] = {
-                                sx: p.x, sy: p.y, svx: p.vx, svy: p.vy,
-                                ex: wrapDelta(predX, p.x, W),
-                                ey: wrapDelta(predY, p.y, H),
-                                sAngle: p.angle,
-                                eAngle: wrapDelta(predAngle, p.angle, 360),
-                                time: now
-                            };
+                            // Detect large position jump (e.g. respawn) and skip smoothing
+                            const jumpDx = wrapDelta(predX, p.x, W);
+                            const jumpDy = wrapDelta(predY, p.y, H);
+                            const jumpDist = Math.sqrt(jumpDx * jumpDx + jumpDy * jumpDy);
+                            if (jumpDist > 100) {
+                                // Teleport - no smoothing
+                                drEntities[key] = {
+                                    sx: p.x, sy: p.y, svx: p.vx, svy: p.vy,
+                                    ex: 0, ey: 0,
+                                    sAngle: p.angle, eAngle: 0,
+                                    time: now
+                                };
+                            } else {
+                                drEntities[key] = {
+                                    sx: p.x, sy: p.y, svx: p.vx, svy: p.vy,
+                                    ex: jumpDx,
+                                    ey: jumpDy,
+                                    sAngle: p.angle,
+                                    eAngle: wrapDelta(predAngle, p.angle, 360),
+                                    time: now
+                                };
+                            }
                         } else {
                             drEntities[key] = {
                                 sx: p.x, sy: p.y, svx: p.vx, svy: p.vy,

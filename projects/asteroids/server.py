@@ -53,7 +53,14 @@ def save_highscores():
 
 def add_highscore(name, score):
     global highscores
-    highscores.append({'name': name, 'score': score, 'date': datetime.now().isoformat()})
+    # Keep only the top score per player name
+    existing = next((hs for hs in highscores if hs['name'] == name), None)
+    if existing:
+        if score > existing['score']:
+            existing['score'] = score
+            existing['date'] = datetime.now().isoformat()
+    else:
+        highscores.append({'name': name, 'score': score, 'date': datetime.now().isoformat()})
     highscores.sort(key=lambda x: x['score'], reverse=True)
     highscores = highscores[:10]
     save_highscores()
