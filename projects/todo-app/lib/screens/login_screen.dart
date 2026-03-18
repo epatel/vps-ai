@@ -12,6 +12,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isSignup = false;
   String? _successMessage;
@@ -20,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -170,8 +172,33 @@ class _LoginScreenState extends State<LoginScreen> {
                           }
                           return null;
                         },
-                        onFieldSubmitted: (_) => _submit(),
+                        onFieldSubmitted: (_) {
+                          if (!_isSignup) _submit();
+                        },
                       ),
+                      if (_isSignup) ...[
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _confirmPasswordController,
+                          decoration: const InputDecoration(
+                            labelText: 'Confirm Password',
+                            prefixIcon: Icon(Icons.lock_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                          obscureText: true,
+                          validator: (value) {
+                            if (!_isSignup) return null;
+                            if (value == null || value.isEmpty) {
+                              return 'Please confirm your password';
+                            }
+                            if (value != _passwordController.text) {
+                              return 'Passwords do not match';
+                            }
+                            return null;
+                          },
+                          onFieldSubmitted: (_) => _submit(),
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
@@ -193,6 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           setState(() {
                             _isSignup = !_isSignup;
                             _successMessage = null;
+                            _confirmPasswordController.clear();
                             auth.clearError();
                           });
                         },
