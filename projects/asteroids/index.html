@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroids - Multiplayer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #header {
+            width: 100%;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.8);
+            border-bottom: 2px solid #0ff;
+        }
+        #header h1 {
+            color: #0ff;
+            text-shadow: 0 0 10px #0ff;
+            font-size: 24px;
+        }
+        #stats {
+            display: flex;
+            gap: 30px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-label {
+            color: #888;
+            font-size: 12px;
+        }
+        .stat-value {
+            color: #0f0;
+            font-size: 20px;
+            text-shadow: 0 0 5px #0f0;
+        }
+        #game-container {
+            position: relative;
+            margin: 20px;
+        }
+        #gameCanvas {
+            border: 2px solid #0ff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        #login-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 20, 40, 0.95);
+            padding: 40px;
+            border: 2px solid #0ff;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 100;
+        }
+        #login-screen h2 {
+            color: #0ff;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #0ff;
+        }
+        #login-screen input {
+            background: #001;
+            border: 1px solid #0ff;
+            color: #0ff;
+            padding: 10px 20px;
+            font-size: 18px;
+            font-family: inherit;
+            margin-bottom: 20px;
+            width: 200px;
+            text-align: center;
+        }
+        #login-screen input:focus {
+            outline: none;
+            box-shadow: 0 0 10px #0ff;
+        }
+        #login-screen button {
+            background: #0ff;
+            color: #000;
+            border: none;
+            padding: 10px 30px;
+            font-size: 18px;
+            font-family: inherit;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+        }
+        #login-screen button:hover {
+            background: #fff;
+        }
+        #controls-info {
+            color: #888;
+            font-size: 12px;
+            margin-top: 20px;
+            line-height: 1.8;
+        }
+        #death-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(40, 0, 0, 0.95);
+            padding: 40px;
+            border: 2px solid #f00;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 100;
+            display: none;
+        }
+        #death-screen h2 {
+            color: #f00;
+            margin-bottom: 10px;
+        }
+        #killed-by {
+            color: #f88;
+            font-size: 16px;
+            margin: 5px 0;
+        }
+        #death-screen .final-score {
+            color: #ff0;
+            font-size: 32px;
+            margin: 20px 0;
+        }
+        #death-screen button {
+            background: #f00;
+            color: #fff;
+            border: none;
+            padding: 10px 30px;
+            font-size: 18px;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        #highscores {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 20, 40, 0.8);
+            padding: 15px;
+            border: 1px solid #0ff;
+            border-radius: 5px;
+            min-width: 150px;
+        }
+        #highscores h3 {
+            color: #0ff;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        #highscores ol {
+            list-style-position: inside;
+            font-size: 12px;
+        }
+        #highscores li {
+            color: #aaa;
+            margin: 5px 0;
+        }
+        #highscores li span {
+            float: right;
+            color: #ff0;
+        }
+        #players-list {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 20, 40, 0.8);
+            padding: 15px;
+            border: 1px solid #0ff;
+            border-radius: 5px;
+            min-width: 120px;
+        }
+        #players-list h3 {
+            color: #0ff;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .player-entry {
+            font-size: 12px;
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .player-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>ASTEROIDS</h1>
+        <div id="stats">
+            <div class="stat">
+                <div class="stat-label">SCORE</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">LIVES</div>
+                <div class="stat-value" id="lives">3</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="1200" height="800"></canvas>
+
+        <div id="login-screen">
+            <h2>ENTER THE ASTEROID FIELD</h2>
+            <input type="text" id="playerName" placeholder="Your Name" maxlength="12" autofocus>
+            <button onclick="joinGame()">LAUNCH</button>
+            <div id="controls-info">
+                CONTROLS:<br>
+                W / UP - Thrust<br>
+                A / LEFT - Rotate Left<br>
+                D / RIGHT - Rotate Right<br>
+                SPACE - Fire
+            </div>
+        </div>
+
+        <div id="death-screen">
+            <h2>GAME OVER</h2>
+            <div id="killed-by"></div>
+            <div>Your Score:</div>
+            <div class="final-score" id="final-score">0</div>
+            <button onclick="respawn()">PLAY AGAIN</button>
+        </div>
+
+        <div id="players-list">
+            <h3>PILOTS</h3>
+            <div id="players"></div>
+        </div>
+
+        <div id="highscores">
+            <h3>HIGH SCORES</h3>
+            <ol id="scores-list"></ol>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let ws = null;
+        let playerId = null;
+        let gameState = { players: {}, asteroids: [], bullets: [], highscores: [] };
+        let keys = {};
+        let lastFireTime = 0;
+        const FIRE_COOLDOWN = 200;
+
+        // Dead reckoning constants and state
+        const SMOOTH_TIME = 0.1;  // 100ms error convergence
+        const SERVER_FPS = 30;
+        const W = canvas.width;
+        const H = canvas.height;
+        let drEntities = {};  // keyed by "p_id", "a_id", "b_id"
+
+        function wrapDelta(a, b, max) {
+            let d = a - b;
+            if (d > max / 2) d -= max;
+            if (d < -max / 2) d += max;
+            return d;
+        }
+
+        function wrapPos(v, max) {
+            return ((v % max) + max) % max;
+        }
+
+        function getDRPos(key) {
+            const dr = drEntities[key];
+            if (!dr) return null;
+            const now = performance.now();
+            const dt = (now - dr.time) / 1000;
+            const decay = Math.exp(-dt / SMOOTH_TIME);
+            let x = wrapPos(dr.sx + dr.svx * SERVER_FPS * dt + dr.ex * decay, W);
+            let y = wrapPos(dr.sy + dr.svy * SERVER_FPS * dt + dr.ey * decay, H);
+            const result = { x, y };
+            if ('sRot' in dr) {
+                result.rotation = dr.sRot + dr.sRotSpd * SERVER_FPS * dt + dr.eRot * decay;
+            }
+            if ('sAngle' in dr) {
+                result.angle = dr.sAngle + dr.eAngle * decay;
+            }
+            return result;
+        }
+
+        // Determine WebSocket URL based on current location
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = window.location.host;
+        const WS_URL = `${wsProtocol}//${wsHost}/asteroids/ws`;
+
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                console.log('Connected to server');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'joined') {
+                    playerId = data.playerId;
+                    document.getElementById('login-screen').style.display = 'none';
+                }
+                else if (data.type === 'state') {
+                    const now = performance.now();
+                    const activeKeys = new Set();
+
+                    // Update DR for players
+                    for (const [id, p] of Object.entries(data.players)) {
+                        const key = 'p_' + id;
+                        activeKeys.add(key);
+                        const prev = drEntities[key];
+                        if (prev) {
+                            const dt = (now - prev.time) / 1000;
+                            const decay = Math.exp(-dt / SMOOTH_TIME);
+                            const predX = prev.sx + prev.svx * SERVER_FPS * dt + prev.ex * decay;
+                            const predY = prev.sy + prev.svy * SERVER_FPS * dt + prev.ey * decay;
+                            const predAngle = prev.sAngle + prev.eAngle * decay;
+                            drEntities[key] = {
+                                sx: p.x, sy: p.y, svx: p.vx, svy: p.vy,
+                                ex: wrapDelta(predX, p.x, W),
+                                ey: wrapDelta(predY, p.y, H),
+                                sAngle: p.angle,
+                                eAngle: wrapDelta(predAngle, p.angle, 360),
+                                time: now
+                            };
+                        } else {
+                            drEntities[key] = {
+                                sx: p.x, sy: p.y, svx: p.vx, svy: p.vy,
+                                ex: 0, ey: 0,
+                                sAngle: p.angle, eAngle: 0,
+                                time: now
+                            };
+                        }
+                    }
+
+                    // Update DR for asteroids
+                    for (const a of data.asteroids) {
+                        const key = 'a_' + a.id;
+                        activeKeys.add(key);
+                        const prev = drEntities[key];
+                        if (prev) {
+                            const dt = (now - prev.time) / 1000;
+                            const decay = Math.exp(-dt / SMOOTH_TIME);
+                            const predX = prev.sx + prev.svx * SERVER_FPS * dt + prev.ex * decay;
+                            const predY = prev.sy + prev.svy * SERVER_FPS * dt + prev.ey * decay;
+                            const predRot = prev.sRot + prev.sRotSpd * SERVER_FPS * dt + prev.eRot * decay;
+                            drEntities[key] = {
+                                sx: a.x, sy: a.y, svx: a.vx, svy: a.vy,
+                                ex: wrapDelta(predX, a.x, W),
+                                ey: wrapDelta(predY, a.y, H),
+                                sRot: a.rotation, sRotSpd: a.rotationSpeed,
+                                eRot: predRot - a.rotation,
+                                time: now
+                            };
+                        } else {
+                            drEntities[key] = {
+                                sx: a.x, sy: a.y, svx: a.vx, svy: a.vy,
+                                ex: 0, ey: 0,
+                                sRot: a.rotation, sRotSpd: a.rotationSpeed,
+                                eRot: 0,
+                                time: now
+                            };
+                        }
+                    }
+
+                    // Update DR for bullets
+                    for (const b of data.bullets) {
+                        const key = 'b_' + b.id;
+                        activeKeys.add(key);
+                        const prev = drEntities[key];
+                        if (prev) {
+                            const dt = (now - prev.time) / 1000;
+                            const decay = Math.exp(-dt / SMOOTH_TIME);
+                            const predX = prev.sx + prev.svx * SERVER_FPS * dt + prev.ex * decay;
+                            const predY = prev.sy + prev.svy * SERVER_FPS * dt + prev.ey * decay;
+                            drEntities[key] = {
+                                sx: b.x, sy: b.y, svx: b.vx, svy: b.vy,
+                                ex: wrapDelta(predX, b.x, W),
+                                ey: wrapDelta(predY, b.y, H),
+                                time: now
+                            };
+                        } else {
+                            drEntities[key] = {
+                                sx: b.x, sy: b.y, svx: b.vx, svy: b.vy,
+                                ex: 0, ey: 0,
+                                time: now
+                            };
+                        }
+                    }
+
+                    // Remove stale DR entries
+                    for (const key of Object.keys(drEntities)) {
+                        if (!activeKeys.has(key)) delete drEntities[key];
+                    }
+
+                    gameState = data;
+                    updateUI();
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('Disconnected from server');
+                setTimeout(connectWebSocket, 2000);
+            };
+
+            ws.onerror = (err) => {
+                console.error('WebSocket error:', err);
+            };
+        }
+
+        function joinGame() {
+            const name = document.getElementById('playerName').value.trim() || 'Pilot';
+            ws.send(JSON.stringify({ type: 'join', name: name }));
+        }
+
+        let respawning = false;
+
+        function respawn() {
+            ws.send(JSON.stringify({ type: 'respawn' }));
+            document.getElementById('death-screen').style.display = 'none';
+            respawning = true;
+        }
+
+        function updateUI() {
+            const player = gameState.players[playerId];
+            if (player) {
+                document.getElementById('score').textContent = player.score;
+                document.getElementById('lives').textContent = player.lives;
+
+                if (player.dead && !respawning) {
+                    document.getElementById('final-score').textContent = player.score;
+                    const killedBy = document.getElementById('killed-by');
+                    killedBy.textContent = player.killedBy ? `Destroyed by ${player.killedBy}` : '';
+                    document.getElementById('death-screen').style.display = 'block';
+                }
+                if (!player.dead) {
+                    respawning = false;
+                    document.getElementById('death-screen').style.display = 'none';
+                }
+            }
+
+            // Update players list
+            const playersDiv = document.getElementById('players');
+            playersDiv.innerHTML = '';
+            for (const [id, p] of Object.entries(gameState.players)) {
+                const div = document.createElement('div');
+                div.className = 'player-entry';
+                div.innerHTML = `
+                    <span><span class="player-dot" style="background:${p.color}"></span>${p.name}</span>
+                    <span>${p.score}</span>
+                `;
+                if (id == playerId) {
+                    div.style.color = '#0ff';
+                }
+                playersDiv.appendChild(div);
+            }
+
+            // Update highscores
+            const scoresList = document.getElementById('scores-list');
+            scoresList.innerHTML = '';
+            for (const hs of gameState.highscores.slice(0, 5)) {
+                const li = document.createElement('li');
+                li.innerHTML = `${hs.name} <span>${hs.score}</span>`;
+                scoresList.appendChild(li);
+            }
+        }
+
+        function sendInput() {
+            if (!playerId || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+            const player = gameState.players[playerId];
+            if (!player || player.dead) return;
+
+            const now = Date.now();
+            const canFire = keys[' '] && (now - lastFireTime > FIRE_COOLDOWN);
+            if (canFire) lastFireTime = now;
+
+            ws.send(JSON.stringify({
+                type: 'input',
+                thrust: keys['w'] || keys['ArrowUp'],
+                left: keys['a'] || keys['ArrowLeft'],
+                right: keys['d'] || keys['ArrowRight'],
+                fire: canFire
+            }));
+        }
+
+        function drawShip(x, y, angle, color, isPlayer) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle * Math.PI / 180);
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isPlayer ? 3 : 2;
+            ctx.beginPath();
+            ctx.moveTo(20, 0);
+            ctx.lineTo(-15, -12);
+            ctx.lineTo(-10, 0);
+            ctx.lineTo(-15, 12);
+            ctx.closePath();
+            ctx.stroke();
+
+            if (isPlayer) {
+                ctx.fillStyle = color.replace(')', ', 0.3)').replace('hsl', 'hsla');
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        function drawAsteroid(asteroid) {
+            ctx.save();
+            ctx.translate(asteroid.x, asteroid.y);
+            ctx.rotate(asteroid.rotation * Math.PI / 180);
+
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            const vertices = asteroid.vertices || 8;
+            for (let i = 0; i <= vertices; i++) {
+                const angle = (i / vertices) * Math.PI * 2;
+                const wobble = 0.8 + Math.sin(i * 3.7) * 0.3;
+                const r = asteroid.radius * wobble;
+                const px = Math.cos(angle) * r;
+                const py = Math.sin(angle) * r;
+
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawBullet(bullet) {
+            ctx.fillStyle = bullet.color || '#fff';
+            ctx.beginPath();
+            ctx.arc(bullet.x, bullet.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Glow effect
+            ctx.shadowColor = bullet.color || '#fff';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(bullet.x, bullet.y, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        function draw() {
+            // Clear with starfield effect
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw stars (static background)
+            ctx.fillStyle = '#333';
+            for (let i = 0; i < 100; i++) {
+                const x = (i * 137.5) % canvas.width;
+                const y = (i * 97.3) % canvas.height;
+                ctx.fillRect(x, y, 1, 1);
+            }
+
+            // Draw asteroids
+            for (const asteroid of gameState.asteroids) {
+                const dr = getDRPos('a_' + asteroid.id);
+                if (dr) {
+                    drawAsteroid({ ...asteroid, x: dr.x, y: dr.y, rotation: dr.rotation });
+                } else {
+                    drawAsteroid(asteroid);
+                }
+            }
+
+            // Draw bullets
+            for (const bullet of gameState.bullets) {
+                const dr = getDRPos('b_' + bullet.id);
+                if (dr) {
+                    drawBullet({ ...bullet, x: dr.x, y: dr.y });
+                } else {
+                    drawBullet(bullet);
+                }
+            }
+
+            // Draw players
+            for (const [id, player] of Object.entries(gameState.players)) {
+                if (player.dead) continue;
+
+                const dr = getDRPos('p_' + id);
+                const dx = dr ? dr.x : player.x;
+                const dy = dr ? dr.y : player.y;
+                const da = dr ? dr.angle : player.angle;
+
+                // Invincible players flash
+                const invincible = player.invincible > 0;
+                if (invincible && Math.floor(Date.now() / 100) % 2 === 0) {
+                    ctx.globalAlpha = 0.3;
+                }
+
+                drawShip(dx, dy, da, player.color, id == playerId);
+
+                // Draw player name
+                ctx.fillStyle = player.color;
+                ctx.font = '12px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText(player.name, dx, dy - 25);
+
+                if (invincible) {
+                    ctx.globalAlpha = 1.0;
+                }
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // Input handling
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === ' ') e.preventDefault();
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        document.getElementById('playerName').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') joinGame();
+        });
+
+        // Start
+        connectWebSocket();
+        draw();
+        setInterval(sendInput, 33); // ~30 FPS input
+    </script>
+</body>
+</html>
