@@ -1,0 +1,19 @@
+[Unit]
+Description=Todo API
+After=network.target
+
+[Service]
+Type=simple
+User=epatel
+WorkingDirectory=/home/epatel/vps-ai/projects/todo-api
+EnvironmentFile=/home/epatel/vps-ai/projects/todo-api/.env
+ExecStart=/home/epatel/vps-ai/projects/todo-api/venv/bin/gunicorn \
+    --bind 127.0.0.1:5003 \
+    --workers 2 \
+    --access-logfile - \
+    wsgi:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
