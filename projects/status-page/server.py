@@ -17,9 +17,13 @@ HOSTNAME = "ai.memention.net"
 # Services to monitor: (name, path, check_type, target)
 SERVICES = [
     ("Webhook", "/webhook", "port", 5000),
-    ("Scramble", "/scramble", "file", None),
-    ("Breakout", "/breakout", "file", None),
-    ("Badge", "/badge", "file", None),
+    ("Status Page", "/status", "port", 5001),
+    ("Todo API", "/todo-api", "port", 5003),
+    ("Todo App", "/todo-app", "file", "todo-app/build/web"),
+    ("Flutter Demo", "/flutter_demo", "file", "flutter_demo/build/web"),
+    ("Scramble", "/scramble", "file", "scramble"),
+    ("Breakout", "/breakout", "file", "breakout"),
+    ("Badge", "/badge", "file", "badge"),
 ]
 
 # History buffers: each entry is [time_label, min, max, avg]
@@ -128,7 +132,8 @@ def check_service(svc):
             status = "down"
     elif check_type == "file":
         # Static file project - check if index.html exists
-        project_dir = Path("/home/epatel/vps-ai/projects") / name.lower()
+        # target is the relative path under projects/ to the dir containing index.html
+        project_dir = Path("/home/epatel/vps-ai/projects") / target
         if (project_dir / "index.html").exists():
             status = "up"
         else:
