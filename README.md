@@ -113,9 +113,13 @@ Agent-created projects live under `projects/`. Services are managed via systemd 
 
 | Project | Description |
 |---------|-------------|
+| [asteroids](projects/asteroids/) | Multiplayer Asteroids arcade game with WebSocket networking |
 | [badge](projects/badge/) | E-paper badge designer/writer over BLE |
-| [breakout](projects/breakout/) | Breakout game (single-page HTML) |
+| [breakout](projects/breakout/) | Classic Breakout brick-breaker game (single-page HTML) |
 | [flutter_demo](projects/flutter_demo/) | Flutter web demo app (auto-built via GitHub Actions) |
-| [poem](projects/poem/) | A poem |
-| [scramble](projects/scramble/) | Word scramble game (single-page HTML) |
-| [status-page](projects/status-page/) | Server status page (Python + systemd service) |
+| [poem](projects/poem/) | A poem about working with AI |
+| [scramble](projects/scramble/) | Vectrex-style arcade flight shooter with terrain and enemies |
+| [status-page](projects/status-page/) | Server status dashboard (Python + systemd service) |
+| [todo-api](projects/todo-api/) | REST API for todos with JWT auth (Python/Flask) |
+| [todo-app](projects/todo-app/) | Flutter web frontend for the todo API |
+| [trumps48hours](projects/trumps48hours/) | Sci-fi countdown timer with particle effects |
