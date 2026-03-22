@@ -68,6 +68,8 @@
 
     <div class="section-title">Services</div>
     <div class="services" id="services"></div>
+    <div class="section-title">Static Sites</div>
+    <div class="services" id="static-sites"></div>
     <div class="uptime" id="uptime-row"></div>
 
     <div class="section-title">Metrics</div>
@@ -115,16 +117,20 @@
         function render(d) {
             $('updated').textContent = 'Updated ' + d.timestamp.slice(0, 19).replace('T', ' ');
 
-            $('services').innerHTML = d.services.map(function(s) {
-                var c = s.status === 'up' ? '#4caf50' : s.status === 'degraded' ? '#ff9800' : '#f44336';
-                var i = s.status === 'up' ? '✓' : s.status === 'degraded' ? '⚠' : '✗';
-                return '<div class="svc">' +
-                    '<div class="dot" style="background:' + c + '">' + i + '</div>' +
-                    '<div class="name">' + s.name + '</div>' +
-                    '<div class="path">' + s.path + '</div>' +
-                    '<div class="label" style="color:' + c + '">' + s.status.toUpperCase() + '</div>' +
-                    '</div>';
-            }).join('');
+            function renderSvcList(items) {
+                return items.map(function(s) {
+                    var c = s.status === 'up' ? '#4caf50' : s.status === 'degraded' ? '#ff9800' : '#f44336';
+                    var i = s.status === 'up' ? '✓' : s.status === 'degraded' ? '⚠' : '✗';
+                    return '<div class="svc">' +
+                        '<div class="dot" style="background:' + c + '">' + i + '</div>' +
+                        '<div class="name">' + s.name + '</div>' +
+                        '<div class="path">' + s.path + '</div>' +
+                        '<div class="label" style="color:' + c + '">' + s.status.toUpperCase() + '</div>' +
+                        '</div>';
+                }).join('');
+            }
+            $('services').innerHTML = renderSvcList(d.services);
+            $('static-sites').innerHTML = renderSvcList(d.static_sites || []);
 
             var sys = d.system, cpu = sys.cpu, mem = sys.memory, dk = sys.disk;
 
