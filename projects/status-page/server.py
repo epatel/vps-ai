@@ -16,9 +16,18 @@ HOSTNAME = "ai.memention.net"
 
 # Services to monitor: (name, path, check_type, target)
 SERVICES = [
+    # Server-based services (check by port)
     ("Webhook", "/webhook", "port", 5000),
     ("Status Page", "/status", "port", 5001),
     ("Todo API", "/todo-api", "port", 5003),
+    ("Asteroids", "/asteroids", "port", 8082),
+    # Static file projects (check index.html exists)
+    ("Scramble", "/scramble", "file", "scramble"),
+    ("Badge", "/badge", "file", "badge"),
+    ("Breakout", "/breakout", "file", "breakout"),
+    ("Flutter Demo", "/flutter_demo", "file", "flutter_demo/build/web"),
+    ("Todo App", "/todo-app", "file", "todo-app/build/web"),
+    ("Trump's 48h", "/trumps48hours", "file", "trumps48hours"),
 ]
 
 # History buffers: each entry is [time_label, min, max, avg]
@@ -154,7 +163,8 @@ def check_service(svc):
 def get_status_data():
     """Build the full status JSON."""
     now = datetime.now()
-    services = [check_service(s) for s in SERVICES]
+    services = [check_service(s) for s in SERVICES if s[2] == "port"]
+    static_sites = [check_service(s) for s in SERVICES if s[2] == "file"]
     cpu = get_cpu()
     mem = get_memory()
     disk = get_disk()
@@ -170,6 +180,7 @@ def get_status_data():
         "hostname": HOSTNAME,
         "timestamp": now.isoformat(),
         "services": services,
+        "static_sites": static_sites,
         "system": {
             "uptime": get_uptime(),
             "cpu": cpu,
