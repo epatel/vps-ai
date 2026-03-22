@@ -30,16 +30,19 @@ SERVICES = [
 HISTORY_SIZE_CPU = 60       # 10 min at 10s intervals
 HISTORY_SIZE_MEM = 60       # 1 hour at 1 min intervals
 HISTORY_SIZE_DISK = 288     # 1 day at 5 min intervals
+HISTORY_SIZE_CLAUDE = 60    # 1 hour at 1 min intervals
 
 history_cpu = deque(maxlen=HISTORY_SIZE_CPU)
 history_mem = deque(maxlen=HISTORY_SIZE_MEM)
 history_disk = deque(maxlen=HISTORY_SIZE_DISK)
+history_claude = deque(maxlen=HISTORY_SIZE_CLAUDE)
 history_lock = Lock()
 
 # Accumulators for aggregating samples
 cpu_samples = []
 mem_samples = []
 disk_samples = []
+claude_samples = []
 sample_lock = Lock()
 
 
@@ -116,6 +119,18 @@ def get_disk():
         return {"total_gb": 0, "used_gb": 0, "percent_used": 0}
 
 
+def get_claude_count():
+    """Count running Claude instances."""
+    try:
+        result = subprocess.run(
+            ["pgrep", "-c", "claude"],
+            capture_output=True, text=True, timeout=5
+        )
+        return int(result.stdout.strip()) if result.returncode == 0 else 0
+    except Exception:
+        return 0
+
+
 def check_service(svc):
     """Check if a service is running."""
     name, path, check_type, target = svc
@@ -148,11 +163,13 @@ def get_status_data():
     cpu = get_cpu()
     mem = get_memory()
     disk = get_disk()
+    claude_count = get_claude_count()
 
     with history_lock:
         h_cpu = list(history_cpu)
         h_mem = list(history_mem)
         h_disk = list(history_disk)
+        h_claude = list(history_claude)
 
     return {
         "hostname": HOSTNAME,
@@ -163,11 +180,13 @@ def get_status_data():
             "cpu": cpu,
             "memory": mem,
             "disk": disk,
+            "claude": {"count": claude_count},
         },
         "history": {
             "cpu": h_cpu,
             "memory": h_mem,
             "disk": h_disk,
+            "claude": h_claude,
         },
     }
 
@@ -177,6 +196,7 @@ def collector_loop():
     last_cpu_flush = time.time()
     last_mem_flush = time.time()
     last_disk_flush = time.time()
+    last_claude_flush = time.time()
 
     while True:
         now = time.time()
@@ -186,11 +206,13 @@ def collector_loop():
         cpu = get_cpu()
         mem = get_memory()
         disk = get_disk()
+        claude_count = get_claude_count()
 
         with sample_lock:
             cpu_samples.append(cpu["load_1m"])
             mem_samples.append(mem["percent_used"])
             disk_samples.append(disk["percent_used"])
+            claude_samples.append(claude_count)
 
         # Flush CPU every 10 seconds
         if now - last_cpu_flush >= 10:
@@ -224,6 +246,17 @@ def collector_loop():
                 with history_lock:
                     history_disk.append(entry)
             last_disk_flush = now
+
+        # Flush claude every 60 seconds
+        if now - last_claude_flush >= 60:
+            with sample_lock:
+                samples = list(claude_samples)
+                claude_samples.clear()
+            if samples:
+                entry = [ts_short, min(samples), max(samples), round(sum(samples) / len(samples), 1)]
+                with history_lock:
+                    history_claude.append(entry)
+            last_claude_flush = now
 
         time.sleep(5)
 

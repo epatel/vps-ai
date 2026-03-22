@@ -95,6 +95,13 @@
             <canvas class="graph" id="g-disk"></canvas>
             <div class="period">1 day</div>
         </div>
+        <div class="card">
+            <div class="lbl">Claude Instances</div>
+            <div class="val" id="claude-val">—</div>
+            <div class="det" id="claude-det">running processes</div>
+            <canvas class="graph" id="g-claude"></canvas>
+            <div class="period">1 hour</div>
+        </div>
     </div>
 
     <div class="footer">
@@ -138,9 +145,15 @@
             $('disk-bar').style.width = dk.percent_used + '%';
             $('disk-bar').style.background = clr(dk.percent_used, 70, 90);
 
+            var claude = sys.claude;
+            $('claude-val').textContent = claude.count;
+            $('claude-val').style.color = claude.count > 0 ? '#4caf50' : '#777';
+            $('claude-det').textContent = claude.count === 1 ? '1 running process' : claude.count + ' running processes';
+
             drawGraph('g-cpu', d.history.cpu, '#2196f3', {});
             drawGraph('g-mem', d.history.memory, '#ff9800', {yMin: 0, yMax: 100});
             drawGraph('g-disk', d.history.disk, '#9c27b0', {yMin: 0, yMax: 100});
+            drawGraph('g-claude', d.history.claude, '#00bcd4', {yMin: 0, intY: true});
         }
 
         function drawGraph(id, data, color, opts) {
@@ -212,8 +225,9 @@
             ctx.fillStyle = '#555';
             ctx.font = '9px monospace';
             ctx.textAlign = 'right';
-            ctx.fillText(yMx.toFixed(1), W - 2, pad.t + 9);
-            ctx.fillText(yMn.toFixed(1), W - 2, pad.t + pH);
+            var fmt = opts.intY ? function(v) { return Math.round(v).toString(); } : function(v) { return v.toFixed(1); };
+            ctx.fillText(fmt(yMx), W - 2, pad.t + 9);
+            ctx.fillText(fmt(yMn), W - 2, pad.t + pH);
 
             ctx.fillStyle = '#444';
             ctx.font = '9px monospace';
