@@ -19,11 +19,6 @@ SERVICES = [
     ("Webhook", "/webhook", "port", 5000),
     ("Status Page", "/status", "port", 5001),
     ("Todo API", "/todo-api", "port", 5003),
-    ("Todo App", "/todo-app", "file", "todo-app/build/web"),
-    ("Flutter Demo", "/flutter_demo", "file", "flutter_demo/build/web"),
-    ("Scramble", "/scramble", "file", "scramble"),
-    ("Breakout", "/breakout", "file", "breakout"),
-    ("Badge", "/badge", "file", "badge"),
 ]
 
 # History buffers: each entry is [time_label, min, max, avg]
