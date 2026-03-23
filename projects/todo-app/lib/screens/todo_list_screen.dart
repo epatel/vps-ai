@@ -167,6 +167,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
     return ReorderableListView.builder(
       padding: const EdgeInsets.only(top: 8, bottom: 88),
       itemCount: todoProvider.todos.length,
+      buildDefaultDragHandles: false,
       onReorder: (oldIndex, newIndex) {
         todoProvider.reorder(oldIndex, newIndex);
       },
@@ -175,9 +176,13 @@ class _TodoListScreenState extends State<TodoListScreen> {
         return TodoTile(
           key: ValueKey(todo.id),
           todo: todo,
+          index: index,
           onToggle: () => todoProvider.toggleDone(todo),
           onEdit: () => _editTodo(todo),
           onDelete: () => _deleteTodo(todo),
+          onUpdateDescription: (newDesc) {
+            todoProvider.updateTodo(todo.id, description: newDesc);
+          },
         );
       },
     );
