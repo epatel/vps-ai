@@ -24,6 +24,10 @@ BRANCH_NAME="issue-${ISSUE_NUM}"
 
 echo "=== Agent starting for issue #${ISSUE_NUM} at $(date) ==="
 
+# Auto-commit any local changes before pulling
+git -C "$SCRIPT_DIR" add -u
+git -C "$SCRIPT_DIR" commit -m "Auto-commit local changes before merge" --quiet || true
+
 # Pull latest main before creating worktree so agent works on fresh code
 echo "Pulling latest main..."
 git -C "$SCRIPT_DIR" fetch "$AUTH_REMOTE" main 2>&1

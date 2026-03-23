@@ -154,6 +154,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 subprocess.Popen(
                     ["bash", "-c", f"""
                         cd '{SCRIPT_DIR}'
+                        git add -u
+                        git commit -m "Auto-commit local changes before merge" --quiet || true
                         git fetch origin main --quiet 2>/dev/null
                         git diff --name-only origin/main 2>/dev/null | while read -r f; do
                             if [ -f "$f" ] && ! git ls-files --error-unmatch "$f" &>/dev/null; then
