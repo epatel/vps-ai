@@ -43,6 +43,9 @@ lib/
 
 ## Build
 
+> **⚠️ IMPORTANT:** This app is served at `/todo-app/` behind nginx. You **must**
+> use `--base-href /todo-app/` when building, otherwise all asset paths will break.
+
 ```bash
 flutter pub get
 flutter build web --base-href /todo-app/ --release
