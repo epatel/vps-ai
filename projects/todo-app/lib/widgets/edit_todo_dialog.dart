@@ -32,9 +32,34 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     Navigator.pop(context, {
+      'action': 'save',
       'title': _titleController.text.trim(),
       'description': _descriptionController.text.trim(),
     });
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Todo'),
+        content: Text('Delete "${widget.todo.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      Navigator.pop(context, {'action': 'delete'});
+    }
   }
 
   @override
@@ -74,6 +99,12 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
         ),
       ),
       actions: [
+        TextButton(
+          onPressed: _confirmDelete,
+          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          child: const Text('Delete'),
+        ),
+        const Spacer(),
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),

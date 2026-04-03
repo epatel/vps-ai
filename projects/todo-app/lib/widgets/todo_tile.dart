@@ -53,7 +53,6 @@ class TodoTile extends StatefulWidget {
   final int index;
   final VoidCallback onToggle;
   final VoidCallback onEdit;
-  final VoidCallback onDelete;
   final ValueChanged<String>? onUpdateDescription;
 
   const TodoTile({
@@ -62,7 +61,6 @@ class TodoTile extends StatefulWidget {
     required this.index,
     required this.onToggle,
     required this.onEdit,
-    required this.onDelete,
     this.onUpdateDescription,
   });
 
@@ -148,11 +146,6 @@ class _TodoTileState extends State<TodoTile> {
                   icon: const Icon(Icons.edit_outlined, size: 20),
                   tooltip: 'Edit',
                   onPressed: widget.onEdit,
-                ),
-                IconButton(
-                  icon: Icon(Icons.delete_outline, size: 20, color: Colors.red.shade400),
-                  tooltip: 'Delete',
-                  onPressed: widget.onDelete,
                 ),
                 ReorderableDragStartListener(
                   index: widget.index,

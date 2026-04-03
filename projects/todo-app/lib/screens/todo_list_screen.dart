@@ -42,35 +42,15 @@ class _TodoListScreenState extends State<TodoListScreen> {
       builder: (context) => EditTodoDialog(todo: todo),
     );
     if (result != null && mounted) {
-      await context.read<TodoProvider>().updateTodo(
-            todo.id,
-            title: result['title'],
-            description: result['description'],
-          );
-    }
-  }
-
-  Future<void> _deleteTodo(Todo todo) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Todo'),
-        content: Text('Delete "${todo.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) {
-      await context.read<TodoProvider>().deleteTodo(todo.id);
+      if (result['action'] == 'delete') {
+        await context.read<TodoProvider>().deleteTodo(todo.id);
+      } else if (result['action'] == 'save') {
+        await context.read<TodoProvider>().updateTodo(
+              todo.id,
+              title: result['title'],
+              description: result['description'],
+            );
+      }
     }
   }
 
@@ -179,7 +159,6 @@ class _TodoListScreenState extends State<TodoListScreen> {
           index: index,
           onToggle: () => todoProvider.toggleDone(todo),
           onEdit: () => _editTodo(todo),
-          onDelete: () => _deleteTodo(todo),
           onUpdateDescription: (newDesc) {
             todoProvider.updateTodo(todo.id, description: newDesc);
           },
