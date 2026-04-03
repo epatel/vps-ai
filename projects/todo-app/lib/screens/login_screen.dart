@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 
@@ -54,6 +55,9 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } else {
       await auth.login(email, password);
+      if (auth.isAuthenticated) {
+        TextInput.finishAutofillContext();
+      }
     }
   }
 
@@ -71,10 +75,11 @@ class _LoginScreenState extends State<LoginScreen> {
               elevation: 8,
               child: Padding(
                 padding: const EdgeInsets.all(32),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                child: AutofillGroup(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.check_circle_outline,
@@ -180,7 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             border: OutlineInputBorder(),
                           ),
                           obscureText: true,
-                          autofillHints: const [AutofillHints.password],
+                          autofillHints: [_isSignup ? AutofillHints.newPassword : AutofillHints.password],
                           validator: (value) {
                             if (_isForgotPassword) return null;
                             if (value == null || value.isEmpty) {
@@ -277,7 +282,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   : "Don't have an account? Sign up",
                         ),
                       ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
