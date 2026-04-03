@@ -15,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isSignup = false;
+  bool _isForgotPassword = false;
   String? _successMessage;
 
   @override
@@ -35,7 +36,15 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (_isSignup) {
+    if (_isForgotPassword) {
+      final message = await auth.forgotPassword(email);
+      if (message != null && mounted) {
+        setState(() {
+          _successMessage = message;
+          _isForgotPassword = false;
+        });
+      }
+    } else if (_isSignup) {
       final message = await auth.signup(email, password);
       if (message != null && mounted) {
         setState(() {
@@ -74,14 +83,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        _isSignup ? 'Create Account' : 'Welcome Back',
+                        _isForgotPassword
+                            ? 'Reset Password'
+                            : _isSignup
+                                ? 'Create Account'
+                                : 'Welcome Back',
                         style: Theme.of(context).textTheme.headlineMedium,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _isSignup
-                            ? 'Sign up to start managing your todos'
-                            : 'Sign in to your todo list',
+                        _isForgotPassword
+                            ? 'Enter your email to receive a reset link'
+                            : _isSignup
+                                ? 'Sign up to start managing your todos'
+                                : 'Sign in to your todo list',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
@@ -151,31 +166,36 @@ class _LoginScreenState extends State<LoginScreen> {
                           }
                           return null;
                         },
-                        onFieldSubmitted: (_) => _submit(),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        decoration: const InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: Icon(Icons.lock_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                        obscureText: true,
-                        autofillHints: const [AutofillHints.password],
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your password';
-                          }
-                          if (_isSignup && value.length < 8) {
-                            return 'Password must be at least 8 characters';
-                          }
-                          return null;
-                        },
                         onFieldSubmitted: (_) {
-                          if (!_isSignup) _submit();
+                          if (_isForgotPassword) _submit();
                         },
                       ),
+                      if (!_isForgotPassword) ...[
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _passwordController,
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: Icon(Icons.lock_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                          obscureText: true,
+                          autofillHints: const [AutofillHints.password],
+                          validator: (value) {
+                            if (_isForgotPassword) return null;
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your password';
+                            }
+                            if (_isSignup && value.length < 8) {
+                              return 'Password must be at least 8 characters';
+                            }
+                            return null;
+                          },
+                          onFieldSubmitted: (_) {
+                            if (!_isSignup) _submit();
+                          },
+                        ),
+                      ],
                       if (_isSignup) ...[
                         const SizedBox(height: 16),
                         TextFormField(
@@ -211,23 +231,50 @@ class _LoginScreenState extends State<LoginScreen> {
                                   width: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : Text(_isSignup ? 'Sign Up' : 'Sign In'),
+                              : Text(_isForgotPassword
+                                    ? 'Send Reset Link'
+                                    : _isSignup
+                                        ? 'Sign Up'
+                                        : 'Sign In'),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      if (!_isSignup && !_isForgotPassword) ...[
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _isForgotPassword = true;
+                              _isSignup = false;
+                              _successMessage = null;
+                              _passwordController.clear();
+                              _confirmPasswordController.clear();
+                              auth.clearError();
+                            });
+                          },
+                          child: const Text('Forgot password?'),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
                       TextButton(
                         onPressed: () {
                           setState(() {
-                            _isSignup = !_isSignup;
+                            if (_isForgotPassword) {
+                              _isForgotPassword = false;
+                            } else {
+                              _isSignup = !_isSignup;
+                            }
                             _successMessage = null;
+                            _passwordController.clear();
                             _confirmPasswordController.clear();
                             auth.clearError();
                           });
                         },
                         child: Text(
-                          _isSignup
-                              ? 'Already have an account? Sign in'
-                              : "Don't have an account? Sign up",
+                          _isForgotPassword
+                              ? 'Back to sign in'
+                              : _isSignup
+                                  ? 'Already have an account? Sign in'
+                                  : "Don't have an account? Sign up",
                         ),
                       ),
                     ],
