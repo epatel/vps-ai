@@ -110,6 +110,29 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<String?> forgotPassword(String email) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _api.forgotPassword(email);
+      _isLoading = false;
+      notifyListeners();
+      return result['message'] as String?;
+    } on ApiException catch (e) {
+      _error = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _error = 'Connection error. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
   Future<void> logout() async {
     await _clearAuth();
     notifyListeners();

@@ -85,6 +85,15 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_users_verify ON users(verify_token);
         """
     )
+    # Add reset_token columns if they don't exist (migration for existing DBs)
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN reset_token_expires TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.close()
 
 
@@ -115,6 +124,41 @@ def send_verification_email(to_email: str, token: str):
                     f"<p>Click the link below to verify your account:</p>"
                     f'<p><a href="{verify_url}">{verify_url}</a></p>'
                     f"<p>If you did not sign up, ignore this email.</p>"
+                ),
+            }
+        ]
+    }
+
+    result = mj.send.create(data=data)
+    ok = result.status_code == 200
+    if not ok:
+        app.logger.error("Mailjet error: %s %s", result.status_code, result.json())
+    return ok
+
+
+def send_password_reset_email(to_email: str, token: str):
+    """Send a password reset email via Mailjet."""
+    if not MAILJET_API_KEY or not MAILJET_SECRET_KEY:
+        app.logger.warning("Mailjet not configured – skipping reset email to %s", to_email)
+        return False
+
+    from mailjet_rest import Client
+
+    mj = Client(auth=(MAILJET_API_KEY, MAILJET_SECRET_KEY), version="v3.1")
+    reset_url = f"{BASE_URL}/auth/reset-password?token={token}"
+
+    data = {
+        "Messages": [
+            {
+                "From": {"Email": MAILJET_SENDER_EMAIL, "Name": "Todo App"},
+                "To": [{"Email": to_email}],
+                "Subject": "Reset your Todo password",
+                "HTMLPart": (
+                    f"<h3>Password Reset</h3>"
+                    f"<p>You requested a password reset for your Todo account.</p>"
+                    f"<p>Click the link below to reset your password. This link expires in 1 hour.</p>"
+                    f'<p><a href="{reset_url}">Reset Password</a></p>'
+                    f"<p>If you did not request this, ignore this email.</p>"
                 ),
             }
         ]
@@ -244,6 +288,129 @@ def login():
 
     token = make_token(user["id"])
     return jsonify({"token": token, "user_id": user["id"], "email": user["email"]}), 200
+
+
+@app.route("/auth/forgot-password", methods=["POST"])
+def forgot_password():
+    data = request.get_json(force=True)
+    email = (data.get("email") or "").strip().lower()
+
+    if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({"error": "Invalid email"}), 400
+
+    db = get_db()
+    user = db.execute("SELECT id, verified FROM users WHERE email = ?", (email,)).fetchone()
+
+    # Always return success to avoid leaking whether email exists
+    success_msg = {"message": "If an account with that email exists, a password reset link has been sent."}
+
+    if not user or not user["verified"]:
+        return jsonify(success_msg), 200
+
+    reset_token = secrets.token_urlsafe(48)
+    expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    db.execute(
+        "UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?",
+        (reset_token, expires, user["id"]),
+    )
+    db.commit()
+
+    send_password_reset_email(email, reset_token)
+    return jsonify(success_msg), 200
+
+
+@app.route("/auth/reset-password", methods=["GET"])
+def reset_password_form():
+    """Show a simple HTML form to reset password."""
+    token = request.args.get("token", "")
+    if not token:
+        return "<h2>Invalid reset link.</h2>", 400
+
+    db = get_db()
+    user = db.execute("SELECT id, reset_token_expires FROM users WHERE reset_token = ?", (token,)).fetchone()
+    if not user:
+        return "<h2>Invalid or expired reset link.</h2>", 400
+
+    expires = datetime.fromisoformat(user["reset_token_expires"])
+    if datetime.now(timezone.utc) > expires:
+        return "<h2>This reset link has expired. Please request a new one.</h2>", 400
+
+    return f"""<!DOCTYPE html>
+<html><head><title>Reset Password</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body {{ font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f5f5f5; }}
+.card {{ background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); max-width: 400px; width: 90%; }}
+h2 {{ margin-top: 0; color: #333; }}
+input {{ width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }}
+button {{ width: 100%; padding: 12px; background: #6750a4; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 8px; }}
+button:hover {{ background: #7c68b5; }}
+.error {{ color: #c62828; margin-top: 8px; display: none; }}
+.success {{ color: #2e7d32; margin-top: 8px; display: none; }}
+</style></head><body>
+<div class="card">
+<h2>Reset Password</h2>
+<form id="resetForm">
+<input type="password" id="password" placeholder="New password (min 8 chars)" required minlength="8">
+<input type="password" id="confirmPassword" placeholder="Confirm new password" required>
+<button type="submit">Reset Password</button>
+<p class="error" id="error"></p>
+<p class="success" id="success"></p>
+</form>
+</div>
+<script>
+document.getElementById('resetForm').addEventListener('submit', async function(e) {{
+    e.preventDefault();
+    const pw = document.getElementById('password').value;
+    const cpw = document.getElementById('confirmPassword').value;
+    const errEl = document.getElementById('error');
+    const sucEl = document.getElementById('success');
+    errEl.style.display = 'none';
+    sucEl.style.display = 'none';
+    if (pw.length < 8) {{ errEl.textContent = 'Password must be at least 8 characters'; errEl.style.display = 'block'; return; }}
+    if (pw !== cpw) {{ errEl.textContent = 'Passwords do not match'; errEl.style.display = 'block'; return; }}
+    try {{
+        const res = await fetch('/todo-api/auth/reset-password', {{
+            method: 'POST', headers: {{'Content-Type': 'application/json'}},
+            body: JSON.stringify({{token: '{token}', password: pw}})
+        }});
+        const data = await res.json();
+        if (res.ok) {{ sucEl.textContent = data.message || 'Password reset! You can now log in.'; sucEl.style.display = 'block'; document.getElementById('resetForm').querySelector('button').disabled = true; }}
+        else {{ errEl.textContent = data.error || 'Reset failed'; errEl.style.display = 'block'; }}
+    }} catch(e) {{ errEl.textContent = 'Connection error'; errEl.style.display = 'block'; }}
+}});
+</script></body></html>""", 200
+
+
+@app.route("/auth/reset-password", methods=["POST"])
+def reset_password():
+    """Reset password using a valid reset token."""
+    data = request.get_json(force=True)
+    token = data.get("token", "")
+    password = data.get("password", "")
+
+    if not token:
+        return jsonify({"error": "Missing token"}), 400
+    if len(password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters"}), 400
+
+    db = get_db()
+    user = db.execute("SELECT id, reset_token_expires FROM users WHERE reset_token = ?", (token,)).fetchone()
+    if not user:
+        return jsonify({"error": "Invalid or expired reset link"}), 400
+
+    expires = datetime.fromisoformat(user["reset_token_expires"])
+    if datetime.now(timezone.utc) > expires:
+        return jsonify({"error": "Reset link has expired. Please request a new one."}), 400
+
+    pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    db.execute(
+        "UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?",
+        (pw_hash, user["id"]),
+    )
+    db.commit()
+
+    return jsonify({"message": "Password reset successfully. You can now log in with your new password."}), 200
 
 
 @app.route("/auth/me", methods=["GET"])
