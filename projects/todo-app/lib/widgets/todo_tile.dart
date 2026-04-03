@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
-import 'package:url_launcher/url_launcher.dart';
+import 'package:web/web.dart' as web;
 import '../models/todo.dart';
 
 /// Regex matching checkbox lines: `- [ ] text` or `- [x] text` (case-insensitive x)
@@ -188,7 +188,7 @@ class _TodoTileState extends State<TodoTile> {
           styleSheet: _markdownStyle(context),
           onTapLink: (text, href, title) {
             if (href != null) {
-              launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
+              web.window.open(href, '_blank');
             }
           },
         ));
