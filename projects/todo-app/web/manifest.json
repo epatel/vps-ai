@@ -1,11 +1,12 @@
 {
-    "name": "todo_app",
-    "short_name": "todo_app",
+    "name": "Todo App",
+    "short_name": "Todos",
+    "id": "/todo-app/",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#1C1B1F",
     "theme_color": "#1C1B1F",
-    "description": "A new Flutter project.",
+    "description": "Manage your tasks",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "share_target": {
