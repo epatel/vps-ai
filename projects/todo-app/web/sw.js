@@ -1,8 +1,6 @@
 // Service worker for PWA + Web Share Target support
 'use strict';
 
-const CACHE_NAME = 'todo-app-v1';
-
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
@@ -12,6 +10,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Pass through all requests to the network
-  event.respondWith(fetch(event.request));
+  // Network-only: pass through all requests, don't fail on errors
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      return new Response('Offline', { status: 503, statusText: 'Offline' });
+    })
+  );
 });
