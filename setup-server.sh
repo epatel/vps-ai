@@ -71,10 +71,12 @@ sudo -u "$WEBHOOK_USER" bash "$REPO_DIR/setup-hooks.sh"
 # --- 8. Configure nginx ---
 echo ""
 echo "--- Configuring nginx ---"
+cp "$REPO_DIR/nginx/security-headers.conf" /etc/nginx/snippets/security-headers.conf
 cat > /etc/nginx/sites-available/ai.memention.net <<'NGINX'
 server {
     listen 80;
     server_name ai.memention.net;
+    include snippets/security-headers.conf;
 
     location /webhook {
         proxy_pass http://127.0.0.1:5000/webhook;
