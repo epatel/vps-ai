@@ -32,7 +32,35 @@ run-agent.sh         ◄── creates worktree, runs Claude, handles output
     └──► push branch + create PR
 ```
 
-A post-merge git hook auto-restarts systemd services when their project files change.
+A post-merge git hook auto-restarts systemd services and rebuilds Flutter web apps when their source files change.
+
+## Deploy pipeline
+
+```mermaid
+graph TD
+    A[Push to main / Merge PR] --> B[GitHub sends webhook]
+    B --> C[webhook-receiver.py]
+    C --> D[git pull on server]
+    D --> E[post-merge hook runs]
+    E --> F{What changed?}
+    F -->|Service files| G[systemctl restart service]
+    F -->|Flutter source| H[flutter build web]
+    F -->|Other files| I[No action needed]
+
+    J[Push to main / PR opened] --> K[GitHub Actions CI]
+    K --> L[Validate Flutter build]
+    L --> M[Build succeeds/fails]
+
+    style H fill:#4FC3F7
+    style G fill:#81C784
+    style L fill:#FFB74D
+```
+
+**Key points:**
+- **Build output is not stored in git** — Flutter apps are built on the server after each pull
+- **CI is validation only** — GitHub Actions checks that Flutter projects compile, but does not deploy
+- The `--base-href /<project-name>/` flag is applied automatically by the post-merge hook
+- Adding a new Flutter project requires no workflow changes — any `projects/*/` directory with a `pubspec.yaml` is auto-detected
 
 ## Setup
 
@@ -86,7 +114,7 @@ In the repo's **Settings → Webhooks**, create a webhook with:
 - **URL:** `https://ai.memention.net/webhook`
 - **Content type:** `application/json`
 - **Secret:** must match `WEBHOOK_SECRET` in `.env.issues`
-- **Events:** Select **Issues** and **Pull requests** (both are required — Issues triggers the agent, Pull requests triggers `git pull` on merge)
+- **Events:** Select **Issues**, **Pull requests**, and **Pushes** (Issues triggers the agent, Pull requests and Pushes trigger `git pull` + post-merge hook on the server)
 
 ### Nginx
 
@@ -116,7 +144,7 @@ Agent-created projects live under `projects/`. Services are managed via systemd 
 | [asteroids](projects/asteroids/) | Multiplayer Asteroids arcade game with WebSocket networking |
 | [badge](projects/badge/) | E-paper badge designer/writer over BLE |
 | [breakout](projects/breakout/) | Classic Breakout brick-breaker game (single-page HTML) |
-| [flutter_demo](projects/flutter_demo/) | Flutter web demo app (auto-built via GitHub Actions) |
+| [flutter_demo](projects/flutter_demo/) | Flutter web demo app |
 | [poem](projects/poem/) | A poem about working with AI |
 | [scramble](projects/scramble/) | Vectrex-style arcade flight shooter with terrain and enemies |
 | [status-page](projects/status-page/) | Server status dashboard (Python + systemd service) |

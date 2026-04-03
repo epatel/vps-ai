@@ -12,8 +12,8 @@ GitHub-issue-driven autonomous agent system on `ai.memention.net` (Ubuntu 24.04,
 6. A comment is posted on the issue that the agent has started
 7. After the agent finishes, it pushes the `issue-N` branch and creates a **PR** for review
 8. Posts the agent's summary as a comment on the GitHub issue and closes it
-9. When a PR is merged, the webhook triggers `git pull` on the server
-10. A **post-merge git hook** auto-restarts services when their project files change
+9. When a PR is merged (or code is pushed to main), the webhook triggers `git pull` on the server
+10. A **post-merge git hook** auto-restarts services and rebuilds Flutter web apps when their source files change
 
 ## Directory structure
 
@@ -27,7 +27,7 @@ GitHub-issue-driven autonomous agent system on `ai.memention.net` (Ubuntu 24.04,
 ├── setup-hooks.sh            <- installs git hooks from hooks/
 ├── setup-server.sh           <- one-time server provisioning
 ├── hooks/
-│   └── post-merge            <- restarts services when project files change
+│   └── post-merge            <- restarts services + rebuilds Flutter apps
 ├── .system-prompt.md         <- system prompt given to every agent
 ├── .env.issues               <- config (gitignored)
 ├── .gitignore
@@ -80,6 +80,17 @@ To add a new service, edit `hooks/post-merge` and add an entry to `SERVICE_MAP`:
 ```
 Then run `bash setup-hooks.sh` to reinstall the hook.
 
+## Flutter web projects
+
+Flutter web apps are built **on the server**, not in CI or by agents. The post-merge
+hook auto-detects any `projects/*/` directory with a `pubspec.yaml` and rebuilds it
+when source files (`lib/`, `web/`, `pubspec.*`) change.
+
+- Build output (`build/`) is **gitignored** — never commit it
+- The `--base-href /<project-name>/` flag is applied automatically
+- CI (`.github/workflows/build-flutter-web.yml`) validates builds on push/PR but does not deploy
+- Adding a new Flutter project requires no config changes — just create it under `projects/`
+
 ## Configuration (`.env.issues`)
 
 ```
@@ -96,7 +107,7 @@ Add a webhook on `epatel/vps-ai` repo settings:
 - **URL:** `https://ai.memention.net/webhook`
 - **Content type:** `application/json`
 - **Secret:** matches `WEBHOOK_SECRET` in `.env.issues`
-- **Events:** Issues, Pull requests
+- **Events:** Issues, Pull requests, Pushes
 
 ## Logs
 

@@ -43,18 +43,27 @@ lib/
 
 ## Build
 
-> **⚠️ IMPORTANT:** This app is served at `/todo-app/` behind nginx. You **must**
-> use `--base-href /todo-app/` when building, otherwise all asset paths will break.
+Build output (`build/`) is **gitignored** and built on the server automatically.
 
+```mermaid
+graph LR
+    A[Push source to main] --> B[Webhook triggers git pull]
+    B --> C[post-merge hook detects changes]
+    C --> D["flutter build web --base-href /todo-app/"]
+    D --> E[Nginx serves build/web/]
+```
+
+The `--base-href /todo-app/` flag is applied automatically by the post-merge hook.
+CI (`.github/workflows/build-flutter-web.yml`) validates the build on push/PR but does not deploy.
+
+**To build manually on the server:**
 ```bash
+cd projects/todo-app
 flutter pub get
 flutter build web --base-href /todo-app/ --release
 ```
 
-Build output goes to `build/web/` and is served by nginx.
-
-A GitHub Actions workflow (`.github/workflows/build-todo-app.yml`) automatically
-rebuilds when source changes are pushed to `main`.
+> **⚠️ Do not commit `build/` to git.** It is gitignored. Agents must not build or commit build output.
 
 ## Nginx
 
