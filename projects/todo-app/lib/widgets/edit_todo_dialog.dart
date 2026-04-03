@@ -104,7 +104,7 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
           style: TextButton.styleFrom(foregroundColor: Colors.red),
           child: const Text('Delete'),
         ),
-        const Spacer(),
+        const SizedBox(width: 48),
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
