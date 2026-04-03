@@ -40,7 +40,7 @@ for project_dir in projects/*/; do
   (
     cd "$project_dir"
     flutter pub get --no-example 2>&1
-    flutter build web --base-href "/${project_name}/" --release 2>&1
+    flutter build web --base-href "/${project_name}/" --pwa-strategy=none --release 2>&1
   ) && echo "post-merge: ${project_name} build complete." \
     || echo "post-merge: WARNING — failed to build ${project_name}"
 done
