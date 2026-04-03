@@ -6,3 +6,4 @@ issues/.agent-*.pid
 .worktrees/
 __pycache__/
 projects/asteroids/highscores.json
+projects/*/build/

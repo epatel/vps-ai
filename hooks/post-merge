@@ -24,3 +24,23 @@ for project_dir in "${!SERVICE_MAP[@]}"; do
       echo "post-merge: WARNING — failed to restart ${service}"
   fi
 done
+
+# Rebuild Flutter web projects whose source changed
+for project_dir in projects/*/; do
+  project_dir="${project_dir%/}"  # strip trailing slash
+  project_name="$(basename "$project_dir")"
+
+  # Skip if not a Flutter project
+  [ -f "$project_dir/pubspec.yaml" ] || continue
+
+  # Skip if no relevant source files changed
+  echo "$CHANGED" | grep -qE "^${project_dir}/(lib|web|pubspec)" || continue
+
+  echo "post-merge: ${project_dir} source changed, rebuilding Flutter web..."
+  (
+    cd "$project_dir"
+    flutter pub get --no-example 2>&1
+    flutter build web --base-href "/${project_name}/" --release 2>&1
+  ) && echo "post-merge: ${project_name} build complete." \
+    || echo "post-merge: WARNING — failed to build ${project_name}"
+done

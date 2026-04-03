@@ -1,0 +1,61 @@
+name: Build Flutter Web Apps
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'projects/**/**.dart'
+      - 'projects/**/pubspec.yaml'
+      - 'projects/**/pubspec.lock'
+      - 'projects/**/web/**'
+  pull_request:
+    paths:
+      - 'projects/**/**.dart'
+      - 'projects/**/pubspec.yaml'
+      - 'projects/**/pubspec.lock'
+      - 'projects/**/web/**'
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.find.outputs.projects }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - id: find
+        name: Detect changed Flutter projects
+        run: |
+          PROJECTS=$(git diff --name-only HEAD~1 HEAD \
+            | grep '^projects/' \
+            | cut -d/ -f2 \
+            | sort -u \
+            | while read dir; do
+                [ -f "projects/$dir/pubspec.yaml" ] && echo "$dir"
+              done \
+            | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "projects=$PROJECTS" >> "$GITHUB_OUTPUT"
+          echo "Detected Flutter projects: $PROJECTS"
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.projects != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: ${{ fromJson(needs.detect.outputs.projects) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build Flutter web
+        working-directory: projects/${{ matrix.project }}
+        run: |
+          flutter pub get
+          flutter build web --base-href /${{ matrix.project }}/ --release

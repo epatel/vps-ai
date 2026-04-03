@@ -3,6 +3,7 @@
 
 Listens on localhost:5000 (behind nginx) for GitHub webhook events:
 - issues (action=opened) → spawns monitor-issues.sh
+- push (to main) → git pull to update server
 - pull_request (action=closed, merged=true) → git pull + cleanup
 - ping → responds OK
 
@@ -142,6 +143,27 @@ class WebhookHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"status": "closed", "issue": issue_num}).encode())
+            return
+
+        if event == "push" and data.get("ref") == "refs/heads/main":
+            log("Push to main detected, pulling changes")
+
+            # Git pull to update server
+            subprocess.Popen(
+                ["bash", "-c", f"""
+                    cd '{SCRIPT_DIR}'
+                    git fetch origin main --quiet 2>/dev/null
+                    git merge origin/main --ff-only 2>&1
+                """],
+                stdout=open(LOG_FILE, "a"),
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "pulling"}).encode())
             return
 
         if event == "pull_request" and data.get("action") == "closed":
