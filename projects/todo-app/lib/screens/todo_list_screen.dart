@@ -6,27 +6,45 @@ import '../widgets/todo_tile.dart';
 import '../widgets/add_todo_dialog.dart';
 import '../widgets/edit_todo_dialog.dart';
 import '../models/todo.dart';
+import '../services/share_handler.dart';
 
 class TodoListScreen extends StatefulWidget {
-  const TodoListScreen({super.key});
+  final SharedData? sharedData;
+
+  const TodoListScreen({super.key, this.sharedData});
 
   @override
   State<TodoListScreen> createState() => _TodoListScreenState();
 }
 
 class _TodoListScreenState extends State<TodoListScreen> {
+  bool _sharedDataHandled = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TodoProvider>().loadTodos();
+      _handleSharedData();
     });
   }
 
-  Future<void> _addTodo() async {
+  void _handleSharedData() {
+    if (_sharedDataHandled || widget.sharedData == null) return;
+    _sharedDataHandled = true;
+    _addTodo(
+      initialTitle: widget.sharedData!.title,
+      initialDescription: widget.sharedData!.description,
+    );
+  }
+
+  Future<void> _addTodo({String? initialTitle, String? initialDescription}) async {
     final result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (context) => const AddTodoDialog(),
+      builder: (context) => AddTodoDialog(
+        initialTitle: initialTitle,
+        initialDescription: initialDescription,
+      ),
     );
     if (result != null && mounted) {
       await context.read<TodoProvider>().addTodo(

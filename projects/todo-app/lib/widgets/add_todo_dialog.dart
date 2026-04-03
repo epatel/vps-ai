@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 
 class AddTodoDialog extends StatefulWidget {
-  const AddTodoDialog({super.key});
+  final String? initialTitle;
+  final String? initialDescription;
+
+  const AddTodoDialog({
+    super.key,
+    this.initialTitle,
+    this.initialDescription,
+  });
 
   @override
   State<AddTodoDialog> createState() => _AddTodoDialogState();
@@ -11,6 +18,17 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialTitle != null) {
+      _titleController.text = widget.initialTitle!;
+    }
+    if (widget.initialDescription != null) {
+      _descriptionController.text = widget.initialDescription!;
+    }
+  }
 
   @override
   void dispose() {

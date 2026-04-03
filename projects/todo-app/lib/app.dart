@@ -4,9 +4,12 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/todo_list_screen.dart';
+import 'services/share_handler.dart';
 
 class TodoApp extends StatelessWidget {
-  const TodoApp({super.key});
+  final SharedData? sharedData;
+
+  const TodoApp({super.key, this.sharedData});
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +46,7 @@ class TodoApp extends StatelessWidget {
       home: Consumer<AuthProvider>(
         builder: (context, auth, _) {
           if (auth.isAuthenticated) {
-            return const TodoListScreen();
+            return TodoListScreen(sharedData: sharedData);
           }
           return const LoginScreen();
         },
