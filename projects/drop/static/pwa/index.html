@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Drop</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Drop</h1>
+            <div id="status" class="status disconnected">Disconnected</div>
+        </header>
+
+        <div id="pairing-screen" class="screen">
+            <div class="pairing-container">
+                <h2>Pair with Desktop</h2>
+                <p class="subtitle">Enter the code shown on your desktop, or scan its QR code</p>
+                <input type="text" id="pair-input" class="pair-input" maxlength="6"
+                       placeholder="Enter code" autocomplete="off" autocapitalize="characters">
+                <button id="pair-btn" class="btn-primary">Connect</button>
+            </div>
+        </div>
+
+        <div id="compose-screen" class="screen hidden">
+            <div class="compose-area">
+                <textarea id="compose-input" class="compose-input" placeholder="Paste or type something..." rows="3"></textarea>
+                <div class="compose-actions">
+                    <button id="send-btn" class="btn-primary">Send</button>
+                    <label class="btn-secondary" id="image-btn">
+                        <input type="file" id="image-input" accept="image/*" capture="environment" hidden>
+                        📷
+                    </label>
+                    <label class="btn-secondary" id="file-btn">
+                        <input type="file" id="file-input" hidden>
+                        📎
+                    </label>
+                </div>
+            </div>
+
+            <div class="history-header">Recent</div>
+            <div id="history" class="history">
+                <div id="empty-state" class="empty-state">
+                    <p>Nothing shared yet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

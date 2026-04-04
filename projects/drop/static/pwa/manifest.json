@@ -1,0 +1,34 @@
+{
+    "name": "Drop",
+    "short_name": "Drop",
+    "description": "Instant phone-to-desktop sharing",
+    "start_url": "/drop/pwa/",
+    "scope": "/drop/pwa/",
+    "display": "standalone",
+    "background_color": "#1a1a2e",
+    "theme_color": "#1a1a2e",
+    "icons": [
+        {
+            "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%236c63ff'/><text x='50' y='68' font-size='50' text-anchor='middle' fill='white' font-family='system-ui'>↗</text></svg>",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        }
+    ],
+    "share_target": {
+        "action": "/drop/share-target",
+        "method": "POST",
+        "enctype": "multipart/form-data",
+        "params": {
+            "title": "title",
+            "text": "text",
+            "url": "url",
+            "files": [
+                {
+                    "name": "files",
+                    "accept": ["image/*", "video/*", "application/*", "text/*", "*/*"]
+                }
+            ]
+        }
+    }
+}
