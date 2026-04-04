@@ -13,8 +13,11 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
-from flask import Flask, request, jsonify, g
+from flask import Flask, request, jsonify, g, send_file
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
+from PIL import Image, ImageOps
+import io
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -32,6 +35,17 @@ MAILJET_SENDER_EMAIL = os.environ.get("MJ_SENDER_EMAIL", "noreply@memention.net"
 
 app = Flask(__name__)
 CORS(app)
+
+UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
+THUMBS_DIR = os.path.join(UPLOADS_DIR, "thumbs")
+os.makedirs(THUMBS_DIR, exist_ok=True)
+
+MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_IMAGES_PER_TODO = 10
+MAX_IMAGE_DIMENSION = 1920
+THUMB_DIMENSION = 300
+JPEG_QUALITY = 85
+DARK_BG_COLOR = (30, 30, 46)  # #1e1e2e - app dark mode surface color
 
 # ---------------------------------------------------------------------------
 # Database helpers
@@ -83,6 +97,17 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id, sort_order);
         CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
         CREATE INDEX IF NOT EXISTS idx_users_verify ON users(verify_token);
+
+        CREATE TABLE IF NOT EXISTS todo_images (
+            id TEXT PRIMARY KEY,
+            todo_id TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            original_name TEXT DEFAULT '',
+            sort_order REAL NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_todo_images_todo ON todo_images(todo_id, sort_order);
         """
     )
     # Add reset_token columns if they don't exist (migration for existing DBs)
@@ -180,16 +205,19 @@ def auth_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
+        token = None
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+        elif request.args.get("token"):
+            token = request.args.get("token")
+        if not token:
             return jsonify({"error": "Missing or invalid Authorization header"}), 401
-        token = auth_header[7:]
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expired"}), 401
         except jwt.InvalidTokenError:
             return jsonify({"error": "Invalid token"}), 401
-
         g.user_id = payload["sub"]
         return f(*args, **kwargs)
 
@@ -205,6 +233,66 @@ def make_token(user_id: str) -> str:
         JWT_SECRET,
         algorithm="HS256",
     )
+
+
+# ---------------------------------------------------------------------------
+# Image helpers
+# ---------------------------------------------------------------------------
+
+
+def process_image(file_storage, max_dim=MAX_IMAGE_DIMENSION):
+    """Read an uploaded file, auto-orient, resize, convert to JPEG. Returns bytes."""
+    img = Image.open(file_storage)
+    img = ImageOps.exif_transpose(img)
+    if img.mode in ('RGBA', 'LA', 'PA'):
+        background = Image.new('RGB', img.size, DARK_BG_COLOR)
+        background.paste(img, mask=img.split()[-1])
+        img = background
+    elif img.mode != 'RGB':
+        img = img.convert('RGB')
+    w, h = img.size
+    if max(w, h) > max_dim:
+        ratio = max_dim / max(w, h)
+        img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format='JPEG', quality=JPEG_QUALITY)
+    buf.seek(0)
+    return buf.read()
+
+
+def make_thumbnail(full_path, thumb_path):
+    """Generate a thumbnail from a full-size JPEG."""
+    img = Image.open(full_path)
+    w, h = img.size
+    ratio = THUMB_DIMENSION / max(w, h)
+    img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+    img.save(thumb_path, format='JPEG', quality=JPEG_QUALITY)
+
+
+def attach_images(db, todos):
+    """Attach images list to a list of todo dicts."""
+    if not todos:
+        return todos
+    todo_ids = [t['id'] for t in todos]
+    placeholders = ','.join('?' * len(todo_ids))
+    rows = db.execute(
+        f"SELECT * FROM todo_images WHERE todo_id IN ({placeholders}) ORDER BY sort_order ASC",
+        todo_ids,
+    ).fetchall()
+    images_by_todo = {}
+    for r in rows:
+        images_by_todo.setdefault(r['todo_id'], []).append({
+            'id': r['id'],
+            'todo_id': r['todo_id'],
+            'original_name': r['original_name'],
+            'sort_order': r['sort_order'],
+            'thumb_url': f"/images/{r['id']}/thumb",
+            'full_url': f"/images/{r['id']}",
+            'created_at': r['created_at'],
+        })
+    for t in todos:
+        t['images'] = images_by_todo.get(t['id'], [])
+    return todos
 
 
 # ---------------------------------------------------------------------------
@@ -436,7 +524,9 @@ def list_todos():
         "SELECT * FROM todos WHERE user_id = ? ORDER BY sort_order ASC",
         (g.user_id,),
     ).fetchall()
-    return jsonify([dict(r) for r in rows]), 200
+    todos = [dict(r) for r in rows]
+    attach_images(db, todos)
+    return jsonify(todos), 200
 
 
 @app.route("/todos", methods=["POST"])
@@ -466,7 +556,9 @@ def create_todo():
     db.commit()
 
     todo = db.execute("SELECT * FROM todos WHERE id = ?", (todo_id,)).fetchone()
-    return jsonify(dict(todo)), 201
+    todo_dict = dict(todo)
+    attach_images(db, [todo_dict])
+    return jsonify(todo_dict), 201
 
 
 @app.route("/todos/<todo_id>", methods=["GET"])
@@ -478,7 +570,9 @@ def get_todo(todo_id):
     ).fetchone()
     if not todo:
         return jsonify({"error": "Not found"}), 404
-    return jsonify(dict(todo)), 200
+    todo_dict = dict(todo)
+    attach_images(db, [todo_dict])
+    return jsonify(todo_dict), 200
 
 
 @app.route("/todos/<todo_id>", methods=["PUT"])
@@ -505,7 +599,9 @@ def update_todo(todo_id):
     db.commit()
 
     todo = db.execute("SELECT * FROM todos WHERE id = ?", (todo_id,)).fetchone()
-    return jsonify(dict(todo)), 200
+    todo_dict = dict(todo)
+    attach_images(db, [todo_dict])
+    return jsonify(todo_dict), 200
 
 
 @app.route("/todos/<todo_id>", methods=["DELETE"])
@@ -517,6 +613,19 @@ def delete_todo(todo_id):
     ).fetchone()
     if not todo:
         return jsonify({"error": "Not found"}), 404
+
+    # Clean up image files before deleting the todo
+    images = db.execute(
+        "SELECT filename FROM todo_images WHERE todo_id = ?", (todo_id,)
+    ).fetchall()
+    for img in images:
+        full_path = os.path.join(UPLOADS_DIR, img["filename"])
+        thumb_path = os.path.join(THUMBS_DIR, img["filename"])
+        for path in (full_path, thumb_path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
 
     db.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
     db.commit()
@@ -549,7 +658,182 @@ def reorder_todos():
         "SELECT * FROM todos WHERE user_id = ? ORDER BY sort_order ASC",
         (g.user_id,),
     ).fetchall()
-    return jsonify([dict(r) for r in rows]), 200
+    todos = [dict(r) for r in rows]
+    attach_images(db, todos)
+    return jsonify(todos), 200
+
+
+# ---------------------------------------------------------------------------
+# Image routes
+# ---------------------------------------------------------------------------
+
+
+@app.route("/todos/<todo_id>/images", methods=["POST"])
+@auth_required
+def upload_image(todo_id):
+    db = get_db()
+    todo = db.execute(
+        "SELECT id FROM todos WHERE id = ? AND user_id = ?", (todo_id, g.user_id)
+    ).fetchone()
+    if not todo:
+        return jsonify({"error": "Not found"}), 404
+
+    if "image" not in request.files:
+        return jsonify({"error": "No image file provided"}), 400
+
+    file = request.files["image"]
+    if not file or not file.filename:
+        return jsonify({"error": "No image file provided"}), 400
+
+    # Check file size
+    file.seek(0, 2)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > MAX_IMAGE_SIZE:
+        return jsonify({"error": f"Image exceeds {MAX_IMAGE_SIZE // (1024*1024)}MB limit"}), 400
+
+    # Check image count
+    count = db.execute(
+        "SELECT COUNT(*) as cnt FROM todo_images WHERE todo_id = ?", (todo_id,)
+    ).fetchone()["cnt"]
+    if count >= MAX_IMAGES_PER_TODO:
+        return jsonify({"error": f"Maximum {MAX_IMAGES_PER_TODO} images per todo"}), 400
+
+    original_name = secure_filename(file.filename or "image.jpg")
+    image_id = str(uuid.uuid4())
+    filename = f"{image_id}.jpg"
+
+    try:
+        image_bytes = process_image(file)
+    except Exception as e:
+        return jsonify({"error": f"Invalid image: {str(e)}"}), 400
+
+    full_path = os.path.join(UPLOADS_DIR, filename)
+    with open(full_path, "wb") as f:
+        f.write(image_bytes)
+
+    # Determine sort_order
+    row = db.execute(
+        "SELECT COALESCE(MAX(sort_order), 0) as mx FROM todo_images WHERE todo_id = ?",
+        (todo_id,),
+    ).fetchone()
+    sort_order = (row["mx"] or 0) + 1.0
+
+    now = datetime.now(timezone.utc).isoformat()
+    db.execute(
+        "INSERT INTO todo_images (id, todo_id, filename, original_name, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (image_id, todo_id, filename, original_name, sort_order, now),
+    )
+    db.commit()
+
+    return jsonify({
+        "id": image_id,
+        "todo_id": todo_id,
+        "original_name": original_name,
+        "sort_order": sort_order,
+        "thumb_url": f"/images/{image_id}/thumb",
+        "full_url": f"/images/{image_id}",
+        "created_at": now,
+    }), 201
+
+
+@app.route("/images/<image_id>", methods=["GET"])
+@auth_required
+def serve_image(image_id):
+    db = get_db()
+    row = db.execute(
+        """SELECT ti.filename FROM todo_images ti
+           JOIN todos t ON t.id = ti.todo_id
+           WHERE ti.id = ? AND t.user_id = ?""",
+        (image_id, g.user_id),
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "Not found"}), 404
+
+    full_path = os.path.join(UPLOADS_DIR, row["filename"])
+    if not os.path.exists(full_path):
+        return jsonify({"error": "File not found"}), 404
+
+    return send_file(full_path, mimetype="image/jpeg")
+
+
+@app.route("/images/<image_id>/thumb", methods=["GET"])
+@auth_required
+def serve_thumbnail(image_id):
+    db = get_db()
+    row = db.execute(
+        """SELECT ti.filename FROM todo_images ti
+           JOIN todos t ON t.id = ti.todo_id
+           WHERE ti.id = ? AND t.user_id = ?""",
+        (image_id, g.user_id),
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "Not found"}), 404
+
+    full_path = os.path.join(UPLOADS_DIR, row["filename"])
+    thumb_path = os.path.join(THUMBS_DIR, row["filename"])
+
+    if not os.path.exists(full_path):
+        return jsonify({"error": "File not found"}), 404
+
+    if not os.path.exists(thumb_path):
+        make_thumbnail(full_path, thumb_path)
+
+    return send_file(thumb_path, mimetype="image/jpeg")
+
+
+@app.route("/images/<image_id>", methods=["DELETE"])
+@auth_required
+def delete_image(image_id):
+    db = get_db()
+    row = db.execute(
+        """SELECT ti.id, ti.filename FROM todo_images ti
+           JOIN todos t ON t.id = ti.todo_id
+           WHERE ti.id = ? AND t.user_id = ?""",
+        (image_id, g.user_id),
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "Not found"}), 404
+
+    full_path = os.path.join(UPLOADS_DIR, row["filename"])
+    thumb_path = os.path.join(THUMBS_DIR, row["filename"])
+    for path in (full_path, thumb_path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+    db.execute("DELETE FROM todo_images WHERE id = ?", (image_id,))
+    db.commit()
+    return jsonify({"message": "Deleted"}), 200
+
+
+@app.route("/todos/<todo_id>/images/reorder", methods=["POST"])
+@auth_required
+def reorder_images(todo_id):
+    db = get_db()
+    todo = db.execute(
+        "SELECT id FROM todos WHERE id = ? AND user_id = ?", (todo_id, g.user_id)
+    ).fetchone()
+    if not todo:
+        return jsonify({"error": "Not found"}), 404
+
+    data = request.get_json(force=True)
+    items = data.get("items")
+    if not items or not isinstance(items, list):
+        return jsonify({"error": "Expected 'items' array of {id, sort_order}"}), 400
+
+    for item in items:
+        iid = item.get("id")
+        order = item.get("sort_order")
+        if iid is None or order is None:
+            continue
+        db.execute(
+            "UPDATE todo_images SET sort_order = ? WHERE id = ? AND todo_id = ?",
+            (order, iid, todo_id),
+        )
+    db.commit()
+    return jsonify({"message": "Reordered"}), 200
 
 
 # ---------------------------------------------------------------------------
