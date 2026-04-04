@@ -68,7 +68,7 @@ On upload (`POST /todos/<todo_id>/images`):
 
 1. Read uploaded file with Pillow
 2. Auto-orient using EXIF data (`ImageOps.exif_transpose`)
-3. Convert to RGB (PNG transparency gets white background)
+3. Convert to RGB (PNG transparency composited onto dark background matching the app's surface color, e.g. `#1e1e2e`)
 4. Resize: if longest side > 1920px, downscale proportionally
 5. Save as JPEG, quality 85
 6. Store with UUID filename in `uploads/`
