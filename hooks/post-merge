@@ -18,6 +18,15 @@ CHANGED=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD)
 for project_dir in "${!SERVICE_MAP[@]}"; do
   service="${SERVICE_MAP[$project_dir]}"
   if echo "$CHANGED" | grep -q "^${project_dir}/"; then
+    # Install/update pip dependencies if requirements.txt changed and venv exists
+    if echo "$CHANGED" | grep -q "^${project_dir}/requirements.txt"; then
+      if [ -d "${project_dir}/venv" ]; then
+        echo "post-merge: ${project_dir}/requirements.txt changed, installing dependencies..."
+        "${project_dir}/venv/bin/pip" install -r "${project_dir}/requirements.txt" 2>&1 && \
+          echo "post-merge: dependencies installed." || \
+          echo "post-merge: WARNING — failed to install dependencies for ${service}"
+      fi
+    fi
     echo "post-merge: ${project_dir} changed, restarting ${service}..."
     sudo systemctl restart "$service" 2>&1 && \
       echo "post-merge: ${service} restarted." || \
