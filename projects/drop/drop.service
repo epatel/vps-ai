@@ -5,8 +5,8 @@ After=network.target
 [Service]
 Type=simple
 User=epatel
-WorkingDirectory=/home/epatel/vps_ai/projects/drop
-ExecStart=/home/epatel/vps_ai/projects/drop/venv/bin/python server.py --port 8090
+WorkingDirectory=/home/epatel/vps-ai/projects/drop
+ExecStart=/home/epatel/vps-ai/projects/drop/venv/bin/python server.py --port 8090
 Restart=always
 RestartSec=5
 
