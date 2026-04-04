@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drop</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Drop</h1>
+            <div id="status" class="status disconnected">Disconnected</div>
+        </header>
+
+        <div id="pairing-screen" class="screen">
+            <div class="pairing-container">
+                <h2>Pair Your Phone</h2>
+                <p class="subtitle">Enter this code on your phone, or scan the QR code</p>
+                <div id="pairing-code" class="code">------</div>
+                <div id="qr-code" class="qr-container"></div>
+                <p class="hint">Code expires in <span id="code-timer">5:00</span></p>
+            </div>
+        </div>
+
+        <div id="feed-screen" class="screen hidden">
+            <div class="feed-header">
+                <span>Shared Items</span>
+                <button id="clear-btn" class="btn-clear" title="Clear all items">Clear All</button>
+            </div>
+            <div id="feed" class="feed">
+                <div id="empty-state" class="empty-state">
+                    <p>No items yet</p>
+                    <p class="subtitle">Share something from your phone</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
