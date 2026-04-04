@@ -30,13 +30,25 @@ class _TodoListScreenState extends State<TodoListScreen> {
     });
   }
 
-  void _handleSharedData() {
+  void _handleSharedData() async {
     if (_sharedDataHandled || widget.sharedData == null) return;
     _sharedDataHandled = true;
-    _addTodo(
-      initialTitle: widget.sharedData!.title,
-      initialDescription: widget.sharedData!.description,
-    );
+
+    List<PendingImage>? sharedImages;
+    if (widget.sharedData!.hasSharedImages) {
+      final images = await readSharedImages();
+      sharedImages = images
+          .map((img) => PendingImage(bytes: img.bytes, filename: img.name))
+          .toList();
+    }
+
+    if (mounted) {
+      _addTodo(
+        initialTitle: widget.sharedData!.title,
+        initialDescription: widget.sharedData!.description,
+        initialImages: sharedImages,
+      );
+    }
   }
 
   Future<void> _addTodo({String? initialTitle, String? initialDescription, List<PendingImage>? initialImages}) async {
