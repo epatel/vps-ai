@@ -289,13 +289,26 @@ async def handle_file_download(request):
     )
 
 
-async def handle_share_target(request):
-    static_dir = request.app.get("static_dir")
+async def handle_desktop_index(request):
+    static_dir = request.app["static_dir"]
     if static_dir:
-        pwa_index = os.path.join(static_dir, "pwa", "index.html")
-        if os.path.exists(pwa_index):
-            return web.FileResponse(pwa_index)
-    return web.Response(text="Share target not configured", status=500)
+        index = os.path.join(static_dir, "desktop", "index.html")
+        if os.path.exists(index):
+            return web.FileResponse(index)
+    return web.Response(text="Not found", status=404)
+
+
+async def handle_pwa_index(request):
+    static_dir = request.app["static_dir"]
+    if static_dir:
+        index = os.path.join(static_dir, "pwa", "index.html")
+        if os.path.exists(index):
+            return web.FileResponse(index)
+    return web.Response(text="Not found", status=404)
+
+
+async def handle_share_target(request):
+    return await handle_pwa_index(request)
 
 
 async def create_app(db_path="drop.db", uploads_dir="uploads", static_dir="static"):
@@ -315,6 +328,9 @@ async def create_app(db_path="drop.db", uploads_dir="uploads", static_dir="stati
     app.router.add_post("/drop/share-target", handle_share_target)
 
     if static_dir and os.path.isdir(static_dir):
+        # Explicit index.html routes (add_static doesn't serve directory indexes)
+        app.router.add_get("/drop/pwa/", handle_pwa_index)
+        app.router.add_get("/drop/", handle_desktop_index)
         if os.path.isdir(os.path.join(static_dir, "pwa")):
             app.router.add_static("/drop/pwa/", os.path.join(static_dir, "pwa"))
         if os.path.isdir(os.path.join(static_dir, "desktop")):
