@@ -1,0 +1,14 @@
+[Unit]
+Description=Drop sharing server
+After=network.target
+
+[Service]
+Type=simple
+User=epatel
+WorkingDirectory=/home/epatel/vps_ai/projects/drop
+ExecStart=/home/epatel/vps_ai/projects/drop/venv/bin/python server.py --port 8090
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
