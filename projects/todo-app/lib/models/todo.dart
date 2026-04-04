@@ -1,3 +1,5 @@
+import 'todo_image.dart';
+
 class Todo {
   final String id;
   final String userId;
@@ -7,6 +9,7 @@ class Todo {
   double sortOrder;
   final String createdAt;
   String updatedAt;
+  List<TodoImage> images;
 
   Todo({
     required this.id,
@@ -17,6 +20,7 @@ class Todo {
     required this.sortOrder,
     required this.createdAt,
     required this.updatedAt,
+    this.images = const [],
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) {
@@ -29,6 +33,7 @@ class Todo {
       sortOrder: (json['sort_order'] as num).toDouble(),
       createdAt: json['created_at'] as String,
       updatedAt: json['updated_at'] as String,
+      images: ((json['images'] as List<dynamic>?) ?? []).map((e) => TodoImage.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }
 

@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../models/todo.dart';
 import '../services/api_service.dart';
@@ -13,6 +14,7 @@ class TodoProvider extends ChangeNotifier {
   List<Todo> get todos => _todos;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  ApiService get api => _api;
 
   Future<void> loadTodos() async {
     _isLoading = true;
@@ -117,6 +119,55 @@ class TodoProvider extends ChangeNotifier {
     } catch (e) {
       // Reload on failure
       await loadTodos();
+    }
+  }
+
+  Future<Todo?> addTodoAndReturn(String title, {String description = ''}) async {
+    try {
+      final todo = await _api.createTodo(title, description: description);
+      _todos.add(todo);
+      notifyListeners();
+      return todo;
+    } on ApiException catch (e) {
+      _error = e.message;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _error = 'Failed to create todo';
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> uploadImage(String todoId, Uint8List bytes, String filename) async {
+    try {
+      final image = await _api.uploadImage(todoId, bytes, filename);
+      final index = _todos.indexWhere((t) => t.id == todoId);
+      if (index != -1) {
+        _todos[index].images = [..._todos[index].images, image];
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      _error = 'Failed to upload image';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> deleteImage(String todoId, String imageId) async {
+    try {
+      await _api.deleteImage(imageId);
+      final index = _todos.indexWhere((t) => t.id == todoId);
+      if (index != -1) {
+        _todos[index].images = _todos[index].images.where((i) => i.id != imageId).toList();
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      _error = 'Failed to delete image';
+      notifyListeners();
+      return false;
     }
   }
 

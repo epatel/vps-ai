@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../models/todo.dart';
+import '../models/todo_image.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -18,6 +20,23 @@ class ApiService {
 
   void setToken(String? token) {
     _token = token;
+  }
+
+  String? get token => _token;
+
+  Map<String, String> get _authHeaders {
+    final headers = <String, String>{};
+    if (_token != null) {
+      headers['Authorization'] = 'Bearer $_token';
+    }
+    return headers;
+  }
+
+  String imageUrl(String path) {
+    if (_token != null) {
+      return '$baseUrl$path?token=$_token';
+    }
+    return '$baseUrl$path';
   }
 
   Map<String, String> get _headers {
@@ -161,5 +180,47 @@ class ApiService {
     );
     final list = await _handleListResponse(response);
     return list.map((json) => Todo.fromJson(json as Map<String, dynamic>)).toList();
+  }
+
+  Future<TodoImage> uploadImage(String todoId, Uint8List bytes, String filename) async {
+    final uri = Uri.parse('$baseUrl/todos/$todoId/images');
+    final req = http.MultipartRequest('POST', uri)
+      ..headers.addAll(_authHeaders)
+      ..files.add(http.MultipartFile.fromBytes('image', bytes, filename: filename));
+    final streamed = await req.send();
+    final response = await http.Response.fromStream(streamed);
+    final data = await _handleResponse(response);
+    return TodoImage.fromJson(data);
+  }
+
+  Future<void> deleteImage(String imageId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/images/$imageId'),
+      headers: _headers,
+    );
+    if (response.statusCode >= 300) {
+      String message = 'Delete failed';
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        message = body['error'] as String? ?? message;
+      } catch (_) {}
+      throw ApiException(message, response.statusCode);
+    }
+  }
+
+  Future<void> reorderImages(String todoId, List<Map<String, dynamic>> items) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/todos/$todoId/images/reorder'),
+      headers: _headers,
+      body: jsonEncode({'items': items}),
+    );
+    if (response.statusCode >= 300) {
+      String message = 'Reorder failed';
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        message = body['error'] as String? ?? message;
+      } catch (_) {}
+      throw ApiException(message, response.statusCode);
+    }
   }
 }
