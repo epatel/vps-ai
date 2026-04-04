@@ -3,6 +3,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:web/web.dart' as web;
 import '../models/todo.dart';
+import '../services/api_service.dart';
+import 'image_viewer_screen.dart';
 
 /// Regex matching checkbox lines: `- [ ] text` or `- [x] text` (case-insensitive x)
 final _checkboxLine = RegExp(r'^- \[([ xX])\] (.*)$');
@@ -55,6 +57,7 @@ class TodoTile extends StatefulWidget {
   final VoidCallback onToggle;
   final VoidCallback onEdit;
   final ValueChanged<String>? onUpdateDescription;
+  final String Function(String path) imageUrl;
 
   const TodoTile({
     super.key,
@@ -63,6 +66,7 @@ class TodoTile extends StatefulWidget {
     required this.onToggle,
     required this.onEdit,
     this.onUpdateDescription,
+    required this.imageUrl,
   });
 
   @override
@@ -77,6 +81,8 @@ class _TodoTileState extends State<TodoTile> {
     final hasDescription = widget.todo.description.isNotEmpty;
     final normalized = hasDescription ? _normalizeCheckboxes(widget.todo.description) : '';
     final counts = hasDescription ? _countCheckboxes(widget.todo.description) : (checked: 0, total: 0);
+    final hasImages = widget.todo.images.isNotEmpty;
+    final imageCount = widget.todo.images.length;
     final hasSubCheckboxes = counts.total > 0;
     final allSubsDone = hasSubCheckboxes && counts.checked == counts.total;
 
@@ -113,8 +119,8 @@ class _TodoTileState extends State<TodoTile> {
             title: Text(
               widget.todo.title,
               style: TextStyle(
-                decoration: (widget.todo.done || allSubsDone) ? TextDecoration.lineThrough : null,
-                color: (widget.todo.done || allSubsDone)
+                decoration: (hasSubCheckboxes ? allSubsDone : widget.todo.done) ? TextDecoration.lineThrough : null,
+                color: (hasSubCheckboxes ? allSubsDone : widget.todo.done)
                     ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)
                     : null,
               ),
@@ -134,7 +140,27 @@ class _TodoTileState extends State<TodoTile> {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (hasDescription)
+                if (hasImages)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.image_outlined, size: 16,
+                            color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 2),
+                        Text(
+                          '$imageCount',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (hasDescription || hasImages)
                   IconButton(
                     icon: Icon(
                       _expanded ? Icons.expand_less : Icons.expand_more,
@@ -154,19 +180,74 @@ class _TodoTileState extends State<TodoTile> {
                 ),
               ],
             ),
-            onTap: hasDescription
+            onTap: (hasDescription || hasImages)
                 ? () => setState(() => _expanded = !_expanded)
                 : null,
           ),
-          if (_expanded && hasDescription)
+          if (_expanded && (hasDescription || hasImages))
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
               child: SizedBox(
                 width: double.infinity,
-                child: _buildDescription(context, normalized),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (hasDescription) _buildDescription(context, normalized),
+                    if (hasImages) ...[
+                      if (hasDescription) const SizedBox(height: 12),
+                      _buildImageGrid(context),
+                    ],
+                  ],
+                ),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildImageGrid(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: widget.todo.images.asMap().entries.map((entry) {
+        final index = entry.key;
+        final image = entry.value;
+        return GestureDetector(
+          onTap: () => _openImageViewer(context, index),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              widget.imageUrl(image.thumbUrl),
+              width: 80,
+              height: 80,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 80,
+                height: 80,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: const Icon(Icons.broken_image, size: 24),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _openImageViewer(BuildContext context, int initialIndex) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        pageBuilder: (_, __, ___) => ImageViewerScreen(
+          images: widget.todo.images,
+          initialIndex: initialIndex,
+          imageUrl: widget.imageUrl,
+        ),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
       ),
     );
   }

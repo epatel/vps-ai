@@ -198,6 +198,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
           onUpdateDescription: (newDesc) {
             todoProvider.updateTodo(todo.id, description: newDesc);
           },
+          imageUrl: todoProvider.api.imageUrl,
         );
       },
     );
