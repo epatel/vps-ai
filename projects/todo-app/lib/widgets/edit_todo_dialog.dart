@@ -1,5 +1,10 @@
+import 'dart:typed_data';
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
 import '../models/todo.dart';
+import '../models/todo_image.dart';
+import 'image_attachment_section.dart';
 
 class EditTodoDialog extends StatefulWidget {
   final Todo todo;
@@ -13,19 +18,58 @@ class EditTodoDialog extends StatefulWidget {
 class _EditTodoDialogState extends State<EditTodoDialog> {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
+  final _descriptionFocus = FocusNode();
   final _formKey = GlobalKey<FormState>();
+  final List<PendingImage> _pendingImages = [];
+  late List<TodoImage> _existingImages;
+  final List<String> _deletedImageIds = [];
+
+  late final JSFunction _pasteListener;
+
+  void _handlePaste(web.ClipboardEvent event) {
+    final items = event.clipboardData?.items;
+    if (items == null) return;
+    for (int i = 0; i < items.length; i++) {
+      final item = items.item(i);
+      if (item != null && item.type.toDart.startsWith('image/')) {
+        event.preventDefault();
+        final blob = item.getAsFile();
+        if (blob == null) continue;
+        final reader = web.FileReader();
+        reader.onload = (web.Event e) {
+          final result = reader.result;
+          if (result != null) {
+            final bytes = (result as JSArrayBuffer).toDart.asUint8List();
+            setState(() {
+              _pendingImages.add(PendingImage(
+                bytes: bytes,
+                filename: 'pasted-image.png',
+              ));
+            });
+          }
+        }.toJS;
+        reader.readAsArrayBuffer(blob);
+        return;
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.todo.title);
     _descriptionController = TextEditingController(text: widget.todo.description);
+    _existingImages = List.of(widget.todo.images);
+    _pasteListener = _handlePaste.toJS;
+    web.document.addEventListener('paste', _pasteListener);
   }
 
   @override
   void dispose() {
+    web.document.removeEventListener('paste', _pasteListener);
     _titleController.dispose();
     _descriptionController.dispose();
+    _descriptionFocus.dispose();
     super.dispose();
   }
 
@@ -35,6 +79,8 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
       'action': 'save',
       'title': _titleController.text.trim(),
       'description': _descriptionController.text.trim(),
+      'pendingImages': _pendingImages,
+      'deletedImageIds': _deletedImageIds,
     });
   }
 
@@ -62,40 +108,86 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
     }
   }
 
+  void _insertCheckbox() {
+    final text = _descriptionController.text;
+    final selection = _descriptionController.selection;
+    final offset = selection.isValid ? selection.baseOffset : text.length;
+
+    String prefix = '';
+    if (offset > 0 && text.isNotEmpty && text[offset - 1] != '\n') {
+      prefix = '\n';
+    }
+    const checkbox = '[ ] ';
+    final insert = '$prefix$checkbox';
+
+    final newText = text.substring(0, offset) + insert + text.substring(offset);
+    _descriptionController.text = newText;
+    final cursorPos = offset + insert.length;
+    _descriptionController.selection = TextSelection.collapsed(offset: cursorPos);
+    _descriptionFocus.requestFocus();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final dialogWidth = MediaQuery.of(context).size.width * 0.9;
+    final maxWidth = dialogWidth.clamp(400.0, 600.0);
+
     return AlertDialog(
       title: const Text('Edit Todo'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Title',
-                border: OutlineInputBorder(),
+      content: SizedBox(
+        width: maxWidth,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Title',
+                  border: OutlineInputBorder(),
+                ),
+                autofocus: true,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a title';
+                  }
+                  return null;
+                },
+                onFieldSubmitted: (_) => _submit(),
               ),
-              autofocus: true,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a title';
-                }
-                return null;
-              },
-              onFieldSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _descriptionController,
+                focusNode: _descriptionFocus,
+                decoration: InputDecoration(
+                  labelText: 'Description (optional)',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.check_box_outlined),
+                    tooltip: 'Add checkbox item',
+                    onPressed: _insertCheckbox,
+                  ),
+                  helperText: 'Paste images with Ctrl+V',
+                  helperStyle: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                maxLines: 5,
               ),
-              maxLines: 3,
-            ),
-          ],
+              ImageAttachmentSection(
+                existingImages: _existingImages,
+                pendingImages: _pendingImages,
+                onAddPending: (p) => setState(() => _pendingImages.add(p)),
+                onRemovePending: (i) => setState(() => _pendingImages.removeAt(i)),
+                onDeleteExisting: (id) => setState(() {
+                  _existingImages.removeWhere((img) => img.id == id);
+                  _deletedImageIds.add(id);
+                }),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [

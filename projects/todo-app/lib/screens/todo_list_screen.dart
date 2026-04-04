@@ -7,6 +7,7 @@ import '../widgets/add_todo_dialog.dart';
 import '../widgets/edit_todo_dialog.dart';
 import '../models/todo.dart';
 import '../services/share_handler.dart';
+import '../widgets/image_attachment_section.dart';
 
 class TodoListScreen extends StatefulWidget {
   final SharedData? sharedData;
@@ -38,36 +39,53 @@ class _TodoListScreenState extends State<TodoListScreen> {
     );
   }
 
-  Future<void> _addTodo({String? initialTitle, String? initialDescription}) async {
-    final result = await showDialog<Map<String, String>>(
+  Future<void> _addTodo({String? initialTitle, String? initialDescription, List<PendingImage>? initialImages}) async {
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AddTodoDialog(
         initialTitle: initialTitle,
         initialDescription: initialDescription,
+        initialImages: initialImages,
       ),
     );
     if (result != null && mounted) {
-      await context.read<TodoProvider>().addTodo(
-            result['title']!,
-            description: result['description'] ?? '',
-          );
+      final provider = context.read<TodoProvider>();
+      final todo = await provider.addTodoAndReturn(
+        result['title'] as String,
+        description: (result['description'] as String?) ?? '',
+      );
+      if (todo != null) {
+        final pending = result['pendingImages'] as List<PendingImage>? ?? [];
+        for (final img in pending) {
+          await provider.uploadImage(todo.id, img.bytes, img.filename);
+        }
+      }
     }
   }
 
   Future<void> _editTodo(Todo todo) async {
-    final result = await showDialog<Map<String, String>>(
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => EditTodoDialog(todo: todo),
     );
     if (result != null && mounted) {
+      final provider = context.read<TodoProvider>();
       if (result['action'] == 'delete') {
-        await context.read<TodoProvider>().deleteTodo(todo.id);
+        await provider.deleteTodo(todo.id);
       } else if (result['action'] == 'save') {
-        await context.read<TodoProvider>().updateTodo(
-              todo.id,
-              title: result['title'],
-              description: result['description'],
-            );
+        await provider.updateTodo(
+          todo.id,
+          title: result['title'] as String?,
+          description: result['description'] as String?,
+        );
+        final deletedIds = result['deletedImageIds'] as List<String>? ?? [];
+        for (final id in deletedIds) {
+          await provider.deleteImage(todo.id, id);
+        }
+        final pending = result['pendingImages'] as List<PendingImage>? ?? [];
+        for (final img in pending) {
+          await provider.uploadImage(todo.id, img.bytes, img.filename);
+        }
       }
     }
   }
