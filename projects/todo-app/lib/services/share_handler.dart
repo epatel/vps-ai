@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:web/web.dart' as web;
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 class SharedData {
   final String title;
@@ -76,8 +77,8 @@ Future<List<SharedImage>> readSharedImages() async {
       final items = getAll.result as JSArray;
       for (int i = 0; i < items.length; i++) {
         final item = items[i] as JSObject;
-        final name = (item['name'] as JSString).toDart;
-        final data = (item['data'] as JSArrayBuffer).toDart;
+        final name = (item.getProperty('name'.toJS) as JSString).toDart;
+        final data = (item.getProperty('data'.toJS) as JSArrayBuffer).toDart;
         results.add(SharedImage(
           bytes: data.asUint8List(),
           name: name,

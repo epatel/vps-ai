@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/todo_image.dart';
-import '../services/api_service.dart';
 
 class ImageViewerScreen extends StatefulWidget {
   final List<TodoImage> images;

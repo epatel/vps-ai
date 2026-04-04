@@ -3,7 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:web/web.dart' as web;
 import '../models/todo.dart';
-import '../services/api_service.dart';
+
 import 'image_viewer_screen.dart';
 
 /// Regex matching checkbox lines: `- [ ] text` or `- [x] text` (case-insensitive x)

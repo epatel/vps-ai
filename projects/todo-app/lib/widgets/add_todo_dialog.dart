@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
@@ -33,8 +32,8 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
     final items = event.clipboardData?.items;
     if (items == null) return;
     for (int i = 0; i < items.length; i++) {
-      final item = items.item(i);
-      if (item != null && item.type.toDart.startsWith('image/')) {
+      final item = items[i];
+      if (item.type.startsWith('image/')) {
         event.preventDefault();
         final blob = item.getAsFile();
         if (blob == null) continue;

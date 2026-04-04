@@ -5,3 +5,4 @@ __pycache__/
 todo.db
 todo.db-wal
 todo.db-shm
+uploads/
