@@ -277,6 +277,8 @@
                 '<span style="font-size:11px;color:#888;">' + escapeHtml(meta.filename || item.content) + '</span>';
         } else if (itemType === 'image') {
             contentHtml = escapeHtml(meta.filename || item.content) + ' (sent)';
+        } else if (itemType === 'text') {
+            contentHtml = '<span class="text-content" style="cursor:pointer" title="Tap to copy">' + escapeHtml(contentText) + '</span>';
         } else {
             contentHtml = escapeHtml(contentText);
         }
@@ -294,6 +296,17 @@
                 var current = div.dataset.pinned === '1';
                 ws.send(JSON.stringify({ type: 'pin', token: token, item_id: item.id, pinned: !current }));
             });
+        }
+
+        if (itemType === 'text') {
+            var textEl = div.querySelector('.text-content');
+            if (textEl) {
+                textEl.addEventListener('click', function () {
+                    navigator.clipboard.writeText(item.content).then(function () {
+                        showToast('Copied to clipboard');
+                    });
+                });
+            }
         }
 
         var firstItem = history.querySelector('.history-item');
