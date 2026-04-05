@@ -155,10 +155,14 @@ async def handle_ws(request):
                         "created_at": item["created_at"],
                     }
 
-                    # Send to both sides (sender gets confirmation with id)
+                    # Send to peer via connections dict
                     other_role = "phone" if sender == "desktop" else "desktop"
                     await notify_peer(room_id, other_role, item_msg)
-                    await notify_peer(room_id, sender, item_msg)
+                    # Echo back to sender directly (same ws)
+                    try:
+                        await ws.send_str(json.dumps(item_msg))
+                    except Exception:
+                        pass
 
                 elif msg_type == "delete":
                     token = data.get("token", "")
