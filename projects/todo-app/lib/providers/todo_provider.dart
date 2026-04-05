@@ -20,6 +20,31 @@ class TodoProvider extends ChangeNotifier {
   bool get isLoadingArchived => _isLoadingArchived;
   ApiService get api => _api;
 
+  /// Find and update a todo in whichever list it belongs to.
+  void _updateInList(String id, Todo updated) {
+    var index = _todos.indexWhere((t) => t.id == id);
+    if (index != -1) {
+      _todos[index] = updated;
+    } else {
+      index = _archivedTodos.indexWhere((t) => t.id == id);
+      if (index != -1) {
+        _archivedTodos[index] = updated;
+      }
+    }
+  }
+
+  void _updateImagesInList(String todoId, void Function(Todo todo) mutate) {
+    var index = _todos.indexWhere((t) => t.id == todoId);
+    if (index != -1) {
+      mutate(_todos[index]);
+    } else {
+      index = _archivedTodos.indexWhere((t) => t.id == todoId);
+      if (index != -1) {
+        mutate(_archivedTodos[index]);
+      }
+    }
+  }
+
   Future<void> loadTodos() async {
     _isLoading = true;
     _error = null;
@@ -109,11 +134,8 @@ class TodoProvider extends ChangeNotifier {
     final newDone = !todo.done;
     try {
       final updated = await _api.updateTodo(todo.id, done: newDone);
-      final index = _todos.indexWhere((t) => t.id == todo.id);
-      if (index != -1) {
-        _todos[index] = updated;
-        notifyListeners();
-      }
+      _updateInList(todo.id, updated);
+      notifyListeners();
       return true;
     } catch (e) {
       _error = 'Failed to update todo';
@@ -125,11 +147,8 @@ class TodoProvider extends ChangeNotifier {
   Future<bool> updateTodo(String id, {String? title, String? description}) async {
     try {
       final updated = await _api.updateTodo(id, title: title, description: description);
-      final index = _todos.indexWhere((t) => t.id == id);
-      if (index != -1) {
-        _todos[index] = updated;
-        notifyListeners();
-      }
+      _updateInList(id, updated);
+      notifyListeners();
       return true;
     } catch (e) {
       _error = 'Failed to update todo';
@@ -142,6 +161,7 @@ class TodoProvider extends ChangeNotifier {
     try {
       await _api.deleteTodo(id);
       _todos.removeWhere((t) => t.id == id);
+      _archivedTodos.removeWhere((t) => t.id == id);
       notifyListeners();
       return true;
     } catch (e) {
@@ -194,11 +214,10 @@ class TodoProvider extends ChangeNotifier {
   Future<bool> uploadImage(String todoId, Uint8List bytes, String filename) async {
     try {
       final image = await _api.uploadImage(todoId, bytes, filename);
-      final index = _todos.indexWhere((t) => t.id == todoId);
-      if (index != -1) {
-        _todos[index].images = [..._todos[index].images, image];
-        notifyListeners();
-      }
+      _updateImagesInList(todoId, (todo) {
+        todo.images = [...todo.images, image];
+      });
+      notifyListeners();
       return true;
     } catch (e) {
       _error = 'Failed to upload image';
@@ -210,11 +229,10 @@ class TodoProvider extends ChangeNotifier {
   Future<bool> claimPendingImage(String todoId, String pendingId) async {
     try {
       final image = await _api.claimPendingImage(pendingId, todoId);
-      final index = _todos.indexWhere((t) => t.id == todoId);
-      if (index != -1) {
-        _todos[index].images = [..._todos[index].images, image];
-        notifyListeners();
-      }
+      _updateImagesInList(todoId, (todo) {
+        todo.images = [...todo.images, image];
+      });
+      notifyListeners();
       return true;
     } catch (e) {
       _error = 'Failed to claim shared image';
@@ -226,11 +244,10 @@ class TodoProvider extends ChangeNotifier {
   Future<bool> deleteImage(String todoId, String imageId) async {
     try {
       await _api.deleteImage(imageId);
-      final index = _todos.indexWhere((t) => t.id == todoId);
-      if (index != -1) {
-        _todos[index].images = _todos[index].images.where((i) => i.id != imageId).toList();
-        notifyListeners();
-      }
+      _updateImagesInList(todoId, (todo) {
+        todo.images = todo.images.where((i) => i.id != imageId).toList();
+      });
+      notifyListeners();
       return true;
     } catch (e) {
       _error = 'Failed to delete image';
