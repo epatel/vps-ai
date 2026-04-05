@@ -122,9 +122,9 @@ class ApiService {
 
   // Todo endpoints
 
-  Future<List<Todo>> getTodos() async {
+  Future<List<Todo>> getTodos({bool archived = false}) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/todos'),
+      Uri.parse('$baseUrl/todos?archived=${archived ? 1 : 0}'),
       headers: _headers,
     );
     final list = await _handleListResponse(response);
@@ -141,12 +141,13 @@ class ApiService {
     return Todo.fromJson(data);
   }
 
-  Future<Todo> updateTodo(String id, {String? title, String? description, bool? done, double? sortOrder}) async {
+  Future<Todo> updateTodo(String id, {String? title, String? description, bool? done, double? sortOrder, bool? archived}) async {
     final body = <String, dynamic>{};
     if (title != null) body['title'] = title;
     if (description != null) body['description'] = description;
     if (done != null) body['done'] = done ? 1 : 0;
     if (sortOrder != null) body['sort_order'] = sortOrder;
+    if (archived != null) body['archived'] = archived ? 1 : 0;
 
     final response = await http.put(
       Uri.parse('$baseUrl/todos/$id'),
