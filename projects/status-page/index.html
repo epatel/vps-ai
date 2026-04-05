@@ -252,12 +252,16 @@
         var allDefs = svcDefs.concat(siteDefs);
         var svcCount = svcDefs.length;
 
-        function streamPoll() {
-            var results = {};
+        // Track last known state per service
+        var lastState = {};
+        var firstRun = true;
 
-            // Show all as pending
-            $('services').innerHTML = svcDefs.map(function(s) { return renderSvcCard(s, true); }).join('');
-            $('static-sites').innerHTML = siteDefs.map(function(s) { return renderSvcCard(s, true); }).join('');
+        function streamPoll() {
+            // On first run, show pending placeholders
+            if (firstRun) {
+                $('services').innerHTML = svcDefs.map(function(s) { return renderSvcCard(s, true); }).join('');
+                $('static-sites').innerHTML = siteDefs.map(function(s) { return renderSvcCard(s, true); }).join('');
+            }
 
             var es = new EventSource('/status/stream');
             es.onmessage = function(ev) {
@@ -266,20 +270,24 @@
                     renderSystem(d);
                     return;
                 }
-                // Service check result
-                results[d.path] = d;
-                // Update the right card in place
-                if (d.index < svcCount) {
-                    var cards = $('services').children;
-                    if (cards[d.index]) cards[d.index].outerHTML = renderSvcCard(d, false);
-                } else {
-                    var cards = $('static-sites').children;
-                    var si = d.index - svcCount;
-                    if (cards[si]) cards[si].outerHTML = renderSvcCard(d, false);
+                // Only update card if state changed (or first run)
+                var key = d.path;
+                var prev = lastState[key];
+                if (!prev || prev.status !== d.status || prev.detail !== d.detail) {
+                    if (d.index < svcCount) {
+                        var cards = $('services').children;
+                        if (cards[d.index]) cards[d.index].outerHTML = renderSvcCard(d, false);
+                    } else {
+                        var cards = $('static-sites').children;
+                        var si = d.index - svcCount;
+                        if (cards[si]) cards[si].outerHTML = renderSvcCard(d, false);
+                    }
                 }
+                lastState[key] = d;
             };
             es.addEventListener('done', function() {
                 es.close();
+                firstRun = false;
                 dot.style.background = '#4caf50';
             });
             es.onerror = function() {
