@@ -105,7 +105,7 @@
                 if (pinEl) {
                     pinEl.dataset.pinned = data.pinned ? '1' : '0';
                     var pinBtn = pinEl.querySelector('.item-pin');
-                    if (pinBtn) pinBtn.textContent = data.pinned ? '&#x1F4CC;' : '&#x25CB;';
+                    if (pinBtn) pinBtn.textContent = data.pinned ? '\u{1F4CC}' : '\u25CB';
                 }
                 break;
 
