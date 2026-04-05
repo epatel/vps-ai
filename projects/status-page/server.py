@@ -141,13 +141,18 @@ def check_nginx(path):
     """Check if a path is served by nginx (not falling back to default page).
     Returns 'up' if served correctly, 'fallback' if nginx default, 'down' if unreachable."""
     try:
-        url = f"http://127.0.0.1{path}"
+        url = f"https://{HOSTNAME}{path}"
         if not url.endswith("/"):
             url += "/"
         req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        # Skip TLS verification for localhost check
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with urllib.request.urlopen(req, timeout=3, context=ctx) as resp:
             body = resp.read(4096).decode("utf-8", errors="replace")
-            # Detect nginx default page or empty response
+            # Detect nginx default page
             if "welcome to nginx" in body.lower() or "default server" in body.lower():
                 return "fallback"
             return "up"
