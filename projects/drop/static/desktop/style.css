@@ -134,11 +134,13 @@ header h1 { font-size: 18px; font-weight: 600; color: #fff; }
 
 .btn-download {
     background: #4ecca3;
-    color: #1a1a2e;
-    padding: 2px 8px;
+    color: #1a1a2e !important;
+    padding: 3px 10px;
     border-radius: 4px;
     font-size: 11px;
-    text-decoration: none;
+    text-decoration: none !important;
+    display: inline-block;
+    font-weight: 600;
 }
 
 .item-pin {

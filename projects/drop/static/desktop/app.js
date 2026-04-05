@@ -187,7 +187,8 @@
                 break;
             case 'image':
                 var imgUrl = BASE + '/api/file/' + roomId + '/' + item.id + '?token=' + encodeURIComponent(token);
-                contentHtml = '<img class="thumb" src="' + imgUrl + '" alt="' + escapeHtml(meta.filename || 'image') + '" loading="lazy" data-full="' + imgUrl + '">';
+                contentHtml = '<img class="thumb" src="' + imgUrl + '" alt="' + escapeHtml(meta.filename || 'image') + '" loading="lazy" data-full="' + imgUrl + '">' +
+                    '<div style="margin-top:4px"><a href="' + imgUrl + '" download="' + escapeHtml(meta.filename || 'image') + '" class="btn-download">Download</a></div>';
                 break;
             case 'file':
                 var fileUrl = BASE + '/api/file/' + roomId + '/' + item.id + '?token=' + encodeURIComponent(token);

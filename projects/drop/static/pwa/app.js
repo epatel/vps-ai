@@ -274,9 +274,16 @@
         } else if (itemType === 'image' && item.id && token) {
             var imgUrl = BASE + '/api/file/' + roomId + '/' + item.id + '?token=' + encodeURIComponent(token);
             contentHtml = '<img class="thumb" src="' + imgUrl + '" alt="' + escapeHtml(meta.filename || 'image') + '" data-full="' + imgUrl + '">' +
-                '<span style="font-size:11px;color:#888;">' + escapeHtml(meta.filename || item.content) + '</span>';
+                '<div style="margin-top:4px"><span style="font-size:11px;color:#888;">' + escapeHtml(meta.filename || item.content) + '</span> ' +
+                '<a href="' + imgUrl + '" download="' + escapeHtml(meta.filename || 'image') + '" class="btn-download">Download</a></div>';
         } else if (itemType === 'image') {
             contentHtml = escapeHtml(meta.filename || item.content) + ' (sent)';
+        } else if (itemType === 'file' && item.id && token) {
+            var fileUrl = BASE + '/api/file/' + roomId + '/' + item.id + '?token=' + encodeURIComponent(token);
+            var size = meta.size ? formatSize(meta.size) : '';
+            contentHtml = escapeHtml(meta.filename || item.content) +
+                ' <span style="color:#666;font-size:11px">' + size + '</span>' +
+                ' <a href="' + fileUrl + '" download="' + escapeHtml(meta.filename || 'file') + '" class="btn-download">Download</a>';
         } else if (itemType === 'text') {
             contentHtml = '<span class="text-content" style="cursor:pointer" title="Tap to copy">' + escapeHtml(contentText) + '</span>';
         } else {
@@ -350,6 +357,12 @@
     }
 
     function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
 
     function showImageViewer(src) {
         var overlay = document.createElement('div');

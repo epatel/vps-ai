@@ -202,6 +202,17 @@ header h1 { font-size: 18px; font-weight: 600; color: #fff; }
 .history-item[data-pinned="1"] .item-pin { color: #ffd93d; }
 .history-item[data-pinned="1"] { border-left-color: #ffd93d !important; }
 
+.btn-download {
+    background: #4ecca3;
+    color: #1a1a2e !important;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    text-decoration: none !important;
+    display: inline-block;
+    font-weight: 600;
+}
+
 .toast {
     position: fixed;
     bottom: 20px;
