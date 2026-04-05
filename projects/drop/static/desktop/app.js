@@ -303,6 +303,119 @@
         }
     });
 
+    // --- Drag and drop ---
+    var dragCounter = 0;
+
+    document.addEventListener('dragenter', function (e) {
+        e.preventDefault();
+        dragCounter++;
+        document.body.classList.add('dragging');
+    });
+
+    document.addEventListener('dragleave', function (e) {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter <= 0) {
+            dragCounter = 0;
+            document.body.classList.remove('dragging');
+        }
+    });
+
+    document.addEventListener('dragover', function (e) {
+        e.preventDefault();
+    });
+
+    document.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dragCounter = 0;
+        document.body.classList.remove('dragging');
+        if (!token) return;
+
+        var files = e.dataTransfer.files;
+        for (var i = 0; i < files.length; i++) {
+            uploadFile(files[i]);
+        }
+
+        // Handle dropped text/URLs
+        if (files.length === 0) {
+            var text = e.dataTransfer.getData('text');
+            if (text) sendText(text);
+        }
+    });
+
+    // --- Paste ---
+    document.addEventListener('paste', function (e) {
+        if (!token) return;
+
+        var items = e.clipboardData.items;
+        var handledFile = false;
+
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file') {
+                var file = items[i].getAsFile();
+                if (file) {
+                    uploadFile(file);
+                    handledFile = true;
+                }
+            }
+        }
+
+        if (!handledFile) {
+            var text = e.clipboardData.getData('text');
+            if (text) {
+                sendText(text);
+                e.preventDefault();
+            }
+        }
+    });
+
+    // --- Upload and send helpers ---
+    function uploadFile(file) {
+        if (!token) return;
+        if (file.size > 50 * 1024 * 1024) {
+            showToast('File too large (max 50MB)');
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append('token', token);
+        formData.append('file', file);
+
+        showToast('Uploading ' + file.name + '...');
+
+        fetch(BASE + '/api/upload', {
+            method: 'POST',
+            body: formData,
+        }).then(function (resp) {
+            if (resp.ok) {
+                showToast('Uploaded!');
+            } else {
+                resp.json().then(function (err) { showToast(err.error || 'Upload failed'); });
+            }
+        }).catch(function () {
+            showToast('Upload failed');
+        });
+    }
+
+    function sendText(text) {
+        if (!text || !ws || ws.readyState !== 1 || !token) return;
+        var itemType = isUrl(text) ? 'link' : 'text';
+        ws.send(JSON.stringify({
+            type: 'item', token: token,
+            item_type: itemType, content: text,
+        }));
+        showToast('Sent!');
+    }
+
+    function isUrl(str) {
+        try {
+            var url = new URL(str);
+            return url.protocol === 'http:' || url.protocol === 'https:';
+        } catch (e) {
+            return false;
+        }
+    }
+
     function escapeHtml(str) {
         var div = document.createElement('div');
         div.textContent = str;
