@@ -7,12 +7,14 @@ class AddTodoDialog extends StatefulWidget {
   final String? initialTitle;
   final String? initialDescription;
   final List<PendingImage>? initialImages;
+  final List<String>? pendingServerImageIds;
 
   const AddTodoDialog({
     super.key,
     this.initialTitle,
     this.initialDescription,
     this.initialImages,
+    this.pendingServerImageIds,
   });
 
   @override
@@ -25,6 +27,7 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
   final _descriptionFocus = FocusNode();
   final _formKey = GlobalKey<FormState>();
   final List<PendingImage> _pendingImages = [];
+  late final List<String> _serverPendingIds;
 
   late final JSFunction _pasteListener;
 
@@ -68,6 +71,7 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
     if (widget.initialImages != null) {
       _pendingImages.addAll(widget.initialImages!);
     }
+    _serverPendingIds = List<String>.from(widget.pendingServerImageIds ?? []);
     _pasteListener = _handlePaste.toJS;
     web.document.addEventListener('paste', _pasteListener);
   }
@@ -87,6 +91,7 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
       'title': _titleController.text.trim(),
       'description': _descriptionController.text.trim(),
       'pendingImages': _pendingImages,
+      'serverPendingIds': _serverPendingIds,
     });
   }
 
@@ -162,8 +167,10 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
               ),
               ImageAttachmentSection(
                 pendingImages: _pendingImages,
+                serverPendingImageIds: _serverPendingIds,
                 onAddPending: (p) => setState(() => _pendingImages.add(p)),
                 onRemovePending: (i) => setState(() => _pendingImages.removeAt(i)),
+                onRemoveServerPending: (i) => setState(() => _serverPendingIds.removeAt(i)),
               ),
             ],
           ),

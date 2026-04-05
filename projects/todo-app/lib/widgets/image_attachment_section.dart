@@ -17,9 +17,11 @@ class PendingImage {
 class ImageAttachmentSection extends StatelessWidget {
   final List<TodoImage> existingImages;
   final List<PendingImage> pendingImages;
+  final List<String> serverPendingImageIds;
   final ValueChanged<PendingImage> onAddPending;
   final ValueChanged<int> onRemovePending;
   final ValueChanged<String>? onDeleteExisting;
+  final ValueChanged<int>? onRemoveServerPending;
   final int maxImages;
   final String Function(String path)? imageUrl;
 
@@ -27,14 +29,16 @@ class ImageAttachmentSection extends StatelessWidget {
     super.key,
     this.existingImages = const [],
     required this.pendingImages,
+    this.serverPendingImageIds = const [],
     required this.onAddPending,
     required this.onRemovePending,
     this.onDeleteExisting,
+    this.onRemoveServerPending,
     this.maxImages = 10,
     this.imageUrl,
   });
 
-  int get _totalCount => existingImages.length + pendingImages.length;
+  int get _totalCount => existingImages.length + pendingImages.length + serverPendingImageIds.length;
   bool get _canAdd => _totalCount < maxImages;
 
   Future<void> _pickImage() async {
@@ -87,6 +91,13 @@ class ImageAttachmentSection extends StatelessWidget {
                 imageUrl: imageUrl,
                 onDelete: onDeleteExisting != null
                     ? () => onDeleteExisting!(existingImages[i].id)
+                    : null,
+              ),
+            for (int i = 0; i < serverPendingImageIds.length; i++)
+              _ServerPendingThumb(
+                imageId: serverPendingImageIds[i],
+                onRemove: onRemoveServerPending != null
+                    ? () => onRemoveServerPending!(i)
                     : null,
               ),
             for (int i = 0; i < pendingImages.length; i++)
@@ -142,6 +153,60 @@ class _ExistingThumb extends StatelessWidget {
               right: -6,
               child: GestureDetector(
                 onTap: onDelete,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.error,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close, size: 14,
+                      color: Theme.of(context).colorScheme.onError),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServerPendingThumb extends StatelessWidget {
+  final String imageId;
+  final VoidCallback? onRemove;
+
+  const _ServerPendingThumb({required this.imageId, this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    final url = '${ApiService.baseUrl}/pending-image/$imageId/preview';
+    return SizedBox(
+      width: 72,
+      height: 72,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              url,
+              width: 72,
+              height: 72,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 72,
+                height: 72,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: const Icon(Icons.broken_image, size: 24),
+              ),
+            ),
+          ),
+          if (onRemove != null)
+            Positioned(
+              top: -6,
+              right: -6,
+              child: GestureDetector(
+                onTap: onRemove,
                 child: Container(
                   width: 22,
                   height: 22,

@@ -50,6 +50,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
         initialTitle: initialTitle,
         initialDescription: initialDescription,
         initialImages: initialImages,
+        pendingServerImageIds: pendingImageIds,
       ),
     );
     if (result != null && mounted) {
@@ -59,11 +60,10 @@ class _TodoListScreenState extends State<TodoListScreen> {
         description: (result['description'] as String?) ?? '',
       );
       if (todo != null) {
-        // Claim pending images from server (shared via Web Share Target)
-        if (pendingImageIds != null) {
-          for (final id in pendingImageIds) {
-            await provider.claimPendingImage(todo.id, id);
-          }
+        // Claim server-side pending images (shared via Web Share Target)
+        final serverIds = result['serverPendingIds'] as List<String>? ?? [];
+        for (final id in serverIds) {
+          await provider.claimPendingImage(todo.id, id);
         }
         // Upload locally-added images
         final pending = result['pendingImages'] as List<PendingImage>? ?? [];

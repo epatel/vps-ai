@@ -896,6 +896,15 @@ def share_target():
     return "", 303, {"Location": redirect_url}
 
 
+@app.route("/pending-image/<pending_id>/preview", methods=["GET"])
+def preview_pending_image(pending_id):
+    """Serve a pending image preview (no auth - UUID is unguessable, expires in 5 min)."""
+    pending_path = os.path.join(PENDING_DIR, f"{pending_id}.jpg")
+    if not os.path.exists(pending_path):
+        return jsonify({"error": "Not found or expired"}), 404
+    return send_file(pending_path, mimetype="image/jpeg")
+
+
 @app.route("/pending-image/<pending_id>", methods=["POST"])
 @auth_required
 def claim_pending_image(pending_id):
