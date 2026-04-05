@@ -133,7 +133,6 @@ async def handle_ws(request):
                     token = data.get("token", "")
                     room = await db.find_room_by_token(token)
                     if not room:
-                        log.warning(f"ITEM: invalid token {token[:8]}...")
                         await ws.send_str(json.dumps({"type": "error", "message": "Invalid token"}))
                         continue
 
@@ -141,7 +140,6 @@ async def handle_ws(request):
                     sender = "desktop" if token == room["token_a"] else "phone"
                     item_type = data.get("item_type", "text")
                     content = data.get("content", "")
-                    log.warning(f"ITEM: sender={sender} type={item_type} content={content[:50]}")
 
                     item_id = await db.add_item(room_id, item_type, content, sender)
                     item = (await db.get_items(room_id, since_id=item_id - 1))[0]
@@ -160,9 +158,8 @@ async def handle_ws(request):
                     await notify_peer(room_id, other_role, item_msg)
                     try:
                         await ws.send_str(json.dumps(item_msg))
-                        log.warning(f"ITEM: echoed back to {sender} ok")
-                    except Exception as e:
-                        log.warning(f"ITEM: echo failed: {e}")
+                    except Exception:
+                        pass
 
                 elif msg_type == "delete":
                     token = data.get("token", "")
