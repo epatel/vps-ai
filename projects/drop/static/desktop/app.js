@@ -187,7 +187,7 @@
                 break;
             case 'image':
                 var imgUrl = BASE + '/api/file/' + roomId + '/' + item.id + '?token=' + encodeURIComponent(token);
-                contentHtml = '<img src="' + imgUrl + '" alt="' + escapeHtml(meta.filename || 'image') + '" loading="lazy">';
+                contentHtml = '<img class="thumb" src="' + imgUrl + '" alt="' + escapeHtml(meta.filename || 'image') + '" loading="lazy" data-full="' + imgUrl + '">';
                 break;
             case 'file':
                 var fileUrl = BASE + '/api/file/' + roomId + '/' + item.id + '?token=' + encodeURIComponent(token);
@@ -213,6 +213,15 @@
                 textEl.addEventListener('click', function () {
                     navigator.clipboard.writeText(item.content);
                     showToast('Copied to clipboard');
+                });
+            }
+        }
+
+        if (itemType === 'image') {
+            var imgEl = div.querySelector('.thumb');
+            if (imgEl) {
+                imgEl.addEventListener('click', function () {
+                    showImageViewer(imgEl.dataset.full);
                 });
             }
         }
@@ -316,6 +325,14 @@
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function showImageViewer(src) {
+        var overlay = document.createElement('div');
+        overlay.className = 'image-viewer';
+        overlay.innerHTML = '<img src="' + src + '">';
+        overlay.addEventListener('click', function () { overlay.remove(); });
+        document.body.appendChild(overlay);
     }
 
     function showToast(msg) {
