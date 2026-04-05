@@ -97,6 +97,7 @@
                 break;
 
             case 'items':
+                clearHistory();
                 data.items.forEach(function (item) { addToHistory(item); });
                 break;
 
@@ -227,6 +228,12 @@
         }).catch(function () {
             showToast('Upload failed');
         });
+    }
+
+    function clearHistory() {
+        var items = document.querySelectorAll('.history-item');
+        for (var i = 0; i < items.length; i++) items[i].remove();
+        show($('#empty-state'));
     }
 
     function addToHistory(item) {
