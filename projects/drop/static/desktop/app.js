@@ -65,7 +65,11 @@
         switch (data.type) {
             case 'code':
                 showPairingScreen(data.code, data.expires_in);
-                setStatus('connecting', 'Waiting for pair...');
+                if (token) {
+                    setStatus('connected', 'Pairing...');
+                } else {
+                    setStatus('connecting', 'Waiting for pair...');
+                }
                 break;
 
             case 'paired':
@@ -244,8 +248,10 @@
     });
 
     $('#pair-btn').addEventListener('click', function () {
-        // Show pairing screen with a new code (keeps existing room active)
-        if (ws && ws.readyState === 1) {
+        // Show pairing screen with a new code for the same room
+        if (token && ws && ws.readyState === 1) {
+            ws.send(JSON.stringify({ type: 'refresh_code', token: token }));
+        } else if (ws && ws.readyState === 1) {
             ws.send(JSON.stringify({ type: 'request_code' }));
         }
     });

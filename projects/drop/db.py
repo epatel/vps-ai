@@ -68,6 +68,17 @@ class Database:
         await self._db.commit()
         return {"id": room_id, "token_a": token_a, "pairing_code": pairing_code}
 
+    async def refresh_pairing_code(self, room_id, code_ttl_seconds=300):
+        """Generate a new pairing code for an existing room."""
+        pairing_code = self._generate_code()
+        expires_at = (datetime.now(timezone.utc) + timedelta(seconds=code_ttl_seconds)).isoformat()
+        await self._db.execute(
+            "UPDATE rooms SET pairing_code = ?, code_expires_at = ? WHERE id = ?",
+            (pairing_code, expires_at, room_id),
+        )
+        await self._db.commit()
+        return pairing_code
+
     async def find_room_by_code(self, code):
         now = datetime.now(timezone.utc).isoformat()
         cursor = await self._db.execute(

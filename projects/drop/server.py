@@ -66,6 +66,20 @@ async def handle_ws(request):
                         "expires_in": 300,
                     }))
 
+                elif msg_type == "refresh_code":
+                    # Generate new pairing code for existing room
+                    token = data.get("token", "")
+                    room = await db.find_room_by_token(token)
+                    if not room:
+                        await ws.send_str(json.dumps({"type": "error", "message": "Invalid token"}))
+                        continue
+                    code = await db.refresh_pairing_code(room["id"])
+                    await ws.send_str(json.dumps({
+                        "type": "code",
+                        "code": code,
+                        "expires_in": 300,
+                    }))
+
                 elif msg_type == "pair":
                     code = data.get("code", "").strip().upper()
                     room = await db.find_room_by_code(code)
