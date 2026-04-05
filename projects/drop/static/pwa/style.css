@@ -140,6 +140,19 @@ header h1 { font-size: 18px; font-weight: 600; color: #fff; }
 .history-item .content { font-size: 13px; color: #ccc; word-break: break-all; }
 .history-item .content a { color: #8b9cf7; text-decoration: none; }
 
+.item-actions { margin-top: 4px; }
+.item-pin {
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+}
+.item-pin:hover { color: #ffd93d; }
+.history-item[data-pinned="1"] .item-pin { color: #ffd93d; }
+.history-item[data-pinned="1"] { border-left-color: #ffd93d !important; }
+
 .toast {
     position: fixed;
     bottom: 20px;

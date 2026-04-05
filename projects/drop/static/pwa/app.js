@@ -111,6 +111,15 @@
                 if (!document.querySelector('.history-item')) show($('#empty-state'));
                 break;
 
+            case 'pinned':
+                var pinEl = document.querySelector('.history-item[data-id="' + data.item_id + '"]');
+                if (pinEl) {
+                    pinEl.dataset.pinned = data.pinned ? '1' : '0';
+                    var pinBtn = pinEl.querySelector('.item-pin');
+                    if (pinBtn) pinBtn.textContent = data.pinned ? '\u{1F4CC}' : '\u25CB';
+                }
+                break;
+
             case 'cleared':
                 clearHistory();
                 break;
@@ -272,9 +281,20 @@
             contentHtml = escapeHtml(contentText);
         }
 
+        var isPinned = item.pinned;
+        div.dataset.pinned = isPinned ? '1' : '0';
+
         div.innerHTML =
             '<div class="content">' + contentHtml + '</div>' +
+            '<div class="item-actions"><button class="item-pin" title="Pin to keep">' + (isPinned ? '\u{1F4CC}' : '\u25CB') + '</button></div>' +
             '<div class="meta">' + capitalize(itemType) + ' &middot; just now</div>';
+
+        if (item.id && token) {
+            div.querySelector('.item-pin').addEventListener('click', function () {
+                var current = div.dataset.pinned === '1';
+                ws.send(JSON.stringify({ type: 'pin', token: token, item_id: item.id, pinned: !current }));
+            });
+        }
 
         var firstItem = history.querySelector('.history-item');
         if (firstItem) {

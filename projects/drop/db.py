@@ -36,10 +36,16 @@ class Database:
                 content TEXT NOT NULL,
                 metadata TEXT,
                 sender TEXT NOT NULL,
+                pinned INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_items_room_id ON items(room_id);
         """)
+        # Migration: add pinned column if missing
+        try:
+            await self._db.execute("SELECT pinned FROM items LIMIT 1")
+        except Exception:
+            await self._db.execute("ALTER TABLE items ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
         await self._db.commit()
 
     async def close(self):
@@ -144,9 +150,31 @@ class Database:
         )
         await self._db.commit()
 
+    async def pin_item(self, room_id, item_id, pinned=True):
+        await self._db.execute(
+            "UPDATE items SET pinned = ? WHERE id = ? AND room_id = ?",
+            (1 if pinned else 0, item_id, room_id),
+        )
+        await self._db.commit()
+
     async def clear_items(self, room_id):
         await self._db.execute("DELETE FROM items WHERE room_id = ?", (room_id,))
         await self._db.commit()
+
+    async def cleanup_expired_items(self, max_age_seconds=300):
+        """Remove non-pinned items older than max_age_seconds. Returns list of (room_id, item_id) removed."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max_age_seconds)).isoformat()
+        cursor = await self._db.execute(
+            "SELECT id, room_id, content, metadata, type FROM items WHERE pinned = 0 AND created_at < ?",
+            (cutoff,),
+        )
+        expired = [dict(row) for row in await cursor.fetchall()]
+        if expired:
+            ids = [item["id"] for item in expired]
+            placeholders = ",".join("?" for _ in ids)
+            await self._db.execute(f"DELETE FROM items WHERE id IN ({placeholders})", ids)
+            await self._db.commit()
+        return expired
 
     async def cleanup_stale_rooms(self, max_age_days=30):
         cutoff = (datetime.now(timezone.utc) - timedelta(days=max_age_days)).isoformat()

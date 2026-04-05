@@ -141,6 +141,23 @@ header h1 { font-size: 18px; font-weight: 600; color: #fff; }
     text-decoration: none;
 }
 
+.item-pin {
+    position: absolute;
+    top: 8px;
+    right: 36px;
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.item-pin:hover { color: #ffd93d; }
+.feed-item[data-pinned="1"] .item-pin { color: #ffd93d; }
+.feed-item[data-pinned="1"] { border-left-color: #ffd93d !important; }
+
 .item-delete {
     position: absolute;
     top: 8px;

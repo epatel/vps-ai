@@ -1,4 +1,4 @@
-var CACHE_NAME = 'drop-v2';
+var CACHE_NAME = 'drop-v3';
 var SHELL_FILES = [
     '/drop/pwa/',
     '/drop/pwa/style.css',

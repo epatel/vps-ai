@@ -100,6 +100,15 @@
                 removeItemFromFeed(data.item_id);
                 break;
 
+            case 'pinned':
+                var pinEl = document.querySelector('.feed-item[data-id="' + data.item_id + '"]');
+                if (pinEl) {
+                    pinEl.dataset.pinned = data.pinned ? '1' : '0';
+                    var pinBtn = pinEl.querySelector('.item-pin');
+                    if (pinBtn) pinBtn.textContent = data.pinned ? '&#x1F4CC;' : '&#x25CB;';
+                }
+                break;
+
             case 'cleared':
                 clearFeed();
                 break;
@@ -189,9 +198,13 @@
                 break;
         }
 
+        var isPinned = item.pinned;
+        div.dataset.pinned = isPinned ? '1' : '0';
+
         div.innerHTML =
             '<div class="item-meta">' + capitalize(itemType) + ' &middot; ' + timeStr + '</div>' +
             '<div class="item-content">' + contentHtml + '</div>' +
+            '<button class="item-pin" title="Pin to keep">' + (isPinned ? '&#x1F4CC;' : '&#x25CB;') + '</button>' +
             '<button class="item-delete" title="Delete">&times;</button>';
 
         if (itemType === 'text') {
@@ -203,6 +216,11 @@
                 });
             }
         }
+
+        div.querySelector('.item-pin').addEventListener('click', function () {
+            var current = div.dataset.pinned === '1';
+            ws.send(JSON.stringify({ type: 'pin', token: token, item_id: item.id, pinned: !current }));
+        });
 
         div.querySelector('.item-delete').addEventListener('click', function () {
             ws.send(JSON.stringify({ type: 'delete', token: token, item_id: item.id }));

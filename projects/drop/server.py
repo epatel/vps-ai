@@ -151,6 +151,7 @@ async def handle_ws(request):
                         "content": item["content"],
                         "metadata": item["metadata"],
                         "sender": item["sender"],
+                        "pinned": bool(item.get("pinned", 0)),
                         "created_at": item["created_at"],
                     }
 
@@ -173,6 +174,20 @@ async def handle_ws(request):
                     sender_role = "desktop" if token == room["token_a"] else "phone"
                     other_role = "phone" if sender_role == "desktop" else "desktop"
                     await notify_peer(room_id, other_role, {"type": "deleted", "item_id": item_id})
+
+                elif msg_type == "pin":
+                    token = data.get("token", "")
+                    room = await db.find_room_by_token(token)
+                    if not room:
+                        continue
+                    room_id = room["id"]
+                    item_id = data.get("item_id")
+                    pinned = data.get("pinned", True)
+                    await db.pin_item(room_id, item_id, pinned)
+
+                    pin_msg = {"type": "pinned", "item_id": item_id, "pinned": pinned}
+                    await notify_peer(room_id, "desktop", pin_msg)
+                    await notify_peer(room_id, "phone", pin_msg)
 
                 elif msg_type == "clear":
                     token = data.get("token", "")
@@ -370,18 +385,46 @@ async def create_app(db_path="drop.db", uploads_dir="uploads", static_dir="stati
 
 async def cleanup_task(app):
     db: Database = app["db"]
+    uploads_dir = app["uploads_dir"]
+    cycle = 0
     while True:
-        await asyncio.sleep(3600)
+        await asyncio.sleep(60)
+        cycle += 1
         try:
-            stale = await db.cleanup_stale_rooms()
-            if stale:
-                uploads_dir = app["uploads_dir"]
-                import shutil
-                for room_id in stale:
-                    room_dir = os.path.join(uploads_dir, room_id)
-                    if os.path.isdir(room_dir):
-                        shutil.rmtree(room_dir)
-                log.info(f"Cleaned up {len(stale)} stale rooms")
+            # Every minute: remove non-pinned items older than 5 minutes
+            expired = await db.cleanup_expired_items(max_age_seconds=300)
+            if expired:
+                # Notify connected clients and clean up files
+                by_room = {}
+                for item in expired:
+                    by_room.setdefault(item["room_id"], []).append(item)
+
+                for room_id, items in by_room.items():
+                    for item in items:
+                        msg = {"type": "deleted", "item_id": item["id"]}
+                        await notify_peer(room_id, "desktop", msg)
+                        await notify_peer(room_id, "phone", msg)
+                        # Clean up uploaded files
+                        if item["type"] in ("image", "file") and item.get("metadata"):
+                            meta = json.loads(item["metadata"])
+                            stored = meta.get("stored_as")
+                            if stored:
+                                path = os.path.join(uploads_dir, room_id, stored)
+                                if os.path.exists(path):
+                                    os.remove(path)
+
+                log.info(f"Cleaned up {len(expired)} expired items")
+
+            # Every hour: clean up stale rooms
+            if cycle % 60 == 0:
+                stale = await db.cleanup_stale_rooms()
+                if stale:
+                    import shutil
+                    for room_id in stale:
+                        room_dir = os.path.join(uploads_dir, room_id)
+                        if os.path.isdir(room_dir):
+                            shutil.rmtree(room_dir)
+                    log.info(f"Cleaned up {len(stale)} stale rooms")
         except Exception as e:
             log.error(f"Cleanup error: {e}")
 
