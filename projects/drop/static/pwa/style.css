@@ -168,6 +168,37 @@ header h1 { font-size: 18px; font-weight: 600; color: #fff; }
     border-radius: 4px;
 }
 .item-delete:hover, .item-delete:active { color: #ff6b6b; background: #3a1b1b; }
+
+.thumb {
+    max-width: 100%;
+    max-height: 120px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    display: block;
+    cursor: pointer;
+}
+
+.image-viewer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+    cursor: pointer;
+}
+
+.image-viewer img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+}
 .history-item[data-pinned="1"] .item-pin { color: #ffd93d; }
 .history-item[data-pinned="1"] { border-left-color: #ffd93d !important; }
 

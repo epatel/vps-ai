@@ -273,7 +273,7 @@
             contentHtml = '<a href="' + escapeHtml(item.content) + '" target="_blank">' + escapeHtml(item.content) + '</a>';
         } else if (itemType === 'image' && item.id && token) {
             var imgUrl = BASE + '/api/file/' + roomId + '/' + item.id + '?token=' + encodeURIComponent(token);
-            contentHtml = '<img src="' + imgUrl + '" alt="' + escapeHtml(meta.filename || 'image') + '" style="max-width:100%;max-height:120px;border-radius:4px;margin-bottom:4px;display:block;">' +
+            contentHtml = '<img class="thumb" src="' + imgUrl + '" alt="' + escapeHtml(meta.filename || 'image') + '" data-full="' + imgUrl + '">' +
                 '<span style="font-size:11px;color:#888;">' + escapeHtml(meta.filename || item.content) + '</span>';
         } else if (itemType === 'image') {
             contentHtml = escapeHtml(meta.filename || item.content) + ' (sent)';
@@ -317,6 +317,15 @@
             }
         }
 
+        if (itemType === 'image') {
+            var imgEl = div.querySelector('.thumb');
+            if (imgEl) {
+                imgEl.addEventListener('click', function () {
+                    showImageViewer(imgEl.dataset.full);
+                });
+            }
+        }
+
         var firstItem = history.querySelector('.history-item');
         if (firstItem) {
             history.insertBefore(div, firstItem);
@@ -341,6 +350,14 @@
     }
 
     function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    function showImageViewer(src) {
+        var overlay = document.createElement('div');
+        overlay.className = 'image-viewer';
+        overlay.innerHTML = '<img src="' + src + '">';
+        overlay.addEventListener('click', function () { overlay.remove(); });
+        document.body.appendChild(overlay);
+    }
 
     function showToast(msg) {
         var toast = document.querySelector('.toast');
