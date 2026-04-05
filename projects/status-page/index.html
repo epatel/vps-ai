@@ -42,6 +42,7 @@
         .svc .name { font-weight: 600; font-size: .9em; margin-bottom: 1px; }
         .svc .path { color: #555; font-size: .75em; margin-bottom: 4px; }
         .svc .label { font-weight: 700; font-size: .8em; }
+        .svc .detail { color: #888; font-size: .68em; margin-top: 2px; }
         .uptime { color: #999; font-size: .85em; margin-top: 16px; }
         .uptime span { color: #e0e0e0; font-weight: 600; }
         .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
@@ -121,11 +122,13 @@
                 return items.map(function(s) {
                     var c = s.status === 'up' ? '#4caf50' : s.status === 'degraded' ? '#ff9800' : '#f44336';
                     var i = s.status === 'up' ? '✓' : s.status === 'degraded' ? '⚠' : '✗';
+                    var detailHtml = s.detail ? '<div class="detail">' + s.detail + '</div>' : '';
                     return '<div class="svc">' +
                         '<div class="dot" style="background:' + c + '">' + i + '</div>' +
                         '<div class="name">' + s.name + '</div>' +
                         '<div class="path">' + s.path + '</div>' +
                         '<div class="label" style="color:' + c + '">' + s.status.toUpperCase() + '</div>' +
+                        detailHtml +
                         '</div>';
                 }).join('');
             }

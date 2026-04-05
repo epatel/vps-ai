@@ -3,8 +3,10 @@
 
 import json
 import os
+import socket
 import subprocess
 import time
+import urllib.request
 from collections import deque
 from datetime import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -135,29 +137,73 @@ def get_claude_count():
         return 0
 
 
+def check_nginx(path):
+    """Check if a path is served by nginx (not falling back to default page).
+    Returns 'up' if served correctly, 'fallback' if nginx default, 'down' if unreachable."""
+    try:
+        url = f"http://127.0.0.1{path}"
+        if not url.endswith("/"):
+            url += "/"
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            body = resp.read(4096).decode("utf-8", errors="replace")
+            # Detect nginx default page or empty response
+            if "welcome to nginx" in body.lower() or "default server" in body.lower():
+                return "fallback"
+            return "up"
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return "fallback"
+        return "down"
+    except Exception:
+        return "down"
+
+
 def check_service(svc):
-    """Check if a service is running."""
+    """Check if a service is running. Returns status and optional detail."""
     name, path, check_type, target = svc
     status = "down"
+    detail = None
     if check_type == "port":
         try:
-            import socket
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(2)
             s.connect(("127.0.0.1", target))
             s.close()
-            status = "up"
+            # Port is up, now check if nginx routes to it properly
+            nginx_status = check_nginx(path)
+            if nginx_status == "up":
+                status = "up"
+            elif nginx_status == "fallback":
+                status = "degraded"
+                detail = "nginx fallback"
+            else:
+                status = "degraded"
+                detail = "port ok, nginx error"
         except Exception:
             status = "down"
     elif check_type == "file":
-        # Static file project - check if index.html exists
-        # target is the relative path under projects/ to the dir containing index.html
         project_dir = Path("/home/epatel/vps-ai/projects") / target
-        if (project_dir / "index.html").exists():
+        file_exists = (project_dir / "index.html").exists()
+        nginx_status = check_nginx(path)
+        if file_exists and nginx_status == "up":
             status = "up"
+        elif file_exists and nginx_status == "fallback":
+            status = "degraded"
+            detail = "files ok, nginx fallback"
+        elif file_exists and nginx_status == "down":
+            status = "degraded"
+            detail = "files ok, nginx error"
+        elif not file_exists and nginx_status == "up":
+            status = "degraded"
+            detail = "no build files"
         else:
             status = "down"
-    return {"name": name, "path": path, "status": status}
+            detail = "no build" if not file_exists else None
+    result = {"name": name, "path": path, "status": status}
+    if detail:
+        result["detail"] = detail
+    return result
 
 
 def get_status_data():
