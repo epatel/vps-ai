@@ -200,7 +200,8 @@ def check_service(svc):
     elif check_type == "file":
         project_dir = Path("/home/epatel/vps-ai/projects") / target
         file_exists = (project_dir / "index.html").exists()
-        nginx_status = check_nginx(path)
+        check_url = path if path.endswith("/") else path + "/"
+        nginx_status = check_nginx(check_url)
         if file_exists and nginx_status == "up":
             status = "up"
         elif file_exists and nginx_status == "fallback":
