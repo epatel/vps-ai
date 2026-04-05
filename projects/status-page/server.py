@@ -151,8 +151,6 @@ def check_nginx(path):
     Returns 'up' if served correctly, 'fallback' if catch-all, 'down' if unreachable."""
     try:
         url = f"https://{HOSTNAME}{path}"
-        if not url.endswith("/"):
-            url += "/"
         req = urllib.request.Request(url, method="GET")
         import ssl
         ctx = ssl.create_default_context()
