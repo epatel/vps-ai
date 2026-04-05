@@ -34,7 +34,7 @@
                 ws.send(JSON.stringify({
                     type: 'reconnect',
                     token: token,
-                    last_seen_id: lastSeenId,
+                    last_seen_id: 0,
                 }));
             } else {
                 ws.send(JSON.stringify({ type: 'request_code' }));
@@ -88,6 +88,7 @@
                 break;
 
             case 'items':
+                clearFeed();
                 data.items.forEach(function (item) { addItemToFeed(item); });
                 break;
 
