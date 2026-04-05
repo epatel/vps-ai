@@ -101,6 +101,20 @@
                 data.items.forEach(function (item) { addToHistory(item); });
                 break;
 
+            case 'item':
+                addToHistory(data);
+                break;
+
+            case 'deleted':
+                var el = document.querySelector('.history-item[data-id="' + data.item_id + '"]');
+                if (el) el.remove();
+                if (!document.querySelector('.history-item')) show($('#empty-state'));
+                break;
+
+            case 'cleared':
+                clearHistory();
+                break;
+
             case 'error':
                 console.error('Server error:', data.message);
                 if (data.message === 'Invalid token') {
@@ -243,6 +257,7 @@
         var div = document.createElement('div');
         var itemType = item.item_type || item.type;
         div.className = 'history-item type-' + itemType;
+        if (item.id) div.dataset.id = item.id;
 
         var meta = {};
         if (item.metadata) {
