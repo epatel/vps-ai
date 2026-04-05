@@ -143,6 +143,14 @@ class Database:
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
 
+    async def get_item(self, room_id, item_id):
+        cursor = await self._db.execute(
+            "SELECT * FROM items WHERE id = ? AND room_id = ?",
+            (item_id, room_id),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
     async def delete_item(self, room_id, item_id):
         await self._db.execute(
             "DELETE FROM items WHERE id = ? AND room_id = ?",

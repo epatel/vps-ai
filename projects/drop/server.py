@@ -35,6 +35,7 @@ async def handle_ws(request):
     ws = web.WebSocketResponse(max_msg_size=1024 * 1024)
     await ws.prepare(request)
     db: Database = request.app["db"]
+    uploads_dir: str = request.app["uploads_dir"]
 
     try:
         async for msg in ws:
@@ -169,6 +170,17 @@ async def handle_ws(request):
                         continue
                     room_id = room["id"]
                     item_id = data.get("item_id")
+
+                    # Delete physical file before removing DB record
+                    item = await db.get_item(room_id, item_id)
+                    if item and item["type"] in ("image", "file") and item.get("metadata"):
+                        meta = json.loads(item["metadata"])
+                        stored = meta.get("stored_as")
+                        if stored:
+                            path = os.path.join(uploads_dir, room_id, stored)
+                            if os.path.exists(path):
+                                os.remove(path)
+
                     await db.delete_item(room_id, item_id)
 
                     sender_role = "desktop" if token == room["token_a"] else "phone"
@@ -195,6 +207,18 @@ async def handle_ws(request):
                     if not room:
                         continue
                     room_id = room["id"]
+
+                    # Delete physical files before clearing DB
+                    items = await db.get_items(room_id)
+                    for item in items:
+                        if item["type"] in ("image", "file") and item.get("metadata"):
+                            meta = json.loads(item["metadata"])
+                            stored = meta.get("stored_as")
+                            if stored:
+                                path = os.path.join(uploads_dir, room_id, stored)
+                                if os.path.exists(path):
+                                    os.remove(path)
+
                     await db.clear_items(room_id)
 
                     sender_role = "desktop" if token == room["token_a"] else "phone"
