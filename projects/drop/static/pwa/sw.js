@@ -1,4 +1,4 @@
-var CACHE_NAME = 'drop-v1';
+var CACHE_NAME = 'drop-v2';
 var SHELL_FILES = [
     '/drop/pwa/',
     '/drop/pwa/style.css',
@@ -26,7 +26,7 @@ self.addEventListener('fetch', function (e) {
     var url = new URL(e.request.url);
 
     // Intercept share target POST
-    if (url.pathname === '/drop/share-target' && e.request.method === 'POST') {
+    if (url.pathname === '/drop/pwa/share-target' && e.request.method === 'POST') {
         e.respondWith(handleShareTarget(e.request));
         return;
     }

@@ -326,6 +326,7 @@ async def create_app(db_path="drop.db", uploads_dir="uploads", static_dir="stati
     app.router.add_post("/drop/api/upload", handle_upload)
     app.router.add_get("/drop/api/file/{room_id}/{item_id}", handle_file_download)
     app.router.add_post("/drop/share-target", handle_share_target)
+    app.router.add_post("/drop/pwa/share-target", handle_share_target)
 
     if static_dir and os.path.isdir(static_dir):
         # Explicit index.html routes (add_static doesn't serve directory indexes)
