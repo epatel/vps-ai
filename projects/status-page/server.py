@@ -138,24 +138,31 @@ def get_claude_count():
         return 0
 
 
+FALLBACK_SIGNATURES = [
+    "welcome to nginx",
+    "default server",
+    "vps agent manager running",
+]
+
+
 def check_nginx(path):
-    """Check if a path is served by nginx (not falling back to default page).
-    Returns 'up' if served correctly, 'fallback' if nginx default, 'down' if unreachable."""
+    """Check if a path is served by nginx (not falling back to default/catch-all).
+    Returns 'up' if served correctly, 'fallback' if catch-all, 'down' if unreachable."""
     try:
         url = f"https://{HOSTNAME}{path}"
         if not url.endswith("/"):
             url += "/"
         req = urllib.request.Request(url, method="GET")
-        # Skip TLS verification for localhost check
         import ssl
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         with urllib.request.urlopen(req, timeout=3, context=ctx) as resp:
             body = resp.read(4096).decode("utf-8", errors="replace")
-            # Detect nginx default page
-            if "welcome to nginx" in body.lower() or "default server" in body.lower():
-                return "fallback"
+            body_lower = body.lower()
+            for sig in FALLBACK_SIGNATURES:
+                if sig in body_lower:
+                    return "fallback"
             return "up"
     except urllib.error.HTTPError as e:
         if e.code == 404:
