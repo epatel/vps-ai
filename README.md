@@ -61,6 +61,7 @@ graph TD
 - **CI is validation only** — GitHub Actions checks that Flutter projects compile, but does not deploy
 - The `--base-href /<project-name>/` flag is applied automatically by the post-merge hook
 - Adding a new Flutter project requires no workflow changes — any `projects/*/` directory with a `pubspec.yaml` is auto-detected
+- The [status page](https://ai.memention.net/status) shows a live badge when a flutter build is running, including which project(s) are being built
 
 ## Setup
 
@@ -147,7 +148,7 @@ Agent-created projects live under `projects/`. Services are managed via systemd 
 | [flutter_demo](projects/flutter_demo/) | Flutter web demo app |
 | [poem](projects/poem/) | A poem about working with AI |
 | [scramble](projects/scramble/) | Vectrex-style arcade flight shooter with terrain and enemies |
-| [status-page](projects/status-page/) | Server status dashboard (Python + systemd service) |
+| [status-page](projects/status-page/) | Server status dashboard with live flutter build indicator (Python + systemd service) |
 | [todo-api](projects/todo-api/) | REST API for todos with JWT auth (Python/Flask) |
 | [todo-app](projects/todo-app/) | Flutter web frontend for the todo API |
 | [trumps48hours](projects/trumps48hours/) | Sci-fi countdown timer with particle effects |
