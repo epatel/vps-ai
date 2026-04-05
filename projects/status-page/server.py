@@ -143,6 +143,7 @@ FALLBACK_SIGNATURES = [
     "welcome to nginx",
     "default server",
     "vps agent manager running",
+    'name="landing-page"',
 ]
 
 

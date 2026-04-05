@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ai.memention.net</title>
+    <meta name="landing-page" content="true">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 20px;
+            max-width: 920px;
+            margin: 0 auto;
+        }
+        header { margin-bottom: 8px; }
+        h1 { font-size: 1.5em; }
+        .subtitle { color: #777; font-size: .85em; margin-bottom: 6px; }
+        .github { margin-bottom: 28px; }
+        .github a {
+            color: #888; font-size: .82em; text-decoration: none;
+            border: 1px solid #333; border-radius: 6px;
+            padding: 5px 12px; display: inline-block;
+            transition: color .2s, border-color .2s;
+        }
+        .github a:hover { color: #e0e0e0; border-color: #666; }
+        .section-title {
+            color: #aaa; font-size: .72em; text-transform: uppercase;
+            letter-spacing: 2px; margin: 24px 0 12px;
+        }
+        .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+        .card {
+            background: #16213e; border-radius: 10px;
+            padding: 20px 16px; text-decoration: none; color: #e0e0e0;
+            transition: background .2s, transform .15s;
+            display: block;
+        }
+        .card:hover { background: #1a2a50; transform: translateY(-2px); }
+        .card .icon { font-size: 1.6em; margin-bottom: 8px; }
+        .card .name { font-weight: 700; font-size: .95em; margin-bottom: 4px; }
+        .card .desc { color: #888; font-size: .78em; line-height: 1.4; }
+        .card .badge {
+            display: inline-block; margin-top: 8px;
+            font-size: .65em; padding: 2px 8px; border-radius: 4px;
+            font-weight: 600; letter-spacing: .5px;
+        }
+        .badge.game { background: #1b5e20; color: #81c784; }
+        .badge.app { background: #0d47a1; color: #64b5f6; }
+        .badge.tool { background: #4a148c; color: #ce93d8; }
+        .badge.api { background: #bf360c; color: #ffab91; }
+        .footer {
+            margin-top: 36px; padding-top: 14px;
+            border-top: 1px solid #2a2a4a;
+            color: #444; font-size: .75em; text-align: center;
+        }
+        .footer a { color: #666; text-decoration: none; }
+        .footer a:hover { color: #e0e0e0; }
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            display: inline-block; margin-right: 4px;
+            vertical-align: middle; background: #555;
+        }
+        .status-dot.up { background: #4caf50; }
+        .status-dot.degraded { background: #ff9800; }
+        .status-dot.down { background: #f44336; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ai.memention.net</h1>
+    </header>
+    <div class="subtitle">Autonomous agent playground &mdash; projects built and deployed by Claude on a VPS.</div>
+    <div class="github">
+        <a href="https://github.com/epatel/vps-ai">github.com/epatel/vps-ai</a>
+    </div>
+
+    <div class="section-title">Projects</div>
+    <div class="cards" id="cards">
+        <a class="card" href="/drop/">
+            <div class="icon">&#x1F4E4;</div>
+            <div class="name"><span class="status-dot" data-path="/drop/"></span>Drop</div>
+            <div class="desc">Instant cross-device file sharing</div>
+            <span class="badge app">APP</span>
+        </a>
+        <a class="card" href="/todo-app/">
+            <div class="icon">&#x2705;</div>
+            <div class="name"><span class="status-dot" data-path="/todo-app/"></span>Todo App</div>
+            <div class="desc">Task manager with images and collaboration</div>
+            <span class="badge app">APP</span>
+        </a>
+        <a class="card" href="/asteroids/">
+            <div class="icon">&#x2604;</div>
+            <div class="name"><span class="status-dot" data-path="/asteroids/"></span>Asteroids</div>
+            <div class="desc">Multiplayer space shooter</div>
+            <span class="badge game">GAME</span>
+        </a>
+        <a class="card" href="/breakout/">
+            <div class="icon">&#x1F9F1;</div>
+            <div class="name"><span class="status-dot" data-path="/breakout/"></span>Breakout</div>
+            <div class="desc">Classic brick breaker</div>
+            <span class="badge game">GAME</span>
+        </a>
+        <a class="card" href="/scramble/">
+            <div class="icon">&#x1F524;</div>
+            <div class="name"><span class="status-dot" data-path="/scramble/"></span>Scramble</div>
+            <div class="desc">Vectrex-style word game</div>
+            <span class="badge game">GAME</span>
+        </a>
+        <a class="card" href="/trumps48hours/">
+            <div class="icon">&#x23F1;</div>
+            <div class="name"><span class="status-dot" data-path="/trumps48hours/"></span>Trump's 48 Hours</div>
+            <div class="desc">WW3 ON HOLD &mdash; countdown timer</div>
+            <span class="badge tool">TOOL</span>
+        </a>
+        <a class="card" href="/badge/">
+            <div class="icon">&#x1F4DB;</div>
+            <div class="name"><span class="status-dot" data-path="/badge/"></span>Friends Badge</div>
+            <div class="desc">E-Paper badge writer via Bluetooth</div>
+            <span class="badge tool">TOOL</span>
+        </a>
+        <a class="card" href="/poem/">
+            <div class="icon">&#x1F4DC;</div>
+            <div class="name"><span class="status-dot" data-path="/poem/"></span>Poem</div>
+            <div class="desc">Working with an AI</div>
+            <span class="badge tool">TOOL</span>
+        </a>
+        <a class="card" href="/flutter_demo/">
+            <div class="icon">&#x1F4B1;</div>
+            <div class="name"><span class="status-dot" data-path="/flutter_demo/"></span>Flutter Demo</div>
+            <div class="desc">Flutter web demo app</div>
+            <span class="badge app">APP</span>
+        </a>
+        <a class="card" href="/status/">
+            <div class="icon">&#x1F4CA;</div>
+            <div class="name"><span class="status-dot" data-path="/status/"></span>Status</div>
+            <div class="desc">Server health dashboard</div>
+            <span class="badge tool">TOOL</span>
+        </a>
+    </div>
+
+    <div class="footer">
+        <a href="/status/">Server Status</a> &middot;
+        <a href="/status/json">API</a> &middot;
+        <a href="https://github.com/epatel/vps-ai">Source</a>
+    </div>
+
+    <script>
+        // Fetch status and light up dots
+        fetch('/status/json')
+            .then(r => r.json())
+            .then(d => {
+                var all = (d.services || []).concat(d.static_sites || []);
+                var byPath = {};
+                all.forEach(s => { byPath[s.path] = s.status; byPath[s.path + '/'] = s.status; });
+                document.querySelectorAll('.status-dot[data-path]').forEach(dot => {
+                    var st = byPath[dot.dataset.path];
+                    if (st) dot.classList.add(st);
+                });
+            })
+            .catch(() => {});
+    </script>
+</body>
+</html>
