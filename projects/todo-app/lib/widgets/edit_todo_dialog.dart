@@ -190,12 +190,28 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: _confirmDelete,
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
-          child: const Text('Delete'),
-        ),
-        const SizedBox(width: 48),
+        if (!widget.todo.archived)
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context, {'action': 'archive'}),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.secondary),
+            icon: const Icon(Icons.archive_outlined, size: 18),
+            label: const Text('Archive'),
+          ),
+        if (widget.todo.archived) ...[
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context, {'action': 'unarchive'}),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.secondary),
+            icon: const Icon(Icons.unarchive_outlined, size: 18),
+            label: const Text('Unarchive'),
+          ),
+          TextButton.icon(
+            onPressed: _confirmDelete,
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            icon: const Icon(Icons.delete_outlined, size: 18),
+            label: const Text('Delete'),
+          ),
+        ],
+        const Spacer(),
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
