@@ -190,7 +190,6 @@
             item_type: itemType, content: content,
         }));
 
-        addToHistory({ type: itemType, content: content, sender: 'phone', created_at: new Date().toISOString() });
         input.value = '';
         showToast('Sent!');
     });
@@ -227,14 +226,6 @@
             body: formData,
         }).then(function (resp) {
             if (resp.ok) {
-                var itemType = file.type.startsWith('image/') ? 'image' : 'file';
-                addToHistory({
-                    type: itemType,
-                    content: file.name,
-                    sender: 'phone',
-                    created_at: new Date().toISOString(),
-                    metadata: JSON.stringify({ filename: file.name, size: file.size }),
-                });
                 showToast('Sent!');
             } else {
                 resp.json().then(function (err) { showToast(err.error || 'Upload failed'); });

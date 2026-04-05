@@ -155,8 +155,10 @@ async def handle_ws(request):
                         "created_at": item["created_at"],
                     }
 
+                    # Send to both sides (sender gets confirmation with id)
                     other_role = "phone" if sender == "desktop" else "desktop"
                     await notify_peer(room_id, other_role, item_msg)
+                    await notify_peer(room_id, sender, item_msg)
 
                 elif msg_type == "delete":
                     token = data.get("token", "")
@@ -271,8 +273,10 @@ async def handle_upload(request):
         "created_at": item["created_at"],
     }
 
+    # Send to both sides (sender gets confirmation with server id)
     other_role = "phone" if sender == "desktop" else "desktop"
     await notify_peer(room_id, other_role, item_msg)
+    await notify_peer(room_id, sender, item_msg)
 
     return web.json_response({"ok": True, "item_id": item_id})
 
