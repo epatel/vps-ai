@@ -1,6 +1,7 @@
 import 'dart:typed_data';
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import '../models/todo_image.dart';
 import '../services/api_service.dart';
 
@@ -41,20 +42,25 @@ class ImageAttachmentSection extends StatelessWidget {
   int get _totalCount => existingImages.length + pendingImages.length + serverPendingImageIds.length;
   bool get _canAdd => _totalCount < maxImages;
 
-  Future<void> _pickImage() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: true,
-    );
-    if (result != null && result.files.isNotEmpty) {
-      final file = result.files.first;
-      if (file.bytes != null) {
-        onAddPending(PendingImage(
-          bytes: file.bytes!,
-          filename: file.name,
-        ));
-      }
-    }
+  void _pickImage() {
+    final input = web.document.createElement('input') as web.HTMLInputElement;
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (web.Event event) {
+      final files = input.files;
+      if (files == null || files.length == 0) return;
+      final file = files.item(0)!;
+      final reader = web.FileReader();
+      reader.onload = (web.Event e) {
+        final result = reader.result;
+        if (result != null) {
+          final bytes = (result as JSArrayBuffer).toDart.asUint8List();
+          onAddPending(PendingImage(bytes: bytes, filename: file.name));
+        }
+      }.toJS;
+      reader.readAsArrayBuffer(file);
+    }.toJS;
+    input.click();
   }
 
   @override

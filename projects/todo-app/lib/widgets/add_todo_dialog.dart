@@ -172,20 +172,27 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
                 onRemovePending: (i) => setState(() => _pendingImages.removeAt(i)),
                 onRemoveServerPending: (i) => setState(() => _serverPendingIds.removeAt(i)),
               ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  ActionChip(
+                    label: const Text('Cancel'),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.add, size: 18),
+                    label: const Text('Add'),
+                    onPressed: _submit,
+                  ),
+                ],
+              ),
             ],
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Add'),
-        ),
-      ],
     );
   }
 }
