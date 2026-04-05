@@ -253,9 +253,18 @@
             contentText = meta.filename || item.content;
         }
 
-        var contentHtml = itemType === 'link'
-            ? '<a href="' + escapeHtml(item.content) + '" target="_blank">' + escapeHtml(item.content) + '</a>'
-            : escapeHtml(contentText);
+        var contentHtml = '';
+        if (itemType === 'link') {
+            contentHtml = '<a href="' + escapeHtml(item.content) + '" target="_blank">' + escapeHtml(item.content) + '</a>';
+        } else if (itemType === 'image' && item.id && token) {
+            var imgUrl = BASE + '/api/file/' + roomId + '/' + item.id + '?token=' + encodeURIComponent(token);
+            contentHtml = '<img src="' + imgUrl + '" alt="' + escapeHtml(meta.filename || 'image') + '" style="max-width:100%;max-height:120px;border-radius:4px;margin-bottom:4px;display:block;">' +
+                '<span style="font-size:11px;color:#888;">' + escapeHtml(meta.filename || item.content) + '</span>';
+        } else if (itemType === 'image') {
+            contentHtml = escapeHtml(meta.filename || item.content) + ' (sent)';
+        } else {
+            contentHtml = escapeHtml(contentText);
+        }
 
         div.innerHTML =
             '<div class="content">' + contentHtml + '</div>' +
