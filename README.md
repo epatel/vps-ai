@@ -4,7 +4,7 @@
 
 An autonomous AI agent system that turns GitHub issues into code. Open an issue, and a Claude agent picks it up, writes the code, and either merges it directly or creates a PR for review.
 
-Running on `ai.memention.net`.
+Running on [`ai.memention.net`](https://ai.memention.net)
 
 ## How it works
 
