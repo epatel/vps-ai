@@ -119,6 +119,10 @@ def init_db():
         conn.execute("ALTER TABLE users ADD COLUMN reset_token_expires TEXT")
     except sqlite3.OperationalError:
         pass
+    try:
+        conn.execute("ALTER TABLE todos ADD COLUMN archived INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
     conn.close()
 
 
@@ -520,9 +524,10 @@ def me():
 @auth_required
 def list_todos():
     db = get_db()
+    archived = request.args.get("archived", "0")
     rows = db.execute(
-        "SELECT * FROM todos WHERE user_id = ? ORDER BY sort_order ASC",
-        (g.user_id,),
+        "SELECT * FROM todos WHERE user_id = ? AND archived = ? ORDER BY sort_order ASC",
+        (g.user_id, int(archived)),
     ).fetchall()
     todos = [dict(r) for r in rows]
     attach_images(db, todos)
@@ -540,12 +545,12 @@ def create_todo():
         return jsonify({"error": "Title is required"}), 400
 
     db = get_db()
-    # Place at end: get max sort_order
+    # Place at top: get min sort_order of non-archived todos
     row = db.execute(
-        "SELECT COALESCE(MAX(sort_order), 0) as mx FROM todos WHERE user_id = ?",
+        "SELECT COALESCE(MIN(sort_order), 1) as mn FROM todos WHERE user_id = ? AND archived = 0",
         (g.user_id,),
     ).fetchone()
-    sort_order = (row["mx"] or 0) + 1.0
+    sort_order = (row["mn"] or 1) - 1.0
 
     todo_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -590,11 +595,12 @@ def update_todo(todo_id):
     description = data.get("description", todo["description"])
     done = data.get("done", todo["done"])
     sort_order = data.get("sort_order", todo["sort_order"])
+    archived = data.get("archived", todo["archived"])
     now = datetime.now(timezone.utc).isoformat()
 
     db.execute(
-        "UPDATE todos SET title=?, description=?, done=?, sort_order=?, updated_at=? WHERE id=?",
-        (title, description, int(bool(done)), sort_order, now, todo_id),
+        "UPDATE todos SET title=?, description=?, done=?, sort_order=?, archived=?, updated_at=? WHERE id=?",
+        (title, description, int(bool(done)), sort_order, int(bool(archived)), now, todo_id),
     )
     db.commit()
 
