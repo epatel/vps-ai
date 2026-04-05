@@ -6,7 +6,9 @@ import '../services/api_service.dart';
 class TodoProvider extends ChangeNotifier {
   final ApiService _api;
   List<Todo> _todos = [];
+  List<Todo> _archivedTodos = [];
   bool _isLoading = false;
+  bool _isLoadingArchived = false;
   String? _error;
 
   TodoProvider(this._api);
@@ -14,6 +16,8 @@ class TodoProvider extends ChangeNotifier {
   List<Todo> get todos => _todos;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  List<Todo> get archivedTodos => _archivedTodos;
+  bool get isLoadingArchived => _isLoadingArchived;
   ApiService get api => _api;
 
   Future<void> loadTodos() async {
@@ -36,10 +40,58 @@ class TodoProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> loadArchivedTodos() async {
+    _isLoadingArchived = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _archivedTodos = await _api.getTodos(archived: true);
+      _isLoadingArchived = false;
+      notifyListeners();
+    } on ApiException catch (e) {
+      _error = e.message;
+      _isLoadingArchived = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to load archived todos';
+      _isLoadingArchived = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> archiveTodo(String id) async {
+    try {
+      final updated = await _api.updateTodo(id, archived: true);
+      _todos.removeWhere((t) => t.id == id);
+      _archivedTodos.insert(0, updated);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to archive todo';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> unarchiveTodo(String id) async {
+    try {
+      final updated = await _api.updateTodo(id, archived: false);
+      _archivedTodos.removeWhere((t) => t.id == id);
+      _todos.insert(0, updated);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to unarchive todo';
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> addTodo(String title, {String description = ''}) async {
     try {
       final todo = await _api.createTodo(title, description: description);
-      _todos.add(todo);
+      _todos.insert(0, todo);
       notifyListeners();
       return true;
     } on ApiException catch (e) {
@@ -125,7 +177,7 @@ class TodoProvider extends ChangeNotifier {
   Future<Todo?> addTodoAndReturn(String title, {String description = ''}) async {
     try {
       final todo = await _api.createTodo(title, description: description);
-      _todos.add(todo);
+      _todos.insert(0, todo);
       notifyListeners();
       return todo;
     } on ApiException catch (e) {
@@ -189,6 +241,7 @@ class TodoProvider extends ChangeNotifier {
 
   void clear() {
     _todos = [];
+    _archivedTodos = [];
     _error = null;
     notifyListeners();
   }
