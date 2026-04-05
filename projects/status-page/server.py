@@ -23,7 +23,7 @@ SERVICES = [
     # Server-based services (check by port)
     ("Webhook", "/webhook", "port", 5000, {"port_only": True}),
     ("Status Page", "/status", "port", 5001),
-    ("Todo API", "/todo-api", "port", 5003),
+    ("Todo API", "/todo-api", "port", 5003, {"check_path": "/todo-api/health"}),
     ("Asteroids", "/asteroids", "port", 8082),
     # Static file projects (check index.html exists)
     ("Scramble", "/scramble", "file", "scramble"),
@@ -188,7 +188,7 @@ def check_service(svc):
             if flags.get("port_only"):
                 status = "up"
             else:
-                nginx_status = check_nginx(path)
+                nginx_status = check_nginx(flags.get("check_path", path))
                 if nginx_status == "up":
                     status = "up"
                 elif nginx_status == "fallback":
