@@ -149,7 +149,16 @@ header h1 { font-size: 18px; font-weight: 600; color: #fff; }
     font-size: 14px;
     padding: 2px 6px;
 }
-.item-pin:hover { color: #ffd93d; }
+.item-pin:hover, .item-pin:active { color: #ffd93d; }
+.item-delete {
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 6px;
+}
+.item-delete:hover, .item-delete:active { color: #ff6b6b; }
 .history-item[data-pinned="1"] .item-pin { color: #ffd93d; }
 .history-item[data-pinned="1"] { border-left-color: #ffd93d !important; }
 

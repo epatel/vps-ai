@@ -288,13 +288,21 @@
 
         div.innerHTML =
             '<div class="content">' + contentHtml + '</div>' +
-            '<div class="item-actions"><button class="item-pin" title="Pin to keep">' + (isPinned ? '\u{1F4CC}' : '\u25CB') + '</button></div>' +
+            '<div class="item-actions">' +
+                '<button class="item-pin" title="Pin to keep">' + (isPinned ? '\u{1F4CC}' : '\u25CB') + '</button>' +
+                '<button class="item-delete" title="Delete">\u00D7</button>' +
+            '</div>' +
             '<div class="meta">' + capitalize(itemType) + ' &middot; just now</div>';
 
         if (item.id && token) {
             div.querySelector('.item-pin').addEventListener('click', function () {
                 var current = div.dataset.pinned === '1';
                 ws.send(JSON.stringify({ type: 'pin', token: token, item_id: item.id, pinned: !current }));
+            });
+            div.querySelector('.item-delete').addEventListener('click', function () {
+                ws.send(JSON.stringify({ type: 'delete', token: token, item_id: item.id }));
+                div.remove();
+                if (!document.querySelector('.history-item')) show($('#empty-state'));
             });
         }
 
