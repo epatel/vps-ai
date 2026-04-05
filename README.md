@@ -51,9 +51,9 @@ graph TD
     K --> L[Validate Flutter build]
     L --> M[Build succeeds/fails]
 
-    style H fill:#4FC3F7
-    style G fill:#81C784
-    style L fill:#FFB74D
+    style H fill:#4FC3F7,color:#000
+    style G fill:#81C784,color:#000
+    style L fill:#FFB74D,color:#000
 ```
 
 **Key points:**
