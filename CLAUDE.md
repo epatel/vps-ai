@@ -91,6 +91,18 @@ when source files (`lib/`, `web/`, `pubspec.*`) change.
 - CI (`.github/workflows/build-flutter-web.yml`) validates builds on push/PR but does not deploy
 - Adding a new Flutter project requires no config changes — just create it under `projects/`
 
+## Landing page
+
+The root URL (`/`) serves `projects/landing/index.html` — a static page with clickable
+cards linking to each project. When adding a new project:
+
+1. Add a card to `projects/landing/index.html` inside the `<div class="cards">` block
+2. Use a `data-path` attribute on the status dot to match the service path in `projects/status-page/server.py`
+3. For projects not served through nginx (e.g. Poem), link to the GitHub source and omit the status dot
+4. Pick a badge type: `game`, `app`, `tool`, or `api`
+
+The page fetches `/status/json` to show live status dots (green/orange/red) on each card.
+
 ## Configuration (`.env.issues`)
 
 ```
