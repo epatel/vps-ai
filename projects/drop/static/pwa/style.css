@@ -124,6 +124,7 @@ header h1 { font-size: 18px; font-weight: 600; color: #fff; }
     padding: 10px 12px;
     border-left: 3px solid #6c63ff;
     animation: slideIn 0.2s ease;
+    position: relative;
 }
 
 @keyframes slideIn {
@@ -140,7 +141,13 @@ header h1 { font-size: 18px; font-weight: 600; color: #fff; }
 .history-item .content { font-size: 13px; color: #ccc; word-break: break-all; }
 .history-item .content a { color: #8b9cf7; text-decoration: none; }
 
-.item-actions { margin-top: 4px; }
+.item-actions {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 2px;
+}
 .item-pin {
     background: none;
     border: none;
@@ -148,6 +155,7 @@ header h1 { font-size: 18px; font-weight: 600; color: #fff; }
     cursor: pointer;
     font-size: 14px;
     padding: 2px 6px;
+    border-radius: 4px;
 }
 .item-pin:hover, .item-pin:active { color: #ffd93d; }
 .item-delete {
@@ -157,8 +165,9 @@ header h1 { font-size: 18px; font-weight: 600; color: #fff; }
     cursor: pointer;
     font-size: 16px;
     padding: 2px 6px;
+    border-radius: 4px;
 }
-.item-delete:hover, .item-delete:active { color: #ff6b6b; }
+.item-delete:hover, .item-delete:active { color: #ff6b6b; background: #3a1b1b; }
 .history-item[data-pinned="1"] .item-pin { color: #ffd93d; }
 .history-item[data-pinned="1"] { border-left-color: #ffd93d !important; }
 
