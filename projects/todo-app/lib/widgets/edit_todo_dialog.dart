@@ -185,42 +185,45 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
                   _deletedImageIds.add(id);
                 }),
               ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  if (!widget.todo.archived)
+                    ActionChip(
+                      avatar: const Icon(Icons.archive_outlined, size: 18),
+                      label: const Text('Archive'),
+                      onPressed: () => Navigator.pop(context, {'action': 'archive'}),
+                    ),
+                  if (widget.todo.archived) ...[
+                    ActionChip(
+                      avatar: const Icon(Icons.unarchive_outlined, size: 18),
+                      label: const Text('Unarchive'),
+                      onPressed: () => Navigator.pop(context, {'action': 'unarchive'}),
+                    ),
+                    ActionChip(
+                      avatar: Icon(Icons.delete_outlined, size: 18, color: Theme.of(context).colorScheme.error),
+                      label: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                      onPressed: _confirmDelete,
+                    ),
+                  ],
+                  ActionChip(
+                    label: const Text('Cancel'),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.check, size: 18),
+                    label: const Text('Save'),
+                    onPressed: _submit,
+                  ),
+                ],
+              ),
             ],
           ),
         ),
       ),
-      actions: [
-        if (!widget.todo.archived)
-          TextButton.icon(
-            onPressed: () => Navigator.pop(context, {'action': 'archive'}),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.secondary),
-            icon: const Icon(Icons.archive_outlined, size: 18),
-            label: const Text('Archive'),
-          ),
-        if (widget.todo.archived) ...[
-          TextButton.icon(
-            onPressed: () => Navigator.pop(context, {'action': 'unarchive'}),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.secondary),
-            icon: const Icon(Icons.unarchive_outlined, size: 18),
-            label: const Text('Unarchive'),
-          ),
-          TextButton.icon(
-            onPressed: _confirmDelete,
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            icon: const Icon(Icons.delete_outlined, size: 18),
-            label: const Text('Delete'),
-          ),
-        ],
-        const SizedBox(width: 48),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 }
