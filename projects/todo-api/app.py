@@ -837,6 +837,115 @@ def reorder_images(todo_id):
 
 
 # ---------------------------------------------------------------------------
+# Web Share Target (unauthenticated – stores image temporarily)
+# ---------------------------------------------------------------------------
+
+PENDING_DIR = os.path.join(BASE_DIR, "pending_shares")
+os.makedirs(PENDING_DIR, exist_ok=True)
+PENDING_EXPIRY_SECONDS = 300  # 5 minutes
+
+def cleanup_pending():
+    """Remove expired pending share files."""
+    now = time.time()
+    try:
+        for fname in os.listdir(PENDING_DIR):
+            fpath = os.path.join(PENDING_DIR, fname)
+            if os.path.isfile(fpath) and now - os.path.getmtime(fpath) > PENDING_EXPIRY_SECONDS:
+                os.remove(fpath)
+    except OSError:
+        pass
+
+
+@app.route("/share", methods=["POST"])
+def share_target():
+    """Receive a Web Share Target POST, store images temporarily, redirect to the app."""
+    cleanup_pending()
+
+    title = request.form.get("title", "")
+    text = request.form.get("text", "")
+    url = request.form.get("url", "")
+
+    pending_ids = []
+    files = request.files.getlist("images")
+    for file in files:
+        if file and file.filename:
+            try:
+                image_bytes = process_image(file)
+                pending_id = str(uuid.uuid4())
+                pending_path = os.path.join(PENDING_DIR, f"{pending_id}.jpg")
+                with open(pending_path, "wb") as f:
+                    f.write(image_bytes)
+                pending_ids.append(pending_id)
+            except Exception:
+                pass
+
+    params = []
+    if title:
+        params.append(f"title={title}")
+    if text:
+        params.append(f"text={text}")
+    if url:
+        params.append(f"url={url}")
+    if pending_ids:
+        params.append(f"pending_images={','.join(pending_ids)}")
+
+    redirect_url = "/todo-app/"
+    if params:
+        redirect_url += "?" + "&".join(params)
+
+    return "", 303, {"Location": redirect_url}
+
+
+@app.route("/pending-image/<pending_id>", methods=["POST"])
+@auth_required
+def claim_pending_image(pending_id):
+    """Claim a pending shared image: attach it to a todo."""
+    pending_path = os.path.join(PENDING_DIR, f"{pending_id}.jpg")
+    if not os.path.exists(pending_path):
+        return jsonify({"error": "Pending image not found or expired"}), 404
+
+    data = request.get_json(force=True)
+    todo_id = data.get("todo_id")
+    if not todo_id:
+        return jsonify({"error": "todo_id is required"}), 400
+
+    db = get_db()
+    todo = db.execute(
+        "SELECT id FROM todos WHERE id = ? AND user_id = ?", (todo_id, g.user_id)
+    ).fetchone()
+    if not todo:
+        return jsonify({"error": "Todo not found"}), 404
+
+    image_id = str(uuid.uuid4())
+    filename = f"{image_id}.jpg"
+    full_path = os.path.join(UPLOADS_DIR, filename)
+    os.rename(pending_path, full_path)
+
+    row = db.execute(
+        "SELECT COALESCE(MAX(sort_order), 0) as mx FROM todo_images WHERE todo_id = ?",
+        (todo_id,),
+    ).fetchone()
+    sort_order = (row["mx"] or 0) + 1.0
+
+    now = datetime.now(timezone.utc).isoformat()
+    db.execute(
+        "INSERT INTO todo_images (id, todo_id, filename, original_name, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (image_id, todo_id, filename, "shared_image.jpg", sort_order, now),
+    )
+    db.commit()
+
+    return jsonify({
+        "id": image_id,
+        "todo_id": todo_id,
+        "original_name": "shared_image.jpg",
+        "sort_order": sort_order,
+        "thumb_url": f"/images/{image_id}/thumb",
+        "full_url": f"/images/{image_id}",
+        "created_at": now,
+    }), 201
+
+
+# ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
 

@@ -155,6 +155,22 @@ class TodoProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> claimPendingImage(String todoId, String pendingId) async {
+    try {
+      final image = await _api.claimPendingImage(pendingId, todoId);
+      final index = _todos.indexWhere((t) => t.id == todoId);
+      if (index != -1) {
+        _todos[index].images = [..._todos[index].images, image];
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      _error = 'Failed to claim shared image';
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> deleteImage(String todoId, String imageId) async {
     try {
       await _api.deleteImage(imageId);

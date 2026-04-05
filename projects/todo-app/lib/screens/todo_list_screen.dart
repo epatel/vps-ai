@@ -34,24 +34,16 @@ class _TodoListScreenState extends State<TodoListScreen> {
     if (_sharedDataHandled || widget.sharedData == null) return;
     _sharedDataHandled = true;
 
-    List<PendingImage>? sharedImages;
-    if (widget.sharedData!.hasSharedImages) {
-      final images = await readSharedImages();
-      sharedImages = images
-          .map((img) => PendingImage(bytes: img.bytes, filename: img.name))
-          .toList();
-    }
-
     if (mounted) {
       _addTodo(
         initialTitle: widget.sharedData!.title,
         initialDescription: widget.sharedData!.description,
-        initialImages: sharedImages,
+        pendingImageIds: widget.sharedData!.pendingImageIds,
       );
     }
   }
 
-  Future<void> _addTodo({String? initialTitle, String? initialDescription, List<PendingImage>? initialImages}) async {
+  Future<void> _addTodo({String? initialTitle, String? initialDescription, List<PendingImage>? initialImages, List<String>? pendingImageIds}) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AddTodoDialog(
@@ -67,6 +59,13 @@ class _TodoListScreenState extends State<TodoListScreen> {
         description: (result['description'] as String?) ?? '',
       );
       if (todo != null) {
+        // Claim pending images from server (shared via Web Share Target)
+        if (pendingImageIds != null) {
+          for (final id in pendingImageIds) {
+            await provider.claimPendingImage(todo.id, id);
+          }
+        }
+        // Upload locally-added images
         final pending = result['pendingImages'] as List<PendingImage>? ?? [];
         for (final img in pending) {
           await provider.uploadImage(todo.id, img.bytes, img.filename);

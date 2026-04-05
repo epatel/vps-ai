@@ -193,6 +193,16 @@ class ApiService {
     return TodoImage.fromJson(data);
   }
 
+  Future<TodoImage> claimPendingImage(String pendingId, String todoId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/pending-image/$pendingId'),
+      headers: _headers,
+      body: jsonEncode({'todo_id': todoId}),
+    );
+    final data = await _handleResponse(response);
+    return TodoImage.fromJson(data);
+  }
+
   Future<void> deleteImage(String imageId) async {
     final response = await http.delete(
       Uri.parse('$baseUrl/images/$imageId'),
