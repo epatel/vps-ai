@@ -10,6 +10,7 @@ import urllib.request
 from collections import deque
 from datetime import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from pathlib import Path
 from threading import Lock, Thread
 
@@ -324,7 +325,51 @@ HTML_PATH = Path(__file__).parent / "index.html"
 
 class StatusHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path == "/status/json":
+        if self.path == "/status/stream":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("X-Accel-Buffering", "no")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            total = len(SERVICES)
+            try:
+                for i, svc in enumerate(SERVICES):
+                    result = check_service(svc)
+                    result["index"] = i
+                    result["total"] = total
+                    self.wfile.write(f"data: {json.dumps(result)}\n\n".encode())
+                    self.wfile.flush()
+                # Send system metrics at the end
+                now = datetime.now()
+                with history_lock:
+                    h_cpu = list(history_cpu)
+                    h_mem = list(history_mem)
+                    h_disk = list(history_disk)
+                    h_claude = list(history_claude)
+                system_data = {
+                    "type": "system",
+                    "hostname": HOSTNAME,
+                    "timestamp": now.isoformat(),
+                    "system": {
+                        "uptime": get_uptime(),
+                        "cpu": get_cpu(),
+                        "memory": get_memory(),
+                        "disk": get_disk(),
+                        "claude": {"count": get_claude_count()},
+                    },
+                    "history": {
+                        "cpu": h_cpu, "memory": h_mem,
+                        "disk": h_disk, "claude": h_claude,
+                    },
+                }
+                self.wfile.write(f"data: {json.dumps(system_data)}\n\n".encode())
+                self.wfile.write("event: done\ndata: {}\n\n".encode())
+                self.wfile.flush()
+            except BrokenPipeError:
+                pass
+        elif self.path == "/status/json":
             data = get_status_data()
             payload = json.dumps(data)
             self.send_response(200)
@@ -351,7 +396,10 @@ def main():
     t = Thread(target=collector_loop, daemon=True)
     t.start()
 
-    server = HTTPServer(("127.0.0.1", PORT), StatusHandler)
+    class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+        daemon_threads = True
+
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), StatusHandler)
     print(f"Status server running on port {PORT}")
     server.serve_forever()
 

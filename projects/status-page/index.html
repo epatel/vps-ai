@@ -43,6 +43,22 @@
         .svc .path { color: #555; font-size: .75em; margin-bottom: 4px; }
         .svc .label { font-weight: 700; font-size: .8em; }
         .svc .detail { color: #888; font-size: .68em; margin-top: 2px; }
+        .progress-wrap {
+            margin: 12px 0 0; height: 18px; position: relative;
+            background: #0f3460; border-radius: 4px; overflow: hidden;
+            display: none;
+        }
+        .progress-wrap.active { display: block; }
+        .progress-bar {
+            height: 100%; width: 0; background: #2196f3;
+            border-radius: 4px; transition: width .3s;
+        }
+        .progress-label {
+            position: absolute; top: 0; left: 0; right: 0;
+            text-align: center; font-size: .7em; line-height: 18px;
+            color: #ccc;
+        }
+        .svc.pending { opacity: .35; }
         .uptime { color: #999; font-size: .85em; margin-top: 16px; }
         .uptime span { color: #e0e0e0; font-weight: 600; }
         .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
@@ -71,6 +87,10 @@
     <div class="services" id="services"></div>
     <div class="section-title">Static Sites</div>
     <div class="services" id="static-sites"></div>
+    <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+        <div class="progress-label" id="progress-label"></div>
+    </div>
     <div class="uptime" id="uptime-row"></div>
 
     <div class="section-title">Metrics</div>
@@ -115,50 +135,39 @@
         function $(id) { return document.getElementById(id); }
         function clr(v, lo, hi) { return v > hi ? '#f44336' : v > lo ? '#ff9800' : '#4caf50'; }
 
-        function render(d) {
+        function renderSvcCard(s, pending) {
+            var c, i;
+            if (pending) { c = '#555'; i = '…'; }
+            else { c = s.status === 'up' ? '#4caf50' : s.status === 'degraded' ? '#ff9800' : '#f44336'; i = s.status === 'up' ? '✓' : s.status === 'degraded' ? '⚠' : '✗'; }
+            var detailHtml = s.detail ? '<div class="detail">' + s.detail + '</div>' : '';
+            return '<div class="svc' + (pending ? ' pending' : '') + '">' +
+                '<div class="dot" style="background:' + c + '">' + i + '</div>' +
+                '<div class="name">' + s.name + '</div>' +
+                '<div class="path">' + s.path + '</div>' +
+                '<div class="label" style="color:' + c + '">' + (pending ? 'CHECKING' : s.status.toUpperCase()) + '</div>' +
+                detailHtml + '</div>';
+        }
+
+        function renderSystem(d) {
             $('updated').textContent = 'Updated ' + d.timestamp.slice(0, 19).replace('T', ' ');
-
-            function renderSvcList(items) {
-                return items.map(function(s) {
-                    var c = s.status === 'up' ? '#4caf50' : s.status === 'degraded' ? '#ff9800' : '#f44336';
-                    var i = s.status === 'up' ? '✓' : s.status === 'degraded' ? '⚠' : '✗';
-                    var detailHtml = s.detail ? '<div class="detail">' + s.detail + '</div>' : '';
-                    return '<div class="svc">' +
-                        '<div class="dot" style="background:' + c + '">' + i + '</div>' +
-                        '<div class="name">' + s.name + '</div>' +
-                        '<div class="path">' + s.path + '</div>' +
-                        '<div class="label" style="color:' + c + '">' + s.status.toUpperCase() + '</div>' +
-                        detailHtml +
-                        '</div>';
-                }).join('');
-            }
-            $('services').innerHTML = renderSvcList(d.services);
-            $('static-sites').innerHTML = renderSvcList(d.static_sites || []);
-
             var sys = d.system, cpu = sys.cpu, mem = sys.memory, dk = sys.disk;
-
             $('uptime-row').innerHTML = 'Uptime <span>' + sys.uptime.human + '</span>';
-
             var lr = cpu.load_1m / (cpu.cores || 1);
             $('cpu-val').textContent = cpu.load_1m;
             $('cpu-val').style.color = clr(lr, 0.7, 1.0);
             $('cpu-det').textContent = cpu.load_5m + ' / ' + cpu.load_15m + ' (5m/15m) · ' + cpu.cores + ' cores';
-
             $('mem-val').textContent = mem.percent_used + '%';
             $('mem-det').textContent = Math.round(mem.used_mb) + ' / ' + Math.round(mem.total_mb) + ' MB';
             $('mem-bar').style.width = mem.percent_used + '%';
             $('mem-bar').style.background = clr(mem.percent_used, 70, 90);
-
             $('disk-val').textContent = dk.percent_used + '%';
             $('disk-det').textContent = dk.used_gb + ' / ' + dk.total_gb + ' GB';
             $('disk-bar').style.width = dk.percent_used + '%';
             $('disk-bar').style.background = clr(dk.percent_used, 70, 90);
-
             var claude = sys.claude;
             $('claude-val').textContent = claude.count;
             $('claude-val').style.color = claude.count > 0 ? '#4caf50' : '#777';
             $('claude-det').textContent = claude.count === 1 ? '1 running process' : claude.count + ' running processes';
-
             drawGraph('g-cpu', d.history.cpu, '#2196f3', {});
             drawGraph('g-mem', d.history.memory, '#ff9800', {yMin: 0, yMax: 100});
             drawGraph('g-disk', d.history.disk, '#9c27b0', {yMin: 0, yMax: 100});
@@ -249,18 +258,70 @@
         }
 
         var dot = $('dot');
-        async function poll() {
-            try {
-                var r = await fetch('/status/json');
-                var d = await r.json();
-                render(d);
+        // Known service definitions for placeholder rendering
+        var svcDefs = [
+            {name:'Webhook',path:'/webhook'},{name:'Status Page',path:'/status'},
+            {name:'Todo API',path:'/todo-api'},{name:'Asteroids',path:'/asteroids'}
+        ];
+        var siteDefs = [
+            {name:'Scramble',path:'/scramble'},{name:'Badge',path:'/badge'},
+            {name:'Breakout',path:'/breakout'},{name:'Flutter Demo',path:'/flutter_demo'},
+            {name:'Todo App',path:'/todo-app'},{name:"Trump's 48h",path:'/trumps48hours'}
+        ];
+        var allDefs = svcDefs.concat(siteDefs);
+        var svcCount = svcDefs.length;
+
+        function streamPoll() {
+            var results = {};
+            var pw = $('progress-wrap');
+            var pb = $('progress-bar');
+            var pl = $('progress-label');
+            pw.classList.add('active');
+            pb.style.width = '0%';
+            pl.textContent = 'checking services...';
+
+            // Show all as pending
+            $('services').innerHTML = svcDefs.map(function(s) { return renderSvcCard(s, true); }).join('');
+            $('static-sites').innerHTML = siteDefs.map(function(s) { return renderSvcCard(s, true); }).join('');
+
+            var es = new EventSource('/status/stream');
+            es.onmessage = function(ev) {
+                var d = JSON.parse(ev.data);
+                if (d.type === 'system') {
+                    renderSystem(d);
+                    return;
+                }
+                // Service check result
+                results[d.path] = d;
+                var done = d.index + 1;
+                var total = d.total;
+                var pct = Math.round(done / total * 100);
+                pb.style.width = pct + '%';
+                pl.textContent = 'checking ' + done + '/' + total + ' — ' + d.name;
+
+                // Update the right card in place
+                if (d.index < svcCount) {
+                    var cards = $('services').children;
+                    if (cards[d.index]) cards[d.index].outerHTML = renderSvcCard(d, false);
+                } else {
+                    var cards = $('static-sites').children;
+                    var si = d.index - svcCount;
+                    if (cards[si]) cards[si].outerHTML = renderSvcCard(d, false);
+                }
+            };
+            es.addEventListener('done', function() {
+                es.close();
+                pw.classList.remove('active');
                 dot.style.background = '#4caf50';
-            } catch (e) {
+            });
+            es.onerror = function() {
+                es.close();
+                pw.classList.remove('active');
                 dot.style.background = '#f44336';
-            }
+            };
         }
-        poll();
-        setInterval(poll, 10000);
+        streamPoll();
+        setInterval(streamPoll, 10000);
     </script>
 </body>
 </html>
