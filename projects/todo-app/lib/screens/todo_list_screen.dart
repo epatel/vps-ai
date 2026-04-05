@@ -301,6 +301,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
           key: ValueKey(todo.id),
           todo: todo,
           index: index,
+          reorderable: false,
           onToggle: () => todoProvider.toggleDone(todo),
           onEdit: () => _editTodo(todo),
           onUpdateDescription: (newDesc) {

@@ -58,6 +58,7 @@ class TodoTile extends StatefulWidget {
   final VoidCallback onEdit;
   final ValueChanged<String>? onUpdateDescription;
   final String Function(String path) imageUrl;
+  final bool reorderable;
 
   const TodoTile({
     super.key,
@@ -67,6 +68,7 @@ class TodoTile extends StatefulWidget {
     required this.onEdit,
     this.onUpdateDescription,
     required this.imageUrl,
+    this.reorderable = true,
   });
 
   @override
@@ -174,10 +176,11 @@ class _TodoTileState extends State<TodoTile> {
                   tooltip: 'Edit',
                   onPressed: widget.onEdit,
                 ),
-                ReorderableDragStartListener(
-                  index: widget.index,
-                  child: const Icon(Icons.drag_handle, size: 20),
-                ),
+                if (widget.reorderable)
+                  ReorderableDragStartListener(
+                    index: widget.index,
+                    child: const Icon(Icons.drag_handle, size: 20),
+                  ),
               ],
             ),
             onTap: (hasDescription || hasImages)

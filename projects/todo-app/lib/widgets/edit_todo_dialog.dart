@@ -211,7 +211,7 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
             label: const Text('Delete'),
           ),
         ],
-        const Spacer(),
+        const SizedBox(width: 48),
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
