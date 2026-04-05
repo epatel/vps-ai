@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # VPS Agent Manager
 
 GitHub-issue-driven autonomous agent system on `ai.memention.net` (Ubuntu 24.04, x86_64).
@@ -90,6 +94,33 @@ when source files (`lib/`, `web/`, `pubspec.*`) change.
 - The `--base-href /<project-name>/` flag is applied automatically
 - CI (`.github/workflows/build-flutter-web.yml`) validates builds on push/PR but does not deploy
 - Adding a new Flutter project requires no config changes — just create it under `projects/`
+
+## Nginx configuration
+
+Nginx config lives at `/etc/nginx/sites-available/ai.memention.net` on the server.
+`sites-enabled` is a **symlink** to `sites-available` — always edit `sites-available`.
+
+When adding a new project that needs to be served:
+
+- **Static sites**: Add an `alias` location block pointing to the project directory
+- **Python services**: Add a `proxy_pass` location block to the service port
+- **WebSocket services**: Add a separate location block with `proxy_http_version 1.1` and `Upgrade` headers
+- **Flutter web apps**: Use `alias` to `build/web/` with `try_files` for SPA routing
+
+The catch-all `location /` serves the landing page. New location blocks must be added
+**before** it (nginx uses longest prefix match, but the catch-all `alias` can interfere).
+
+After editing: `sudo nginx -t && sudo systemctl reload nginx`
+
+## Status page monitoring
+
+`projects/status-page/server.py` monitors all services. When adding a new project:
+
+1. Add an entry to the `SERVICES` list in `server.py`
+2. Use `check_type="port"` for backend services, `"file"` for static sites
+3. For POST-only services, add `{"port_only": True}` flag to skip GET-based nginx check
+4. For APIs with no root route, add `{"check_path": "/path/to/health"}` flag
+5. The status page checks nginx routing — it detects fallback/catch-all responses as "degraded"
 
 ## Landing page
 
