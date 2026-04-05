@@ -17,10 +17,11 @@ from threading import Lock, Thread
 PORT = 5001
 HOSTNAME = "ai.memention.net"
 
-# Services to monitor: (name, path, check_type, target)
+# Services to monitor: (name, path, check_type, target[, flags])
+# flags is an optional dict: {"port_only": True} skips nginx GET check
 SERVICES = [
     # Server-based services (check by port)
-    ("Webhook", "/webhook", "port", 5000),
+    ("Webhook", "/webhook", "port", 5000, {"port_only": True}),
     ("Status Page", "/status", "port", 5001),
     ("Todo API", "/todo-api", "port", 5003),
     ("Asteroids", "/asteroids", "port", 8082),
@@ -174,7 +175,8 @@ def check_nginx(path):
 
 def check_service(svc):
     """Check if a service is running. Returns status and optional detail."""
-    name, path, check_type, target = svc
+    name, path, check_type, target = svc[:4]
+    flags = svc[4] if len(svc) > 4 else {}
     status = "down"
     detail = None
     if check_type == "port":
@@ -183,16 +185,18 @@ def check_service(svc):
             s.settimeout(2)
             s.connect(("127.0.0.1", target))
             s.close()
-            # Port is up, now check if nginx routes to it properly
-            nginx_status = check_nginx(path)
-            if nginx_status == "up":
+            if flags.get("port_only"):
                 status = "up"
-            elif nginx_status == "fallback":
-                status = "degraded"
-                detail = "nginx fallback"
             else:
-                status = "degraded"
-                detail = "port ok, nginx error"
+                nginx_status = check_nginx(path)
+                if nginx_status == "up":
+                    status = "up"
+                elif nginx_status == "fallback":
+                    status = "degraded"
+                    detail = "nginx fallback"
+                else:
+                    status = "degraded"
+                    detail = "port ok, nginx error"
         except Exception:
             status = "down"
     elif check_type == "file":
