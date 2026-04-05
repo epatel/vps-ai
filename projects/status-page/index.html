@@ -162,7 +162,10 @@
             $('claude-det').textContent = claude.count === 1 ? '1 running process' : claude.count + ' running processes';
             var fb = sys.flutter_build;
             var badge = $('flutter-badge');
-            if (fb && fb.active) { badge.classList.add('active'); badge.textContent = 'FLUTTER BUILDING'; } else { badge.classList.remove('active'); badge.textContent = 'FLUTTER IDLE'; }
+            if (fb && fb.active) {
+                var label = 'BUILDING: ' + (fb.projects || []).join(', ');
+                badge.classList.add('active'); badge.textContent = label;
+            } else { badge.classList.remove('active'); badge.textContent = 'FLUTTER IDLE'; }
             drawGraph('g-cpu', d.history.cpu, '#2196f3', {});
             drawGraph('g-mem', d.history.memory, '#ff9800', {yMin: 0, yMax: 100});
             drawGraph('g-disk', d.history.disk, '#9c27b0', {yMin: 0, yMax: 100});

@@ -140,17 +140,25 @@ def get_claude_count():
 
 
 def get_flutter_build_status():
-    """Check if a flutter build is currently running."""
+    """Check if a flutter build is currently running. Returns list of project names."""
+    import re
     try:
         result = subprocess.run(
             ["pgrep", "-af", "flutter.*build"],
             capture_output=True, text=True, timeout=5
         )
-        if result.returncode == 0 and result.stdout.strip():
-            return True
-        return False
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+        projects = set()
+        for line in result.stdout.strip().splitlines():
+            # Look for projects/<name> in the command line or cwd
+            m = re.search(r'projects/([^/\s]+)', line)
+            if m:
+                projects.add(m.group(1))
+        # If we found flutter build but couldn't parse a project name, show generic
+        return sorted(projects) if projects else ["unknown"]
     except Exception:
-        return False
+        return []
 
 
 FALLBACK_SIGNATURES = [
@@ -246,7 +254,7 @@ def get_status_data():
     mem = get_memory()
     disk = get_disk()
     claude_count = get_claude_count()
-    flutter_building = get_flutter_build_status()
+    flutter_projects = get_flutter_build_status()
 
     with history_lock:
         h_cpu = list(history_cpu)
@@ -265,7 +273,7 @@ def get_status_data():
             "memory": mem,
             "disk": disk,
             "claude": {"count": claude_count},
-            "flutter_build": {"active": flutter_building},
+            "flutter_build": {"active": len(flutter_projects) > 0, "projects": flutter_projects},
         },
         "history": {
             "cpu": h_cpu,
@@ -385,7 +393,7 @@ class StatusHandler(SimpleHTTPRequestHandler):
                         "memory": get_memory(),
                         "disk": get_disk(),
                         "claude": {"count": get_claude_count()},
-                        "flutter_build": {"active": get_flutter_build_status()},
+                        "flutter_build": (lambda p: {"active": len(p) > 0, "projects": p})(get_flutter_build_status()),
                     },
                     "history": {
                         "cpu": h_cpu, "memory": h_mem,
