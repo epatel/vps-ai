@@ -2,7 +2,7 @@
 {{flutter_build_config}}
 
 _flutter.loader.load({
-  serviceWorker: {
+  serviceWorkerSettings: {
     serviceWorkerUrl: 'sw.js',
   },
 });
