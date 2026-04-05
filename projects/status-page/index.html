@@ -59,12 +59,24 @@
         .footer { margin-top: 28px; padding-top: 14px; border-top: 1px solid #2a2a4a; color: #555; font-size: .78em; text-align: center; }
         .footer a { color: #777; text-decoration: none; }
         .footer a:hover { color: #e0e0e0; }
+        .build-badge {
+            display: none; font-size: .75em; font-weight: 600;
+            background: #ff9800; color: #1a1a2e; padding: 2px 10px;
+            border-radius: 10px; margin-left: auto; white-space: nowrap;
+            animation: pulse-badge 1.5s ease-in-out infinite;
+        }
+        .build-badge.active { display: inline-block; }
+        @keyframes pulse-badge {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .55; }
+        }
     </style>
 </head>
 <body>
     <header>
         <h1>ai.memention.net</h1>
         <div class="poll-dot" id="dot"></div>
+        <div class="build-badge" id="flutter-badge">FLUTTER BUILD</div>
     </header>
     <div class="subtitle" id="updated">connecting...</div>
 
@@ -149,6 +161,8 @@
             $('claude-val').textContent = claude.count;
             $('claude-val').style.color = claude.count > 0 ? '#4caf50' : '#777';
             $('claude-det').textContent = claude.count === 1 ? '1 running process' : claude.count + ' running processes';
+            var fb = sys.flutter_build;
+            if (fb && fb.active) { $('flutter-badge').classList.add('active'); } else { $('flutter-badge').classList.remove('active'); }
             drawGraph('g-cpu', d.history.cpu, '#2196f3', {});
             drawGraph('g-mem', d.history.memory, '#ff9800', {yMin: 0, yMax: 100});
             drawGraph('g-disk', d.history.disk, '#9c27b0', {yMin: 0, yMax: 100});

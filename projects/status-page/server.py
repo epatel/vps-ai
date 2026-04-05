@@ -139,6 +139,20 @@ def get_claude_count():
         return 0
 
 
+def get_flutter_build_status():
+    """Check if a flutter build is currently running."""
+    try:
+        result = subprocess.run(
+            ["pgrep", "-af", "flutter.*build"],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return True
+        return False
+    except Exception:
+        return False
+
+
 FALLBACK_SIGNATURES = [
     "welcome to nginx",
     "default server",
@@ -232,6 +246,7 @@ def get_status_data():
     mem = get_memory()
     disk = get_disk()
     claude_count = get_claude_count()
+    flutter_building = get_flutter_build_status()
 
     with history_lock:
         h_cpu = list(history_cpu)
@@ -250,6 +265,7 @@ def get_status_data():
             "memory": mem,
             "disk": disk,
             "claude": {"count": claude_count},
+            "flutter_build": {"active": flutter_building},
         },
         "history": {
             "cpu": h_cpu,
@@ -369,6 +385,7 @@ class StatusHandler(SimpleHTTPRequestHandler):
                         "memory": get_memory(),
                         "disk": get_disk(),
                         "claude": {"count": get_claude_count()},
+                        "flutter_build": {"active": get_flutter_build_status()},
                     },
                     "history": {
                         "cpu": h_cpu, "memory": h_mem,
