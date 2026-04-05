@@ -20,6 +20,7 @@ class TodoListScreen extends StatefulWidget {
 
 class _TodoListScreenState extends State<TodoListScreen> {
   bool _sharedDataHandled = false;
+  int _selectedTab = 0;
 
   @override
   void initState() {
@@ -60,12 +61,10 @@ class _TodoListScreenState extends State<TodoListScreen> {
         description: (result['description'] as String?) ?? '',
       );
       if (todo != null) {
-        // Claim server-side pending images (shared via Web Share Target)
         final serverIds = result['serverPendingIds'] as List<String>? ?? [];
         for (final id in serverIds) {
           await provider.claimPendingImage(todo.id, id);
         }
-        // Upload locally-added images
         final pending = result['pendingImages'] as List<PendingImage>? ?? [];
         for (final img in pending) {
           await provider.uploadImage(todo.id, img.bytes, img.filename);
@@ -81,9 +80,14 @@ class _TodoListScreenState extends State<TodoListScreen> {
     );
     if (result != null && mounted) {
       final provider = context.read<TodoProvider>();
-      if (result['action'] == 'delete') {
+      final action = result['action'] as String?;
+      if (action == 'delete') {
         await provider.deleteTodo(todo.id);
-      } else if (result['action'] == 'save') {
+      } else if (action == 'archive') {
+        await provider.archiveTodo(todo.id);
+      } else if (action == 'unarchive') {
+        await provider.unarchiveTodo(todo.id);
+      } else if (action == 'save') {
         await provider.updateTodo(
           todo.id,
           title: result['title'] as String?,
@@ -101,6 +105,13 @@ class _TodoListScreenState extends State<TodoListScreen> {
     }
   }
 
+  void _onTabChanged(int index) {
+    setState(() => _selectedTab = index);
+    if (index == 1) {
+      context.read<TodoProvider>().loadArchivedTodos();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -108,7 +119,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Todos'),
+        title: Text(_selectedTab == 0 ? 'My Todos' : 'Archive'),
         actions: [
           if (auth.email != null)
             Padding(
@@ -123,7 +134,13 @@ class _TodoListScreenState extends State<TodoListScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
-            onPressed: () => todoProvider.loadTodos(),
+            onPressed: () {
+              if (_selectedTab == 0) {
+                todoProvider.loadTodos();
+              } else {
+                todoProvider.loadArchivedTodos();
+              }
+            },
           ),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -135,16 +152,34 @@ class _TodoListScreenState extends State<TodoListScreen> {
           ),
         ],
       ),
-      body: _buildBody(todoProvider),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addTodo,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Todo'),
+      body: _selectedTab == 0
+          ? _buildActiveTodos(todoProvider)
+          : _buildArchivedTodos(todoProvider),
+      floatingActionButton: _selectedTab == 0
+          ? FloatingActionButton.extended(
+              onPressed: _addTodo,
+              icon: const Icon(Icons.add),
+              label: const Text('Add Todo'),
+            )
+          : null,
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedTab,
+        onTap: _onTabChanged,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.checklist),
+            label: 'Todos',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.archive_outlined),
+            label: 'Archive',
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildBody(TodoProvider todoProvider) {
+  Widget _buildActiveTodos(TodoProvider todoProvider) {
     if (todoProvider.isLoading && todoProvider.todos.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -200,6 +235,68 @@ class _TodoListScreenState extends State<TodoListScreen> {
       },
       itemBuilder: (context, index) {
         final todo = todoProvider.todos[index];
+        return TodoTile(
+          key: ValueKey(todo.id),
+          todo: todo,
+          index: index,
+          onToggle: () => todoProvider.toggleDone(todo),
+          onEdit: () => _editTodo(todo),
+          onUpdateDescription: (newDesc) {
+            todoProvider.updateTodo(todo.id, description: newDesc);
+          },
+          imageUrl: todoProvider.api.imageUrl,
+        );
+      },
+    );
+  }
+
+  Widget _buildArchivedTodos(TodoProvider todoProvider) {
+    if (todoProvider.isLoadingArchived && todoProvider.archivedTodos.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (todoProvider.error != null && todoProvider.archivedTodos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
+            const SizedBox(height: 16),
+            Text(todoProvider.error!),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => todoProvider.loadArchivedTodos(),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (todoProvider.archivedTodos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.archive_outlined, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'No archived items',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8, bottom: 16),
+      itemCount: todoProvider.archivedTodos.length,
+      itemBuilder: (context, index) {
+        final todo = todoProvider.archivedTodos[index];
         return TodoTile(
           key: ValueKey(todo.id),
           todo: todo,
