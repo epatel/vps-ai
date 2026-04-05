@@ -21,6 +21,8 @@ class TodoListScreen extends StatefulWidget {
 class _TodoListScreenState extends State<TodoListScreen> {
   bool _sharedDataHandled = false;
   int _selectedTab = 0;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -29,6 +31,12 @@ class _TodoListScreenState extends State<TodoListScreen> {
       context.read<TodoProvider>().loadTodos();
       _handleSharedData();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _handleSharedData() async {
@@ -292,24 +300,69 @@ class _TodoListScreenState extends State<TodoListScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 8, bottom: 16),
-      itemCount: todoProvider.archivedTodos.length,
-      itemBuilder: (context, index) {
-        final todo = todoProvider.archivedTodos[index];
-        return TodoTile(
-          key: ValueKey(todo.id),
-          todo: todo,
-          index: index,
-          reorderable: false,
-          onToggle: () => todoProvider.toggleDone(todo),
-          onEdit: () => _editTodo(todo),
-          onUpdateDescription: (newDesc) {
-            todoProvider.updateTodo(todo.id, description: newDesc);
-          },
-          imageUrl: todoProvider.api.imageUrl,
-        );
-      },
+    final query = _searchQuery.toLowerCase();
+    final filtered = query.isEmpty
+        ? todoProvider.archivedTodos
+        : todoProvider.archivedTodos.where((t) =>
+            t.title.toLowerCase().contains(query) ||
+            t.description.toLowerCase().contains(query)).toList();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search archive...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 20),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    )
+                  : null,
+              isDense: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            onChanged: (value) => setState(() => _searchQuery = value),
+          ),
+        ),
+        Expanded(
+          child: filtered.isEmpty
+              ? Center(
+                  child: Text(
+                    'No matches',
+                    style: TextStyle(color: Colors.grey.shade500),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.only(top: 4, bottom: 16),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final todo = filtered[index];
+                    return TodoTile(
+                      key: ValueKey(todo.id),
+                      todo: todo,
+                      index: index,
+                      reorderable: false,
+                      onToggle: () => todoProvider.toggleDone(todo),
+                      onEdit: () => _editTodo(todo),
+                      onUpdateDescription: (newDesc) {
+                        todoProvider.updateTodo(todo.id, description: newDesc);
+                      },
+                      imageUrl: todoProvider.api.imageUrl,
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
