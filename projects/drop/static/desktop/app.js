@@ -243,6 +243,31 @@
         }
     });
 
+    $('#pair-btn').addEventListener('click', function () {
+        // Show pairing screen with a new code (keeps existing room active)
+        if (ws && ws.readyState === 1) {
+            ws.send(JSON.stringify({ type: 'request_code' }));
+        }
+    });
+
+    $('#unpair-btn').addEventListener('click', function () {
+        if (confirm('Unpair this device and clear all data?')) {
+            if (token && ws && ws.readyState === 1) {
+                ws.send(JSON.stringify({ type: 'clear', token: token }));
+            }
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(ROOM_KEY);
+            localStorage.removeItem(LAST_SEEN_KEY);
+            token = null;
+            roomId = null;
+            lastSeenId = 0;
+            clearFeed();
+            if (ws && ws.readyState === 1) {
+                ws.send(JSON.stringify({ type: 'request_code' }));
+            }
+        }
+    });
+
     function escapeHtml(str) {
         var div = document.createElement('div');
         div.textContent = str;

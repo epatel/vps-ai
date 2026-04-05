@@ -26,7 +26,11 @@
         <div id="feed-screen" class="screen hidden">
             <div class="feed-header">
                 <span>Shared Items</span>
-                <button id="clear-btn" class="btn-clear" title="Clear all items">Clear All</button>
+                <div class="feed-actions">
+                    <button id="pair-btn" class="btn-clear" title="Show pairing QR code">Pair Device</button>
+                    <button id="unpair-btn" class="btn-clear btn-danger" title="Unpair and clear all data">Unpair</button>
+                    <button id="clear-btn" class="btn-clear" title="Clear all items">Clear All</button>
+                </div>
             </div>
             <div id="feed" class="feed">
                 <div id="empty-state" class="empty-state">

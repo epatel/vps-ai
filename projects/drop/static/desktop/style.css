@@ -85,7 +85,10 @@ header h1 { font-size: 18px; font-weight: 600; color: #fff; }
     font-size: 12px;
 }
 
-.btn-clear:hover { border-color: #ff6b6b; color: #ff6b6b; }
+.btn-clear:hover { border-color: #6c63ff; color: #6c63ff; }
+.btn-danger:hover { border-color: #ff6b6b !important; color: #ff6b6b !important; }
+
+.feed-actions { display: flex; gap: 8px; }
 
 .feed { display: flex; flex-direction: column; gap: 10px; }
 

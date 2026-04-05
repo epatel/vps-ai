@@ -48,6 +48,15 @@ async def handle_ws(request):
                 msg_type = data.get("type")
 
                 if msg_type == "request_code":
+                    # Clean up previous room association for this ws
+                    if ws in ws_rooms:
+                        old_room_id, old_role = ws_rooms.pop(ws)
+                        old_conns = connections.get(old_room_id, {})
+                        if old_conns.get(old_role) is ws:
+                            del old_conns[old_role]
+                        if not old_conns:
+                            connections.pop(old_room_id, None)
+
                     room = await db.create_room()
                     connections[room["id"]] = {"desktop": ws}
                     ws_rooms[ws] = (room["id"], "desktop")
