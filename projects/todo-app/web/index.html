@@ -49,17 +49,34 @@
         background-color: #FFFBFE;
       }
     }
-    /* Prevent browser default behaviors that interfere with long-press drag */
-    body {
+    /*
+     * Prevent browser default behaviors that interfere with long-press drag.
+     *
+     * Note: Do NOT set `touch-action: pan-y` on body. Flutter's glass pane
+     * already has `touch-action: none` and handles its own scrolling via
+     * ListView. A `pan-y` rule on an ancestor makes mobile browsers claim
+     * vertical touch movement for native scrolling, which steals the
+     * touchmove events that long-press drag-reorder depends on.
+     */
+    html, body {
       -webkit-touch-callout: none;
       -webkit-user-select: none;
+      -ms-user-select: none;
       user-select: none;
-      touch-action: pan-y;
+      overscroll-behavior: none;
+    }
+    /* Belt-and-braces: force the Flutter canvas to consume all touch gestures. */
+    flutter-view, flt-glass-pane {
+      touch-action: none !important;
     }
   </style>
   <script>
-    // Prevent browser context menu on long press (mobile web)
-    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    // Prevent browser context menu on long press (mobile web). Without this,
+    // Android/iOS Safari will show a context menu after ~500ms, which cancels
+    // Flutter's long-press drag gesture.
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); }, { passive: false });
+    // Suppress selectstart so text selection doesn't start during a long press.
+    document.addEventListener('selectstart', function(e) { e.preventDefault(); }, { passive: false });
   </script>
 </head>
 <body>

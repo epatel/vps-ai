@@ -240,13 +240,18 @@ class _TodoListScreenState extends State<TodoListScreen> {
       padding: const EdgeInsets.only(top: 8, bottom: 88),
       itemCount: todoProvider.todos.length,
       buildDefaultDragHandles: false,
+      // Long-press delay before drag starts (matches the delayed drag
+      // listener in TodoTile). Kept explicit so the haptic-like visual feedback
+      // timing stays in sync with our gesture recognizer.
       proxyDecorator: (child, index, animation) {
         return AnimatedBuilder(
           animation: animation,
           builder: (context, child) {
-            final animValue = Curves.easeInOut.transform(animation.value);
-            final elevation = lerpDouble(0, 8, animValue)!;
-            final scale = lerpDouble(1, 1.03, animValue)!;
+            // Use easeOut so feedback is near-instant when drag begins,
+            // making it obvious to the user that long-press succeeded.
+            final animValue = Curves.easeOut.transform(animation.value);
+            final elevation = lerpDouble(0, 12, animValue)!;
+            final scale = lerpDouble(1, 1.04, animValue)!;
             return Transform.scale(
               scale: scale,
               child: Material(
