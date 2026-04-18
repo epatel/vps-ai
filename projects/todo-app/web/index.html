@@ -49,7 +49,18 @@
         background-color: #FFFBFE;
       }
     }
+    /* Prevent browser default behaviors that interfere with long-press drag */
+    body {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: pan-y;
+    }
   </style>
+  <script>
+    // Prevent browser context menu on long press (mobile web)
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+  </script>
 </head>
 <body>
   <!--
