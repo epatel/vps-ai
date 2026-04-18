@@ -88,7 +88,7 @@ class _TodoTileState extends State<TodoTile> {
     final hasSubCheckboxes = counts.total > 0;
     final allSubsDone = hasSubCheckboxes && counts.checked == counts.total;
 
-    return Card(
+    final card = Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -176,11 +176,6 @@ class _TodoTileState extends State<TodoTile> {
                   tooltip: 'Edit',
                   onPressed: widget.onEdit,
                 ),
-                if (widget.reorderable)
-                  ReorderableDragStartListener(
-                    index: widget.index,
-                    child: const Icon(Icons.drag_handle, size: 20),
-                  ),
               ],
             ),
             onTap: (hasDescription || hasImages)
@@ -208,6 +203,14 @@ class _TodoTileState extends State<TodoTile> {
         ],
       ),
     );
+
+    if (widget.reorderable) {
+      return ReorderableDelayedDragStartListener(
+        index: widget.index,
+        child: card,
+      );
+    }
+    return card;
   }
 
   Widget _buildImageGrid(BuildContext context) {
