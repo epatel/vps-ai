@@ -162,11 +162,6 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
                 decoration: InputDecoration(
                   labelText: 'Description (optional)',
                   border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.check_box_outlined),
-                    tooltip: 'Add checkbox item',
-                    onPressed: _insertCheckbox,
-                  ),
                   helperText: 'Paste images with Ctrl+V',
                   helperStyle: TextStyle(
                     fontStyle: FontStyle.italic,
@@ -184,6 +179,14 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
                   _existingImages.removeWhere((img) => img.id == id);
                   _deletedImageIds.add(id);
                 }),
+                trailing: IconButton(
+                  icon: const Icon(Icons.check_box_outlined, size: 20),
+                  tooltip: 'Add checkbox item',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  onPressed: _insertCheckbox,
+                ),
               ),
               const SizedBox(height: 20),
               Wrap(

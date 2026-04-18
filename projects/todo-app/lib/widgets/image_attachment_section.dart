@@ -25,6 +25,7 @@ class ImageAttachmentSection extends StatelessWidget {
   final ValueChanged<int>? onRemoveServerPending;
   final int maxImages;
   final String Function(String path)? imageUrl;
+  final Widget? trailing;
 
   const ImageAttachmentSection({
     super.key,
@@ -37,6 +38,7 @@ class ImageAttachmentSection extends StatelessWidget {
     this.onRemoveServerPending,
     this.maxImages = 10,
     this.imageUrl,
+    this.trailing,
   });
 
   int get _totalCount => existingImages.length + pendingImages.length + serverPendingImageIds.length;
@@ -65,7 +67,7 @@ class ImageAttachmentSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (_totalCount == 0 && !_canAdd) return const SizedBox.shrink();
+    if (_totalCount == 0 && !_canAdd && trailing == null) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,6 +86,10 @@ class ImageAttachmentSection extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
+            if (trailing != null) ...[
+              const Spacer(),
+              trailing!,
+            ],
           ],
         ),
         const SizedBox(height: 8),
