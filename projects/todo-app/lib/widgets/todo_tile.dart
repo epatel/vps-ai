@@ -94,6 +94,7 @@ class _TodoTileState extends State<TodoTile> {
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
+            contentPadding: const EdgeInsets.only(left: 16, right: 4),
             leading: hasSubCheckboxes
                 ? allSubsDone
                     ? Checkbox(
