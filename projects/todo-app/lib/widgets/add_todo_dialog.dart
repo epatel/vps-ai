@@ -46,10 +46,9 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
           if (result != null) {
             final bytes = (result as JSArrayBuffer).toDart.asUint8List();
             setState(() {
-              _pendingImages.add(PendingImage(
-                bytes: bytes,
-                filename: 'pasted-image.png',
-              ));
+              _pendingImages.add(
+                PendingImage(bytes: bytes, filename: 'pasted-image.png'),
+              );
             });
           }
         }.toJS;
@@ -111,7 +110,9 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
     final newText = text.substring(0, offset) + insert + text.substring(offset);
     _descriptionController.text = newText;
     final cursorPos = offset + insert.length;
-    _descriptionController.selection = TextSelection.collapsed(offset: cursorPos);
+    _descriptionController.selection = TextSelection.collapsed(
+      offset: cursorPos,
+    );
     // Focus the description field
     _descriptionFocus.requestFocus();
   }
@@ -155,7 +156,9 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
                   helperText: 'Paste images with Ctrl+V',
                   helperStyle: TextStyle(
                     fontStyle: FontStyle.italic,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                 ),
                 maxLines: 5,
@@ -164,15 +167,18 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
                 pendingImages: _pendingImages,
                 serverPendingImageIds: _serverPendingIds,
                 onAddPending: (p) => setState(() => _pendingImages.add(p)),
-                onRemovePending: (i) => setState(() => _pendingImages.removeAt(i)),
-                onRemoveServerPending: (i) => setState(() => _serverPendingIds.removeAt(i)),
-                trailing: IconButton(
-                  icon: const Icon(Icons.check_box_outlined, size: 20),
-                  tooltip: 'Add checkbox item',
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  onPressed: _insertCheckbox,
+                onRemovePending: (i) =>
+                    setState(() => _pendingImages.removeAt(i)),
+                onRemoveServerPending: (i) =>
+                    setState(() => _serverPendingIds.removeAt(i)),
+                trailing: InkWell(
+                  onTap: _insertCheckbox,
+                  child: const Row(
+                    children: [
+                      Text('Add ', style: TextStyle(fontSize: 12)),
+                      Icon(Icons.check_box_outlined, size: 20),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),

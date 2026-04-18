@@ -40,10 +40,9 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
           if (result != null) {
             final bytes = (result as JSArrayBuffer).toDart.asUint8List();
             setState(() {
-              _pendingImages.add(PendingImage(
-                bytes: bytes,
-                filename: 'pasted-image.png',
-              ));
+              _pendingImages.add(
+                PendingImage(bytes: bytes, filename: 'pasted-image.png'),
+              );
             });
           }
         }.toJS;
@@ -57,7 +56,9 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.todo.title);
-    _descriptionController = TextEditingController(text: widget.todo.description);
+    _descriptionController = TextEditingController(
+      text: widget.todo.description,
+    );
     _existingImages = List.of(widget.todo.images);
     _pasteListener = _handlePaste.toJS;
     web.document.addEventListener('paste', _pasteListener);
@@ -122,7 +123,9 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
     final newText = text.substring(0, offset) + insert + text.substring(offset);
     _descriptionController.text = newText;
     final cursorPos = offset + insert.length;
-    _descriptionController.selection = TextSelection.collapsed(offset: cursorPos);
+    _descriptionController.selection = TextSelection.collapsed(
+      offset: cursorPos,
+    );
     _descriptionFocus.requestFocus();
   }
 
@@ -165,7 +168,9 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
                   helperText: 'Paste images with Ctrl+V',
                   helperStyle: TextStyle(
                     fontStyle: FontStyle.italic,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                 ),
                 maxLines: 5,
@@ -174,18 +179,20 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
                 existingImages: _existingImages,
                 pendingImages: _pendingImages,
                 onAddPending: (p) => setState(() => _pendingImages.add(p)),
-                onRemovePending: (i) => setState(() => _pendingImages.removeAt(i)),
+                onRemovePending: (i) =>
+                    setState(() => _pendingImages.removeAt(i)),
                 onDeleteExisting: (id) => setState(() {
                   _existingImages.removeWhere((img) => img.id == id);
                   _deletedImageIds.add(id);
                 }),
-                trailing: IconButton(
-                  icon: const Icon(Icons.check_box_outlined, size: 20),
-                  tooltip: 'Add checkbox item',
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  onPressed: _insertCheckbox,
+                trailing: InkWell(
+                  onTap: _insertCheckbox,
+                  child: const Row(
+                    children: [
+                      Text('Add ', style: TextStyle(fontSize: 12)),
+                      Icon(Icons.check_box_outlined, size: 20),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -198,17 +205,28 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
                     ActionChip(
                       avatar: const Icon(Icons.archive_outlined, size: 18),
                       label: const Text('Archive'),
-                      onPressed: () => Navigator.pop(context, {'action': 'archive'}),
+                      onPressed: () =>
+                          Navigator.pop(context, {'action': 'archive'}),
                     ),
                   if (widget.todo.archived) ...[
                     ActionChip(
                       avatar: const Icon(Icons.unarchive_outlined, size: 18),
                       label: const Text('Unarchive'),
-                      onPressed: () => Navigator.pop(context, {'action': 'unarchive'}),
+                      onPressed: () =>
+                          Navigator.pop(context, {'action': 'unarchive'}),
                     ),
                     ActionChip(
-                      avatar: Icon(Icons.delete_outlined, size: 18, color: Theme.of(context).colorScheme.error),
-                      label: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                      avatar: Icon(
+                        Icons.delete_outlined,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      label: Text(
+                        'Delete',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
                       onPressed: _confirmDelete,
                     ),
                   ],
