@@ -78,19 +78,7 @@ EOF
 chmod 600 .env.issues
 ```
 
-### GitHub token permissions (fine-grained PAT)
-
-- **Issues**: Read and write
-- **Pull requests**: Read and write
-- **Contents**: Read and write
-
-### Webhook configuration
-
-Add a webhook on the repo:
-- **URL:** `https://ai.memention.net/webhook`
-- **Content type:** `application/json`
-- **Secret:** matches `WEBHOOK_SECRET`
-- **Events:** Issues, Pull requests
+Beyond that, a few things live outside this repo and must be configured by hand — see [Manual configuration](#manual-configuration) below.
 
 ## Usage
 
@@ -105,9 +93,16 @@ tail -f .issues-monitor.log
 tail -f .agent-issue-N.log
 ```
 
-## Manual setup required
+## Manual configuration
 
-Some things must be configured manually outside of this repo:
+### GitHub fine-grained PAT
+
+Create a token at GitHub → Settings → Developer settings → Fine-grained personal access tokens, scoped to the `epatel/vps-ai` repo, with:
+- **Issues**: Read and write
+- **Pull requests**: Read and write
+- **Contents**: Read and write
+
+Put it in `.env.issues` as `GITHUB_TOKEN`.
 
 ### GitHub webhook
 
@@ -115,11 +110,25 @@ In the repo's **Settings → Webhooks**, create a webhook with:
 - **URL:** `https://ai.memention.net/webhook`
 - **Content type:** `application/json`
 - **Secret:** must match `WEBHOOK_SECRET` in `.env.issues`
-- **Events:** Select **Issues**, **Pull requests**, and **Pushes** (Issues triggers the agent, Pull requests and Pushes trigger `git pull` + post-merge hook on the server)
+- **Events:** **Issues**, **Pull requests**, and **Pushes** (Issues triggers the agent; Pull requests and Pushes trigger `git pull` + the post-merge hook on the server)
 
 ### Nginx
 
-Nginx reverse-proxies `/webhook` to the local webhook receiver and serves static project files. The config lives at `/etc/nginx/sites-enabled/ai.memention.net` and must be updated manually when adding new static projects (e.g. a new `location /my-project` alias).
+Nginx is the single public entry point for everything on `ai.memention.net`. It handles TLS, reverse-proxies the webhook and backend services, and serves static and Flutter web projects directly from disk. The config lives at `/etc/nginx/sites-available/ai.memention.net`; `sites-enabled` is a symlink to it, so always edit the `sites-available` copy.
+
+The config is organized as a set of `location` blocks, one per project, in front of a catch-all that serves the landing page. The block type depends on what the project is:
+
+- **Static sites** — an `alias` pointing at the project directory
+- **Flutter web apps** — an `alias` to `build/web/` plus `try_files` for SPA routing
+- **Python / HTTP services** — a `proxy_pass` to the service's local port
+- **WebSocket services** — a dedicated block with `proxy_http_version 1.1` and the `Upgrade` headers
+- **Webhook** — a `proxy_pass` to the local webhook receiver
+
+Because nginx uses longest-prefix match and the root `location /` is an `alias` for the landing page, new project blocks must be added **before** the catch-all or they will be shadowed by it. After editing, validate and reload:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
 
 ### Systemd service
 
@@ -128,13 +137,6 @@ The webhook receiver runs as a systemd service. See `setup-server.sh` for the se
 sudo systemctl daemon-reload
 sudo systemctl restart vps-ai-webhook
 ```
-
-### GitHub fine-grained PAT
-
-The token in `.env.issues` must be created manually at GitHub → Settings → Developer settings → Fine-grained personal access tokens, with permissions:
-- **Issues**: Read and write
-- **Pull requests**: Read and write
-- **Contents**: Read and write
 
 ## Projects
 
@@ -145,6 +147,7 @@ Agent-created projects live under `projects/`. Services are managed via systemd 
 | [asteroids](projects/asteroids/) | Multiplayer Asteroids arcade game with WebSocket networking |
 | [badge](projects/badge/) | E-paper badge designer/writer over BLE |
 | [breakout](projects/breakout/) | Classic Breakout brick-breaker game (single-page HTML) |
+| [drop](projects/drop/) | Instant cross-device sharing (text, links, images, files) via paired PWA |
 | [flutter_demo](projects/flutter_demo/) | Flutter web demo app |
 | [poem](projects/poem/) | A poem about working with AI |
 | [scramble](projects/scramble/) | Vectrex-style arcade flight shooter with terrain and enemies |
