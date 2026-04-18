@@ -14,6 +14,12 @@ class AuthProvider extends ChangeNotifier {
     _loadToken();
   }
 
+  AuthProvider.mock(this._api) {
+    _token = 'mock-token';
+    _email = 'debug@mock.local';
+    _userId = 'mock-user';
+  }
+
   bool get isAuthenticated => _token != null;
   bool get isLoading => _isLoading;
   String? get email => _email;

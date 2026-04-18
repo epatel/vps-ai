@@ -10,8 +10,14 @@ class TodoProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isLoadingArchived = false;
   String? _error;
+  bool _mockMode = false;
 
   TodoProvider(this._api);
+
+  TodoProvider.mock(this._api, List<Todo> todos) {
+    _mockMode = true;
+    _todos = todos;
+  }
 
   List<Todo> get todos => _todos;
   bool get isLoading => _isLoading;
@@ -46,6 +52,7 @@ class TodoProvider extends ChangeNotifier {
   }
 
   Future<void> loadTodos() async {
+    if (_mockMode) return;
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -186,6 +193,7 @@ class TodoProvider extends ChangeNotifier {
       items.add({'id': _todos[i].id, 'sort_order': _todos[i].sortOrder});
     }
 
+    if (_mockMode) return;
     try {
       await _api.reorderTodos(items);
     } catch (e) {
