@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -238,6 +240,27 @@ class _TodoListScreenState extends State<TodoListScreen> {
       padding: const EdgeInsets.only(top: 8, bottom: 88),
       itemCount: todoProvider.todos.length,
       buildDefaultDragHandles: false,
+      proxyDecorator: (child, index, animation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            final animValue = Curves.easeInOut.transform(animation.value);
+            final elevation = lerpDouble(0, 8, animValue)!;
+            final scale = lerpDouble(1, 1.03, animValue)!;
+            return Transform.scale(
+              scale: scale,
+              child: Material(
+                elevation: elevation,
+                color: Colors.transparent,
+                shadowColor: Theme.of(context).colorScheme.shadow,
+                borderRadius: BorderRadius.circular(12),
+                child: child,
+              ),
+            );
+          },
+          child: child,
+        );
+      },
       onReorder: (oldIndex, newIndex) {
         todoProvider.reorder(oldIndex, newIndex);
       },
