@@ -413,45 +413,13 @@ class _TodoListScreenState extends State<TodoListScreen> {
 
 /// AppBar title rendered as a tappable category selector.
 /// Shows the current category (or "All") with a dropdown arrow; on tap,
-/// opens a popup menu of existing categories plus "+ New category…".
+/// opens a popup menu of existing categories. New categories are created
+/// from the add/edit todo dialogs, not from this filter.
 class _CategoryTitle extends StatelessWidget {
   final TodoProvider provider;
   const _CategoryTitle({required this.provider});
 
   static const _allSentinel = '__all__';
-  static const _newSentinel = '__new__';
-
-  Future<void> _promptForNew(BuildContext context) async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New category'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'e.g. School',
-            border: OutlineInputBorder(),
-          ),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
-    if (name != null && name.isNotEmpty) {
-      provider.setCategory(name);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -465,8 +433,6 @@ class _CategoryTitle extends StatelessWidget {
       onSelected: (value) {
         if (value == _allSentinel) {
           provider.setCategory(null);
-        } else if (value == _newSentinel) {
-          _promptForNew(context);
         } else {
           provider.setCategory(value);
         }
@@ -482,17 +448,6 @@ class _CategoryTitle extends StatelessWidget {
               checked: current == c,
               child: Text(c),
             )),
-        const PopupMenuDivider(),
-        const PopupMenuItem(
-          value: _newSentinel,
-          child: Row(
-            children: [
-              Icon(Icons.add, size: 18),
-              SizedBox(width: 8),
-              Text('New category…'),
-            ],
-          ),
-        ),
       ],
       child: Row(
         mainAxisSize: MainAxisSize.min,
