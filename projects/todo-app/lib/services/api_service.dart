@@ -131,23 +131,26 @@ class ApiService {
     return list.map((json) => Todo.fromJson(json as Map<String, dynamic>)).toList();
   }
 
-  Future<Todo> createTodo(String title, {String description = ''}) async {
+  Future<Todo> createTodo(String title, {String description = '', String? category}) async {
+    final body = <String, dynamic>{'title': title, 'description': description};
+    if (category != null) body['category'] = category;
     final response = await http.post(
       Uri.parse('$baseUrl/todos'),
       headers: _headers,
-      body: jsonEncode({'title': title, 'description': description}),
+      body: jsonEncode(body),
     );
     final data = await _handleResponse(response);
     return Todo.fromJson(data);
   }
 
-  Future<Todo> updateTodo(String id, {String? title, String? description, bool? done, double? sortOrder, bool? archived}) async {
+  Future<Todo> updateTodo(String id, {String? title, String? description, bool? done, double? sortOrder, bool? archived, String? category}) async {
     final body = <String, dynamic>{};
     if (title != null) body['title'] = title;
     if (description != null) body['description'] = description;
     if (done != null) body['done'] = done ? 1 : 0;
     if (sortOrder != null) body['sort_order'] = sortOrder;
     if (archived != null) body['archived'] = archived ? 1 : 0;
+    if (category != null) body['category'] = category;
 
     final response = await http.put(
       Uri.parse('$baseUrl/todos/$id'),

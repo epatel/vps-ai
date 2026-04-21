@@ -123,6 +123,10 @@ def init_db():
         conn.execute("ALTER TABLE todos ADD COLUMN archived INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
+    try:
+        conn.execute("ALTER TABLE todos ADD COLUMN category TEXT DEFAULT 'Main'")
+    except sqlite3.OperationalError:
+        pass
     conn.close()
 
 
@@ -540,6 +544,7 @@ def create_todo():
     data = request.get_json(force=True)
     title = (data.get("title") or "").strip()
     description = data.get("description", "")
+    category = (data.get("category") or "Main").strip() or "Main"
 
     if not title:
         return jsonify({"error": "Title is required"}), 400
@@ -555,8 +560,8 @@ def create_todo():
     todo_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     db.execute(
-        "INSERT INTO todos (id, user_id, title, description, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (todo_id, g.user_id, title, description, sort_order, now, now),
+        "INSERT INTO todos (id, user_id, title, description, category, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (todo_id, g.user_id, title, description, category, sort_order, now, now),
     )
     db.commit()
 
@@ -596,11 +601,14 @@ def update_todo(todo_id):
     done = data.get("done", todo["done"])
     sort_order = data.get("sort_order", todo["sort_order"])
     archived = data.get("archived", todo["archived"])
+    category = data.get("category", todo["category"])
+    if isinstance(category, str):
+        category = category.strip() or "Main"
     now = datetime.now(timezone.utc).isoformat()
 
     db.execute(
-        "UPDATE todos SET title=?, description=?, done=?, sort_order=?, archived=?, updated_at=? WHERE id=?",
-        (title, description, int(bool(done)), sort_order, int(bool(archived)), now, todo_id),
+        "UPDATE todos SET title=?, description=?, done=?, sort_order=?, archived=?, category=?, updated_at=? WHERE id=?",
+        (title, description, int(bool(done)), sort_order, int(bool(archived)), category, now, todo_id),
     )
     db.commit()
 

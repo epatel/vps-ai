@@ -11,6 +11,8 @@ class TodoProvider extends ChangeNotifier {
   bool _isLoadingArchived = false;
   String? _error;
   bool _mockMode = false;
+  // null means "All categories"
+  String? _currentCategory;
 
   TodoProvider(this._api);
 
@@ -25,6 +27,30 @@ class TodoProvider extends ChangeNotifier {
   List<Todo> get archivedTodos => _archivedTodos;
   bool get isLoadingArchived => _isLoadingArchived;
   ApiService get api => _api;
+  String? get currentCategory => _currentCategory;
+
+  List<Todo> get filteredTodos {
+    if (_currentCategory == null) return _todos;
+    return _todos.where((t) => t.category == _currentCategory).toList();
+  }
+
+  /// Distinct categories present on active todos. Always sorted alphabetically.
+  /// The default category ("Main") is always included so users can route
+  /// todos back to it even if no todo currently has it.
+  List<String> get categories {
+    final set = <String>{kDefaultCategory};
+    for (final t in _todos) {
+      set.add(t.category);
+    }
+    final list = set.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
+  }
+
+  void setCategory(String? category) {
+    if (_currentCategory == category) return;
+    _currentCategory = category;
+    notifyListeners();
+  }
 
   /// Find and update a todo in whichever list it belongs to.
   void _updateInList(String id, Todo updated) {
@@ -120,9 +146,9 @@ class TodoProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> addTodo(String title, {String description = ''}) async {
+  Future<bool> addTodo(String title, {String description = '', String? category}) async {
     try {
-      final todo = await _api.createTodo(title, description: description);
+      final todo = await _api.createTodo(title, description: description, category: category);
       _todos.insert(0, todo);
       notifyListeners();
       return true;
@@ -151,9 +177,9 @@ class TodoProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> updateTodo(String id, {String? title, String? description}) async {
+  Future<bool> updateTodo(String id, {String? title, String? description, String? category}) async {
     try {
-      final updated = await _api.updateTodo(id, title: title, description: description);
+      final updated = await _api.updateTodo(id, title: title, description: description, category: category);
       _updateInList(id, updated);
       notifyListeners();
       return true;
@@ -182,18 +208,23 @@ class TodoProvider extends ChangeNotifier {
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
-    final item = _todos.removeAt(oldIndex);
-    _todos.insert(newIndex, item);
+
+    // Operate on the currently visible (filtered) list so drag indices match
+    // what the user sees. We only renumber the visible items, reusing the
+    // sort_order values they currently occupy — hidden-category items keep
+    // their positions in the global ordering.
+    final visible = filteredTodos;
+    final sortOrders = visible.map((t) => t.sortOrder).toList();
+    final item = visible.removeAt(oldIndex);
+    visible.insert(newIndex, item);
+    for (int i = 0; i < visible.length; i++) {
+      visible[i].sortOrder = sortOrders[i];
+    }
+    _todos.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     notifyListeners();
 
-    // Calculate new sort orders
-    final items = <Map<String, dynamic>>[];
-    for (int i = 0; i < _todos.length; i++) {
-      _todos[i].sortOrder = (i + 1).toDouble();
-      items.add({'id': _todos[i].id, 'sort_order': _todos[i].sortOrder});
-    }
-
     if (_mockMode) return;
+    final items = visible.map((t) => {'id': t.id, 'sort_order': t.sortOrder}).toList();
     try {
       await _api.reorderTodos(items);
     } catch (e) {
@@ -202,9 +233,9 @@ class TodoProvider extends ChangeNotifier {
     }
   }
 
-  Future<Todo?> addTodoAndReturn(String title, {String description = ''}) async {
+  Future<Todo?> addTodoAndReturn(String title, {String description = '', String? category}) async {
     try {
-      final todo = await _api.createTodo(title, description: description);
+      final todo = await _api.createTodo(title, description: description, category: category);
       _todos.insert(0, todo);
       notifyListeners();
       return todo;

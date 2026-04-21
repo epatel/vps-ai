@@ -55,6 +55,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
   }
 
   Future<void> _addTodo({String? initialTitle, String? initialDescription, List<PendingImage>? initialImages, List<String>? pendingImageIds}) async {
+    final provider = context.read<TodoProvider>();
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AddTodoDialog(
@@ -62,13 +63,15 @@ class _TodoListScreenState extends State<TodoListScreen> {
         initialDescription: initialDescription,
         initialImages: initialImages,
         pendingServerImageIds: pendingImageIds,
+        initialCategory: provider.currentCategory ?? kDefaultCategory,
+        categories: provider.categories,
       ),
     );
     if (result != null && mounted) {
-      final provider = context.read<TodoProvider>();
       final todo = await provider.addTodoAndReturn(
         result['title'] as String,
         description: (result['description'] as String?) ?? '',
+        category: result['category'] as String?,
       );
       if (todo != null) {
         final serverIds = result['serverPendingIds'] as List<String>? ?? [];
@@ -84,12 +87,17 @@ class _TodoListScreenState extends State<TodoListScreen> {
   }
 
   Future<void> _editTodo(Todo todo) async {
+    final provider = context.read<TodoProvider>();
+    // Include the todo's own category in the picker even if no other active
+    // todo uses it (important for archived todos or categories about to be
+    // removed from the active view).
+    final cats = <String>{...provider.categories, todo.category}.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => EditTodoDialog(todo: todo),
+      builder: (context) => EditTodoDialog(todo: todo, categories: cats),
     );
     if (result != null && mounted) {
-      final provider = context.read<TodoProvider>();
       final action = result['action'] as String?;
       if (action == 'delete') {
         await provider.deleteTodo(todo.id);
@@ -102,6 +110,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
           todo.id,
           title: result['title'] as String?,
           description: result['description'] as String?,
+          category: result['category'] as String?,
         );
         final deletedIds = result['deletedImageIds'] as List<String>? ?? [];
         for (final id in deletedIds) {
@@ -129,7 +138,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_selectedTab == 0 ? 'My Todos' : 'Archive'),
+        title: _selectedTab == 0
+            ? _CategoryTitle(provider: todoProvider)
+            : const Text('Archive'),
         actions: [
           if (auth.email != null)
             Padding(
@@ -213,7 +224,10 @@ class _TodoListScreenState extends State<TodoListScreen> {
       );
     }
 
-    if (todoProvider.todos.isEmpty) {
+    final visible = todoProvider.filteredTodos;
+
+    if (visible.isEmpty) {
+      final filtered = todoProvider.currentCategory != null;
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -221,7 +235,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
             Icon(Icons.checklist, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
-              'No todos yet',
+              filtered
+                  ? 'No todos in ${todoProvider.currentCategory}'
+                  : 'No todos yet',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: Colors.grey.shade600,
                   ),
@@ -238,7 +254,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
 
     return ReorderableListView.builder(
       padding: const EdgeInsets.only(top: 8, bottom: 88),
-      itemCount: todoProvider.todos.length,
+      itemCount: visible.length,
       buildDefaultDragHandles: false,
       // Long-press delay before drag starts (matches the delayed drag
       // listener in TodoTile). Kept explicit so the haptic-like visual feedback
@@ -270,7 +286,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
         todoProvider.reorder(oldIndex, newIndex);
       },
       itemBuilder: (context, index) {
-        final todo = todoProvider.todos[index];
+        final todo = visible[index];
         return TodoTile(
           key: ValueKey(todo.id),
           todo: todo,
@@ -391,6 +407,105 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// AppBar title rendered as a tappable category selector.
+/// Shows the current category (or "All") with a dropdown arrow; on tap,
+/// opens a popup menu of existing categories plus "+ New category…".
+class _CategoryTitle extends StatelessWidget {
+  final TodoProvider provider;
+  const _CategoryTitle({required this.provider});
+
+  static const _allSentinel = '__all__';
+  static const _newSentinel = '__new__';
+
+  Future<void> _promptForNew(BuildContext context) async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New category'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'e.g. School',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty) {
+      provider.setCategory(name);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final current = provider.currentCategory;
+    final label = current ?? 'All';
+    final cats = provider.categories;
+
+    return PopupMenuButton<String>(
+      tooltip: 'Switch category',
+      position: PopupMenuPosition.under,
+      onSelected: (value) {
+        if (value == _allSentinel) {
+          provider.setCategory(null);
+        } else if (value == _newSentinel) {
+          _promptForNew(context);
+        } else {
+          provider.setCategory(value);
+        }
+      },
+      itemBuilder: (ctx) => [
+        CheckedPopupMenuItem(
+          value: _allSentinel,
+          checked: current == null,
+          child: const Text('All'),
+        ),
+        ...cats.map((c) => CheckedPopupMenuItem(
+              value: c,
+              checked: current == c,
+              child: Text(c),
+            )),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: _newSentinel,
+          child: Row(
+            children: [
+              Icon(Icons.add, size: 18),
+              SizedBox(width: 8),
+              Text('New category…'),
+            ],
+          ),
+        ),
+      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const Icon(Icons.arrow_drop_down),
+        ],
+      ),
     );
   }
 }

@@ -3,12 +3,14 @@ import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
 import '../models/todo.dart';
 import '../models/todo_image.dart';
+import 'category_picker.dart';
 import 'image_attachment_section.dart';
 
 class EditTodoDialog extends StatefulWidget {
   final Todo todo;
+  final List<String> categories;
 
-  const EditTodoDialog({super.key, required this.todo});
+  const EditTodoDialog({super.key, required this.todo, this.categories = const [kDefaultCategory]});
 
   @override
   State<EditTodoDialog> createState() => _EditTodoDialogState();
@@ -22,6 +24,7 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
   final List<PendingImage> _pendingImages = [];
   late List<TodoImage> _existingImages;
   final List<String> _deletedImageIds = [];
+  late String _category;
 
   late final JSFunction _pasteListener;
 
@@ -60,6 +63,7 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
       text: widget.todo.description,
     );
     _existingImages = List.of(widget.todo.images);
+    _category = widget.todo.category;
     _pasteListener = _handlePaste.toJS;
     web.document.addEventListener('paste', _pasteListener);
   }
@@ -79,6 +83,7 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
       'action': 'save',
       'title': _titleController.text.trim(),
       'description': _descriptionController.text.trim(),
+      'category': _category,
       'pendingImages': _pendingImages,
       'deletedImageIds': _deletedImageIds,
     });
@@ -157,6 +162,12 @@ class _EditTodoDialogState extends State<EditTodoDialog> {
                   return null;
                 },
                 onFieldSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 16),
+              CategoryPicker(
+                value: _category,
+                categories: widget.categories,
+                onChanged: (c) => setState(() => _category = c),
               ),
               const SizedBox(height: 16),
               TextFormField(

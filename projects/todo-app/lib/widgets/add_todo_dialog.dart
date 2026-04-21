@@ -1,6 +1,8 @@
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
+import '../models/todo.dart';
+import 'category_picker.dart';
 import 'image_attachment_section.dart';
 
 class AddTodoDialog extends StatefulWidget {
@@ -8,6 +10,8 @@ class AddTodoDialog extends StatefulWidget {
   final String? initialDescription;
   final List<PendingImage>? initialImages;
   final List<String>? pendingServerImageIds;
+  final String initialCategory;
+  final List<String> categories;
 
   const AddTodoDialog({
     super.key,
@@ -15,6 +19,8 @@ class AddTodoDialog extends StatefulWidget {
     this.initialDescription,
     this.initialImages,
     this.pendingServerImageIds,
+    this.initialCategory = kDefaultCategory,
+    this.categories = const [kDefaultCategory],
   });
 
   @override
@@ -28,6 +34,7 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
   final _formKey = GlobalKey<FormState>();
   final List<PendingImage> _pendingImages = [];
   late final List<String> _serverPendingIds;
+  late String _category;
 
   late final JSFunction _pasteListener;
 
@@ -71,6 +78,7 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
       _pendingImages.addAll(widget.initialImages!);
     }
     _serverPendingIds = List<String>.from(widget.pendingServerImageIds ?? []);
+    _category = widget.initialCategory;
     _pasteListener = _handlePaste.toJS;
     web.document.addEventListener('paste', _pasteListener);
   }
@@ -89,6 +97,7 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
     Navigator.pop(context, {
       'title': _titleController.text.trim(),
       'description': _descriptionController.text.trim(),
+      'category': _category,
       'pendingImages': _pendingImages,
       'serverPendingIds': _serverPendingIds,
     });
@@ -145,6 +154,12 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
                   return null;
                 },
                 onFieldSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 16),
+              CategoryPicker(
+                value: _category,
+                categories: widget.categories,
+                onChanged: (c) => setState(() => _category = c),
               ),
               const SizedBox(height: 16),
               TextFormField(

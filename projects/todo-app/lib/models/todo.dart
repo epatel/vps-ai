@@ -1,5 +1,7 @@
 import 'todo_image.dart';
 
+const String kDefaultCategory = 'Main';
+
 class Todo {
   final String id;
   final String userId;
@@ -7,6 +9,7 @@ class Todo {
   String description;
   bool done;
   bool archived;
+  String category;
   double sortOrder;
   final String createdAt;
   String updatedAt;
@@ -19,6 +22,7 @@ class Todo {
     this.description = '',
     this.done = false,
     this.archived = false,
+    this.category = kDefaultCategory,
     required this.sortOrder,
     required this.createdAt,
     required this.updatedAt,
@@ -33,6 +37,9 @@ class Todo {
       description: (json['description'] as String?) ?? '',
       done: (json['done'] as int?) == 1,
       archived: (json['archived'] as int?) == 1,
+      category: (json['category'] as String?)?.trim().isNotEmpty == true
+          ? (json['category'] as String).trim()
+          : kDefaultCategory,
       sortOrder: (json['sort_order'] as num).toDouble(),
       createdAt: json['created_at'] as String,
       updatedAt: json['updated_at'] as String,
@@ -46,6 +53,7 @@ class Todo {
       'description': description,
       'done': done ? 1 : 0,
       'archived': archived ? 1 : 0,
+      'category': category,
       'sort_order': sortOrder,
     };
   }
