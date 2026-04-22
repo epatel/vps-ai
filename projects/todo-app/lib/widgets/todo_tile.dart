@@ -14,11 +14,14 @@ final _shorthandCheckbox = RegExp(r'^\[([ xX])\] (.*)$');
 
 /// Pre-process description to normalize shorthand `[ ]`/`[x]` into GFM `- [ ]`/`- [x]`.
 String _normalizeCheckboxes(String text) {
-  return text.split('\n').map((line) {
-    final m = _shorthandCheckbox.firstMatch(line);
-    if (m != null) return '- [${m.group(1)}] ${m.group(2)}';
-    return line;
-  }).join('\n');
+  return text
+      .split('\n')
+      .map((line) {
+        final m = _shorthandCheckbox.firstMatch(line);
+        if (m != null) return '- [${m.group(1)}] ${m.group(2)}';
+        return line;
+      })
+      .join('\n');
 }
 
 /// Toggle checkbox at [lineIndex] in [description] and return the updated string.
@@ -28,7 +31,8 @@ String _toggleCheckboxAt(String description, int lineIndex) {
 
   // Work on the normalized form so we match correctly
   final line = lines[lineIndex];
-  final m = _checkboxLine.firstMatch(line) ?? _shorthandCheckbox.firstMatch(line);
+  final m =
+      _checkboxLine.firstMatch(line) ?? _shorthandCheckbox.firstMatch(line);
   if (m == null) return description;
 
   final checked = m.group(1) != ' ';
@@ -42,7 +46,8 @@ String _toggleCheckboxAt(String description, int lineIndex) {
 ({int checked, int total}) _countCheckboxes(String description) {
   int checked = 0, total = 0;
   for (final line in description.split('\n')) {
-    final m = _checkboxLine.firstMatch(line) ?? _shorthandCheckbox.firstMatch(line);
+    final m =
+        _checkboxLine.firstMatch(line) ?? _shorthandCheckbox.firstMatch(line);
     if (m != null) {
       total++;
       if (m.group(1) != ' ') checked++;
@@ -108,108 +113,125 @@ class _TodoTileState extends State<TodoTile> {
   @override
   Widget build(BuildContext context) {
     final hasDescription = widget.todo.description.isNotEmpty;
-    final normalized = hasDescription ? _normalizeCheckboxes(widget.todo.description) : '';
-    final counts = hasDescription ? _countCheckboxes(widget.todo.description) : (checked: 0, total: 0);
+    final normalized = hasDescription
+        ? _normalizeCheckboxes(widget.todo.description)
+        : '';
+    final counts = hasDescription
+        ? _countCheckboxes(widget.todo.description)
+        : (checked: 0, total: 0);
     final hasImages = widget.todo.images.isNotEmpty;
     final imageCount = widget.todo.images.length;
     final hasSubCheckboxes = counts.total > 0;
     final allSubsDone = hasSubCheckboxes && counts.checked == counts.total;
 
-    final card = Card(
+    final tile = ListTile(
+      contentPadding: const EdgeInsets.only(left: 16, right: 4),
+      leading: hasSubCheckboxes
+          ? allSubsDone
+                ? Checkbox(value: true, onChanged: null)
+                : SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Center(
+                      child: Text(
+                        '${counts.checked}/${counts.total}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  )
+          : Checkbox(
+              value: widget.todo.done,
+              onChanged: (_) => widget.onToggle(),
+            ),
+      title: Text(
+        widget.todo.title,
+        style: TextStyle(
+          decoration: (hasSubCheckboxes ? allSubsDone : widget.todo.done)
+              ? TextDecoration.lineThrough
+              : null,
+          color: (hasSubCheckboxes ? allSubsDone : widget.todo.done)
+              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)
+              : null,
+        ),
+      ),
+      subtitle: hasDescription && !_expanded
+          ? Text(
+              widget.todo.description,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: widget.todo.done
+                    ? Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.4)
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          : null,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (hasImages)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.image_outlined,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    '$imageCount',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (hasDescription || hasImages)
+            IconButton(
+              icon: Icon(
+                _expanded ? Icons.expand_less : Icons.expand_more,
+                size: 20,
+              ),
+              tooltip: _expanded ? 'Collapse' : 'Show description',
+              onPressed: () => setState(() => _expanded = !_expanded),
+            ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 20),
+            tooltip: 'Edit',
+            onPressed: widget.onEdit,
+          ),
+        ],
+      ),
+      onTap: (hasDescription || hasImages)
+          ? () => setState(() => _expanded = !_expanded)
+          : null,
+    );
+
+    // Only the header tile triggers drag-to-reorder. Keeping the expanded
+    // description outside the drag listener lets long-press on the markdown
+    // reach SelectableText and show the native text-selection toolbar.
+    final header = widget.reorderable
+        ? ReorderableDelayedDragStartListener(index: widget.index, child: tile)
+        : tile;
+
+    return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(
-            contentPadding: const EdgeInsets.only(left: 16, right: 4),
-            leading: hasSubCheckboxes
-                ? allSubsDone
-                    ? Checkbox(
-                        value: true,
-                        onChanged: null,
-                      )
-                    : SizedBox(
-                        width: 48,
-                        height: 48,
-                        child: Center(
-                          child: Text(
-                            '${counts.checked}/${counts.total}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                        ),
-                      )
-                : Checkbox(
-                    value: widget.todo.done,
-                    onChanged: (_) => widget.onToggle(),
-                  ),
-            title: Text(
-              widget.todo.title,
-              style: TextStyle(
-                decoration: (hasSubCheckboxes ? allSubsDone : widget.todo.done) ? TextDecoration.lineThrough : null,
-                color: (hasSubCheckboxes ? allSubsDone : widget.todo.done)
-                    ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)
-                    : null,
-              ),
-            ),
-            subtitle: hasDescription && !_expanded
-                ? Text(
-                    widget.todo.description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: widget.todo.done
-                          ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  )
-                : null,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (hasImages)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.image_outlined, size: 16,
-                            color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(width: 2),
-                        Text(
-                          '$imageCount',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (hasDescription || hasImages)
-                  IconButton(
-                    icon: Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more,
-                      size: 20,
-                    ),
-                    tooltip: _expanded ? 'Collapse' : 'Show description',
-                    onPressed: () => setState(() => _expanded = !_expanded),
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  tooltip: 'Edit',
-                  onPressed: widget.onEdit,
-                ),
-              ],
-            ),
-            onTap: (hasDescription || hasImages)
-                ? () => setState(() => _expanded = !_expanded)
-                : null,
-          ),
+          header,
           if (_expanded && (hasDescription || hasImages))
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
@@ -231,14 +253,6 @@ class _TodoTileState extends State<TodoTile> {
         ],
       ),
     );
-
-    if (widget.reorderable) {
-      return ReorderableDelayedDragStartListener(
-        index: widget.index,
-        child: card,
-      );
-    }
-    return card;
   }
 
   Widget _buildImageGrid(BuildContext context) {
@@ -296,17 +310,19 @@ class _TodoTileState extends State<TodoTile> {
     void flushMarkdown() {
       final text = markdownBuffer.toString().trimRight();
       if (text.isNotEmpty) {
-        widgets.add(MarkdownBody(
-          data: text,
-          selectable: true,
-          extensionSet: md.ExtensionSet.gitHubFlavored,
-          styleSheet: _markdownStyle(context),
-          onTapLink: (text, href, title) {
-            if (href != null) {
-              _openExternalLink(context, href);
-            }
-          },
-        ));
+        widgets.add(
+          MarkdownBody(
+            data: text,
+            selectable: true,
+            extensionSet: md.ExtensionSet.gitHubFlavored,
+            styleSheet: _markdownStyle(context),
+            onTapLink: (text, href, title) {
+              if (href != null) {
+                _openExternalLink(context, href);
+              }
+            },
+          ),
+        );
       }
       markdownBuffer.clear();
     }
@@ -318,17 +334,22 @@ class _TodoTileState extends State<TodoTile> {
         final checked = match.group(1) != ' ';
         final label = match.group(2)!;
         final lineIndex = i;
-        widgets.add(_CheckboxRow(
-          checked: checked,
-          label: label,
-          dimmed: widget.todo.done,
-          onChanged: widget.onUpdateDescription != null
-              ? (value) {
-                  final updated = _toggleCheckboxAt(widget.todo.description, lineIndex);
-                  widget.onUpdateDescription!(updated);
-                }
-              : null,
-        ));
+        widgets.add(
+          _CheckboxRow(
+            checked: checked,
+            label: label,
+            dimmed: widget.todo.done,
+            onChanged: widget.onUpdateDescription != null
+                ? (value) {
+                    final updated = _toggleCheckboxAt(
+                      widget.todo.description,
+                      lineIndex,
+                    );
+                    widget.onUpdateDescription!(updated);
+                  }
+                : null,
+          ),
+        );
       } else {
         if (markdownBuffer.isNotEmpty) markdownBuffer.writeln();
         markdownBuffer.write(lines[i]);
@@ -383,7 +404,9 @@ class _CheckboxRow extends StatelessWidget {
               height: 24,
               child: Checkbox(
                 value: checked,
-                onChanged: onChanged != null ? (v) => onChanged!(v ?? false) : null,
+                onChanged: onChanged != null
+                    ? (v) => onChanged!(v ?? false)
+                    : null,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               ),
@@ -397,7 +420,9 @@ class _CheckboxRow extends StatelessWidget {
                   style: TextStyle(
                     decoration: checked ? TextDecoration.lineThrough : null,
                     color: dimmed || checked
-                        ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)
+                        ? Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.4)
                         : Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
