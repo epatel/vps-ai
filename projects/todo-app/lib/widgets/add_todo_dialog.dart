@@ -41,9 +41,15 @@ class _AddTodoDialogState extends State<AddTodoDialog> {
   void _handlePaste(web.ClipboardEvent event) {
     final items = event.clipboardData?.items;
     if (items == null) return;
+    // If the clipboard carries text (e.g. a URL copied from a webpage that
+    // also includes a preview image), let the native paste run so the text
+    // lands in the focused TextField. Only intercept pure-image pastes.
+    for (int i = 0; i < items.length; i++) {
+      if (items[i].kind == 'string') return;
+    }
     for (int i = 0; i < items.length; i++) {
       final item = items[i];
-      if (item.type.startsWith('image/')) {
+      if (item.kind == 'file' && item.type.startsWith('image/')) {
         event.preventDefault();
         final blob = item.getAsFile();
         if (blob == null) continue;
