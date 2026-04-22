@@ -51,10 +51,31 @@ String _toggleCheckboxAt(String description, int lineIndex) {
   return (checked: checked, total: total);
 }
 
-void _openExternalLink(String href) {
+void _openExternalLink(BuildContext context, String href) {
   final uri = Uri.tryParse(href);
   if (uri == null) return;
-  launchUrl(uri, mode: LaunchMode.externalApplication);
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Open link?'),
+      content: SelectableText(
+        'href (length ${href.length}):\n$href\n\nuri.toString():\n${uri.toString()}',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            launchUrl(uri, mode: LaunchMode.externalApplication);
+          },
+          child: const Text('Open'),
+        ),
+      ],
+    ),
+  );
 }
 
 class TodoTile extends StatefulWidget {
@@ -282,7 +303,7 @@ class _TodoTileState extends State<TodoTile> {
           styleSheet: _markdownStyle(context),
           onTapLink: (text, href, title) {
             if (href != null) {
-              _openExternalLink(href);
+              _openExternalLink(context, href);
             }
           },
         ));
