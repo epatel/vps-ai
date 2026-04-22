@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
-import 'package:web/web.dart' as web;
+import 'package:url_launcher/url_launcher.dart';
 import '../models/todo.dart';
 
 import 'image_viewer_screen.dart';
@@ -51,16 +51,10 @@ String _toggleCheckboxAt(String description, int lineIndex) {
   return (checked: checked, total: total);
 }
 
-/// Open [href] in a new tab via a synthetic anchor click. On iOS Safari and
-/// PWAs, `window.open(..., '_blank')` can be blocked or strip query params
-/// during the universal-link handoff to apps like X — a real anchor click
-/// preserves the full URL and triggers native deep-link routing.
 void _openExternalLink(String href) {
-  final anchor = web.HTMLAnchorElement()
-    ..href = href
-    ..target = '_blank'
-    ..rel = 'noopener noreferrer';
-  anchor.click();
+  final uri = Uri.tryParse(href);
+  if (uri == null) return;
+  launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
 class TodoTile extends StatefulWidget {
