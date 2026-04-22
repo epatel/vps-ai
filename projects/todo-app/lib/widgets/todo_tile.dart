@@ -51,6 +51,18 @@ String _toggleCheckboxAt(String description, int lineIndex) {
   return (checked: checked, total: total);
 }
 
+/// Open [href] in a new tab via a synthetic anchor click. On iOS Safari and
+/// PWAs, `window.open(..., '_blank')` can be blocked or strip query params
+/// during the universal-link handoff to apps like X — a real anchor click
+/// preserves the full URL and triggers native deep-link routing.
+void _openExternalLink(String href) {
+  final anchor = web.HTMLAnchorElement()
+    ..href = href
+    ..target = '_blank'
+    ..rel = 'noopener noreferrer';
+  anchor.click();
+}
+
 class TodoTile extends StatefulWidget {
   final Todo todo;
   final int index;
@@ -276,7 +288,7 @@ class _TodoTileState extends State<TodoTile> {
           styleSheet: _markdownStyle(context),
           onTapLink: (text, href, title) {
             if (href != null) {
-              web.window.open(href, '_blank');
+              _openExternalLink(href);
             }
           },
         ));
