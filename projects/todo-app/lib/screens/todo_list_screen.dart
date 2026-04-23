@@ -131,6 +131,65 @@ class _TodoListScreenState extends State<TodoListScreen> {
     }
   }
 
+  Widget _swipeBackground(BuildContext context, {required bool archived}) {
+    final scheme = Theme.of(context).colorScheme;
+    final icon = archived ? Icons.unarchive_outlined : Icons.archive_outlined;
+    return Container(
+      color: scheme.secondaryContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, color: scheme.onSecondaryContainer),
+          Icon(icon, color: scheme.onSecondaryContainer),
+        ],
+      ),
+    );
+  }
+
+  Widget _swipeable({
+    required BuildContext context,
+    required Todo todo,
+    required TodoProvider provider,
+    required bool archived,
+    required Widget child,
+  }) {
+    final bg = _swipeBackground(context, archived: archived);
+    return Dismissible(
+      key: ValueKey(todo.id),
+      direction: DismissDirection.horizontal,
+      background: bg,
+      secondaryBackground: bg,
+      confirmDismiss: (_) async {
+        final messenger = ScaffoldMessenger.of(context);
+        final ok = archived
+            ? await provider.unarchiveTodo(todo.id)
+            : await provider.archiveTodo(todo.id);
+        if (ok && mounted) {
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(archived ? 'Unarchived' : 'Archived'),
+              behavior: SnackBarBehavior.floating,
+              action: SnackBarAction(
+                label: 'Undo',
+                onPressed: () {
+                  if (archived) {
+                    provider.archiveTodo(todo.id);
+                  } else {
+                    provider.unarchiveTodo(todo.id);
+                  }
+                },
+              ),
+            ),
+          );
+        }
+        return ok;
+      },
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -287,16 +346,21 @@ class _TodoListScreenState extends State<TodoListScreen> {
       },
       itemBuilder: (context, index) {
         final todo = visible[index];
-        return TodoTile(
-          key: ValueKey(todo.id),
+        return _swipeable(
+          context: context,
           todo: todo,
-          index: index,
-          onToggle: () => todoProvider.toggleDone(todo),
-          onEdit: () => _editTodo(todo),
-          onUpdateDescription: (newDesc) {
-            todoProvider.updateTodo(todo.id, description: newDesc);
-          },
-          imageUrl: todoProvider.api.imageUrl,
+          provider: todoProvider,
+          archived: false,
+          child: TodoTile(
+            todo: todo,
+            index: index,
+            onToggle: () => todoProvider.toggleDone(todo),
+            onEdit: () => _editTodo(todo),
+            onUpdateDescription: (newDesc) {
+              todoProvider.updateTodo(todo.id, description: newDesc);
+            },
+            imageUrl: todoProvider.api.imageUrl,
+          ),
         );
       },
     );
@@ -391,17 +455,22 @@ class _TodoListScreenState extends State<TodoListScreen> {
                   itemCount: filtered.length,
                   itemBuilder: (context, index) {
                     final todo = filtered[index];
-                    return TodoTile(
-                      key: ValueKey(todo.id),
+                    return _swipeable(
+                      context: context,
                       todo: todo,
-                      index: index,
-                      reorderable: false,
-                      onToggle: () => todoProvider.toggleDone(todo),
-                      onEdit: () => _editTodo(todo),
-                      onUpdateDescription: (newDesc) {
-                        todoProvider.updateTodo(todo.id, description: newDesc);
-                      },
-                      imageUrl: todoProvider.api.imageUrl,
+                      provider: todoProvider,
+                      archived: true,
+                      child: TodoTile(
+                        todo: todo,
+                        index: index,
+                        reorderable: false,
+                        onToggle: () => todoProvider.toggleDone(todo),
+                        onEdit: () => _editTodo(todo),
+                        onUpdateDescription: (newDesc) {
+                          todoProvider.updateTodo(todo.id, description: newDesc);
+                        },
+                        imageUrl: todoProvider.api.imageUrl,
+                      ),
                     );
                   },
                 ),
