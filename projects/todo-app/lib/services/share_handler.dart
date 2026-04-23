@@ -12,6 +12,14 @@ class SharedData {
   });
 }
 
+bool _looksLikeUrl(String? s) {
+  if (s == null) return false;
+  final trimmed = s.trim();
+  if (trimmed.isEmpty) return false;
+  final u = Uri.tryParse(trimmed);
+  return u != null && u.hasScheme && (u.scheme == 'http' || u.scheme == 'https');
+}
+
 /// Checks the current URL for Web Share Target query parameters.
 SharedData? consumeShareParams() {
   final uri = Uri.base;
@@ -24,12 +32,35 @@ SharedData? consumeShareParams() {
     return null;
   }
 
-  final todoTitle = (title != null && title.isNotEmpty)
-      ? title
-      : (text ?? url ?? 'Shared item');
+  // Figure out the "real" title. Android share sheets often dump the shared
+  // URL straight into the title field — detect that and swap in "Link" so
+  // the title stays human-readable and the URL lands in the description.
+  String todoTitle;
+  String? promotedUrl; // a URL we pulled out of title/text into description
+  if (title != null && title.isNotEmpty && !_looksLikeUrl(title)) {
+    todoTitle = title;
+  } else if (_looksLikeUrl(title)) {
+    todoTitle = 'Link';
+    promotedUrl = title!.trim();
+  } else if (_looksLikeUrl(text)) {
+    todoTitle = 'Link';
+    promotedUrl = text!.trim();
+  } else if (url != null && url.isNotEmpty) {
+    todoTitle = 'Link';
+  } else {
+    todoTitle = (text != null && text.isNotEmpty) ? text : 'Shared item';
+  }
+
   final parts = <String>[];
   if (url != null && url.isNotEmpty) parts.add(url);
-  if (text != null && text.isNotEmpty && text != todoTitle) parts.add(text);
+  if (promotedUrl != null && promotedUrl != url) parts.add(promotedUrl);
+  if (text != null &&
+      text.isNotEmpty &&
+      text != todoTitle &&
+      text != url &&
+      text != promotedUrl) {
+    parts.add(text);
+  }
   final todoDescription = parts.join('\n');
 
   final imageIds = (pendingImages != null && pendingImages.isNotEmpty)
