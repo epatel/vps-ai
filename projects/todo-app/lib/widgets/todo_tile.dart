@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
-import 'package:url_launcher/url_launcher.dart';
+import 'package:web/web.dart' as web;
 import '../models/todo.dart';
 
 import 'image_viewer_screen.dart';
@@ -56,31 +56,8 @@ String _toggleCheckboxAt(String description, int lineIndex) {
   return (checked: checked, total: total);
 }
 
-void _openExternalLink(BuildContext context, String href) {
-  final uri = Uri.tryParse(href);
-  if (uri == null) return;
-  showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Open link?'),
-      content: SelectableText(
-        'href (length ${href.length}):\n$href\n\nuri.toString():\n${uri.toString()}',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.pop(ctx);
-            launchUrl(uri, mode: LaunchMode.externalApplication);
-          },
-          child: const Text('Open'),
-        ),
-      ],
-    ),
-  );
+void _openExternalLink(String href) {
+  web.window.location.href = href;
 }
 
 class TodoTile extends StatefulWidget {
@@ -317,9 +294,7 @@ class _TodoTileState extends State<TodoTile> {
             extensionSet: md.ExtensionSet.gitHubFlavored,
             styleSheet: _markdownStyle(context),
             onTapLink: (text, href, title) {
-              if (href != null) {
-                _openExternalLink(context, href);
-              }
+              if (href != null) _openExternalLink(href);
             },
           ),
         );
