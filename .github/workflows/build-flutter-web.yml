@@ -58,4 +58,18 @@ jobs:
         working-directory: projects/${{ matrix.project }}
         run: |
           flutter pub get
-          flutter build web --base-href /${{ matrix.project }}/ --release
+          flutter build web --base-href /${{ matrix.project }}/ --pwa-strategy=none --release
+
+      - name: Deploy to VPS
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          rsync -az --delete -e 'ssh -i ~/.ssh/id_ed25519' \
+            projects/${{ matrix.project }}/build/web/ \
+            epatel@ai.memention.net:${{ matrix.project }}/build/web/

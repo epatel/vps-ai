@@ -35,31 +35,5 @@ for project_dir in "${!SERVICE_MAP[@]}"; do
   fi
 done
 
-# Rebuild Flutter web projects whose source changed
-for project_dir in projects/*/; do
-  project_dir="${project_dir%/}"  # strip trailing slash
-  project_name="$(basename "$project_dir")"
-
-  # Skip if not a Flutter project
-  [ -f "$project_dir/pubspec.yaml" ] || continue
-
-  # Skip if no relevant source files changed
-  echo "$CHANGED" | grep -qE "^${project_dir}/(lib|web|pubspec)" || continue
-
-  echo "post-merge: ${project_dir} source changed, rebuilding Flutter web..."
-  # If pubspec changed, clean the build cache so the generated
-  # web_plugin_registrant.dart is re-created for newly-added plugins —
-  # otherwise stale .dart_tool state can omit the registration and
-  # runtime calls throw MissingPluginException.
-  pubspec_changed=0
-  if echo "$CHANGED" | grep -qE "^${project_dir}/pubspec\.(yaml|lock)$"; then
-    pubspec_changed=1
-  fi
-  (
-    cd "$project_dir"
-    [ "$pubspec_changed" = "1" ] && flutter clean 2>&1
-    flutter pub get --no-example 2>&1
-    flutter build web --base-href "/${project_name}/" --pwa-strategy=none --release 2>&1
-  ) && echo "post-merge: ${project_name} build complete." \
-    || echo "post-merge: WARNING — failed to build ${project_name}"
-done
+# Flutter web projects are built and deployed by GitHub Actions
+# (.github/workflows/build-flutter-web.yml) — nothing to do on the server.
