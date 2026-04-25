@@ -32,7 +32,8 @@ run-agent.sh         ◄── creates worktree, runs Claude, handles output
     └──► push branch + create PR
 ```
 
-A post-merge git hook auto-restarts systemd services and rebuilds Flutter web apps when their source files change.
+A post-merge git hook auto-restarts systemd services when their files change.
+Flutter web apps are built and deployed by GitHub Actions, not on the server.
 
 ## Deploy pipeline
 
@@ -44,24 +45,24 @@ graph TD
     D --> E[post-merge hook runs]
     E --> F{What changed?}
     F -->|Service files| G[systemctl restart service]
-    F -->|Flutter source| H[flutter build web]
     F -->|Other files| I[No action needed]
 
-    J[Push to main / PR opened] --> K[GitHub Actions CI]
-    K --> L[Validate Flutter build]
-    L --> M[Build succeeds/fails]
+    J[Push to main affecting projects/**/lib or pubspec] --> K[GitHub Actions]
+    K --> L[flutter build web per matrix project]
+    L --> M[rsync into ~/vps-ai/projects/<name>/build/web/]
+    M --> N[POST event to /status/log]
 
-    style H fill:#4FC3F7,color:#000
     style G fill:#81C784,color:#000
     style L fill:#FFB74D,color:#000
+    style M fill:#4FC3F7,color:#000
 ```
 
 **Key points:**
-- **Build output is not stored in git** — Flutter apps are built on the server after each pull
-- **CI is validation only** — GitHub Actions checks that Flutter projects compile, but does not deploy
-- The `--base-href /<project-name>/` flag is applied automatically by the post-merge hook
+- **Build output is not stored in git** — Flutter apps are built in CI and `rsync`'d to the server over a restricted SSH key (`rrsync -wo`)
+- **Flutter is not installed on the server** — the VPS only runs the deployed assets
+- The `--base-href /<project-name>/` flag is applied automatically by the workflow
 - Adding a new Flutter project requires no workflow changes — any `projects/*/` directory with a `pubspec.yaml` is auto-detected
-- The [status page](https://ai.memention.net/status) shows a live badge when a flutter build is running, including which project(s) are being built
+- The [status page](https://ai.memention.net/status) shows a "Recent Events" panel; CI posts deploy results there via `POST /status/log`
 
 ## Setup
 
@@ -138,6 +139,29 @@ sudo systemctl daemon-reload
 sudo systemctl restart vps-ai-webhook
 ```
 
+### Flutter deploy SSH key
+
+GitHub Actions deploys Flutter builds via `rsync` over SSH. Two repo secrets and one `authorized_keys` entry are involved (set up once):
+
+- `DEPLOY_SSH_KEY` — private ed25519 key for the deploy user
+- `DEPLOY_KNOWN_HOSTS` — output of `ssh-keyscan -t ed25519 ai.memention.net`
+- The matching public key on the VPS, prefixed with `command="rrsync -wo /home/epatel/vps-ai/projects",no-pty,no-agent-forwarding,no-port-forwarding,no-X11-forwarding`, so the key can only `rsync` into project subdirs
+
+### Status page event log
+
+The status page exposes `POST /status/log` for arbitrary deploy/notification events. Events are kept on disk (`projects/status-page/.events.jsonl`, last 200) and the last five are rendered in the "Recent Events" panel. Auth is a Bearer token (`STATUS_LOG_TOKEN`) configured in two places:
+
+- The `status-page.service` systemd unit on the server (drop-in at `/etc/systemd/system/status-page.service.d/env.conf`)
+- The `STATUS_LOG_TOKEN` GitHub Actions secret, used by the Flutter workflow
+
+Posting from anywhere:
+```bash
+curl -fsS -m 5 -X POST https://ai.memention.net/status/log \
+  -H "Authorization: Bearer $STATUS_LOG_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"source":"manual","message":"deployed v1.2"}'
+```
+
 ## Projects
 
 Agent-created projects live under `projects/`. Services are managed via systemd — add entries to `hooks/post-merge` to auto-restart on deploy.
@@ -151,7 +175,7 @@ Agent-created projects live under `projects/`. Services are managed via systemd 
 | [flutter_demo](projects/flutter_demo/) | Flutter web demo app |
 | [poem](projects/poem/) | A poem about working with AI |
 | [scramble](projects/scramble/) | Vectrex-style arcade flight shooter with terrain and enemies |
-| [status-page](projects/status-page/) | Server status dashboard with live flutter build indicator (Python + systemd service) |
+| [status-page](projects/status-page/) | Server status dashboard with metrics graphs and a deploy/event log (Python + systemd service) |
 | [todo-api](projects/todo-api/) | REST API for todos with JWT auth (Python/Flask) |
 | [todo-app](projects/todo-app/) | Flutter web frontend for the todo API |
 | [trumps48hours](projects/trumps48hours/) | Sci-fi countdown timer with particle effects |

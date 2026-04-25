@@ -133,6 +133,18 @@ After editing: `sudo nginx -t && sudo systemctl reload nginx`
 4. For APIs with no root route, add `{"check_path": "/path/to/health"}` flag
 5. The status page checks nginx routing — it detects fallback/catch-all responses as "degraded"
 
+### Event log
+
+The status page exposes `POST /status/log` for posting deploy/notification events
+(JSON `{"source": "...", "message": "..."}`, Bearer token auth via the
+`STATUS_LOG_TOKEN` env var). The last 200 events are kept in
+`projects/status-page/.events.jsonl` (gitignored, restored on restart); the
+last five render in the "Recent Events" panel below METRICS. The token lives
+in a systemd drop-in (`/etc/systemd/system/status-page.service.d/env.conf`) on
+the server and as the `STATUS_LOG_TOKEN` GitHub Actions secret. The Flutter
+deploy workflow posts a success/failure event per matrix project; other hooks
+or scripts can post via the same endpoint.
+
 ## Landing page
 
 The root URL (`/`) serves `projects/landing/index.html` — a static page with clickable
