@@ -7,3 +7,4 @@ issues/.agent-*.pid
 __pycache__/
 projects/asteroids/highscores.json
 projects/*/build/
+projects/status-page/.events.jsonl

@@ -17,6 +17,60 @@ from threading import Lock, Thread
 PORT = 5001
 HOSTNAME = "ai.memention.net"
 
+EVENTS_PATH = Path(__file__).parent / ".events.jsonl"
+MAX_EVENTS = 200          # how many events we keep on disk
+EVENTS_VISIBLE = 5        # how many we send to the UI
+MAX_MSG_LEN = 200
+MAX_SOURCE_LEN = 32
+STATUS_LOG_TOKEN = os.environ.get("STATUS_LOG_TOKEN", "")
+
+events_deque = deque(maxlen=MAX_EVENTS)
+events_lock = Lock()
+
+
+def _load_events():
+    """Load events from disk into the in-memory deque on startup."""
+    if not EVENTS_PATH.exists():
+        return
+    try:
+        with EVENTS_PATH.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    events_deque.append(json.loads(line))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+def append_event(source, message):
+    """Append a log event. Persists the trimmed last MAX_EVENTS to disk atomically."""
+    entry = {
+        "ts": datetime.now().isoformat(timespec="seconds"),
+        "source": source[:MAX_SOURCE_LEN],
+        "message": message[:MAX_MSG_LEN],
+    }
+    with events_lock:
+        events_deque.append(entry)
+        snapshot = list(events_deque)
+    tmp = EVENTS_PATH.with_suffix(EVENTS_PATH.suffix + ".tmp")
+    try:
+        with tmp.open("w") as f:
+            for e in snapshot:
+                f.write(json.dumps(e) + "\n")
+        tmp.replace(EVENTS_PATH)
+    except Exception:
+        pass
+    return entry
+
+
+def recent_events():
+    with events_lock:
+        return list(events_deque)[-EVENTS_VISIBLE:]
+
 # Services to monitor: (name, path, check_type, target[, flags])
 # flags is an optional dict: {"port_only": True} skips nginx GET check
 SERVICES = [
@@ -257,6 +311,7 @@ def get_status_data():
             "disk": h_disk,
             "claude": h_claude,
         },
+        "events": recent_events(),
     }
 
 
@@ -374,6 +429,7 @@ class StatusHandler(SimpleHTTPRequestHandler):
                         "cpu": h_cpu, "memory": h_mem,
                         "disk": h_disk, "claude": h_claude,
                     },
+                    "events": recent_events(),
                 }
                 self.wfile.write(f"data: {json.dumps(system_data)}\n\n".encode())
                 self.wfile.write("event: done\ndata: {}\n\n".encode())
@@ -398,11 +454,51 @@ class StatusHandler(SimpleHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+    def do_POST(self):
+        if self.path != "/status/log":
+            self.send_response(404)
+            self.end_headers()
+            return
+        if not STATUS_LOG_TOKEN:
+            self.send_response(503)
+            self.end_headers()
+            self.wfile.write(b"STATUS_LOG_TOKEN not configured")
+            return
+        auth = self.headers.get("Authorization", "")
+        expected = f"Bearer {STATUS_LOG_TOKEN}"
+        if auth != expected:
+            self.send_response(401)
+            self.end_headers()
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            length = min(length, 4096)
+            body = self.rfile.read(length).decode("utf-8", errors="replace")
+            data = json.loads(body)
+            source = str(data.get("source", "")).strip() or "unknown"
+            message = str(data.get("message", "")).strip()
+            if not message:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b"missing 'message'")
+                return
+            entry = append_event(source, message)
+            payload = json.dumps(entry).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(payload)
+        except Exception as e:
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(f"bad request: {e}".encode())
+
     def log_message(self, format, *args):
         pass  # Silence request logs
 
 
 def main():
+    _load_events()
     # Start collector thread
     t = Thread(target=collector_loop, daemon=True)
     t.start()

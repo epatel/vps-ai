@@ -61,6 +61,7 @@ jobs:
           flutter build web --base-href /${{ matrix.project }}/ --pwa-strategy=none --release
 
       - name: Deploy to VPS
+        id: deploy
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -73,3 +74,19 @@ jobs:
           rsync -az --delete -e 'ssh -i ~/.ssh/id_ed25519' \
             projects/${{ matrix.project }}/build/web/ \
             epatel@ai.memention.net:${{ matrix.project }}/build/web/
+
+      - name: Post status-page event
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          STATUS_LOG_TOKEN: ${{ secrets.STATUS_LOG_TOKEN }}
+        run: |
+          [ -n "$STATUS_LOG_TOKEN" ] || exit 0
+          if [ "${{ job.status }}" = "success" ]; then
+            MSG="deploy ${{ matrix.project }} ok"
+          else
+            MSG="deploy ${{ matrix.project }} FAILED"
+          fi
+          curl -fsS -m 5 -X POST https://ai.memention.net/status/log \
+            -H "Authorization: Bearer $STATUS_LOG_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -nc --arg m "$MSG" '{source:"ci", message:$m}')" || true
