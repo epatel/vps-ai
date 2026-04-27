@@ -1,0 +1,85 @@
+{
+  "title": "General Trivia",
+  "questions": [
+    {
+      "q": "Which planet is known as the Red Planet?",
+      "choices": ["Venus", "Mars", "Jupiter", "Mercury"],
+      "answer": 1
+    },
+    {
+      "q": "What is the largest ocean on Earth?",
+      "choices": ["Atlantic", "Indian", "Arctic", "Pacific"],
+      "answer": 3
+    },
+    {
+      "q": "Who wrote the play 'Romeo and Juliet'?",
+      "choices": ["Charles Dickens", "Mark Twain", "William Shakespeare", "Jane Austen"],
+      "answer": 2
+    },
+    {
+      "q": "What is the chemical symbol for gold?",
+      "choices": ["Gd", "Go", "Au", "Ag"],
+      "answer": 2
+    },
+    {
+      "q": "How many continents are there on Earth?",
+      "choices": ["5", "6", "7", "8"],
+      "answer": 2
+    },
+    {
+      "q": "Which programming language is known as 'the language of the web'?",
+      "choices": ["Python", "JavaScript", "C++", "Java"],
+      "answer": 1
+    },
+    {
+      "q": "What year did humans first land on the Moon?",
+      "choices": ["1965", "1969", "1972", "1959"],
+      "answer": 1
+    },
+    {
+      "q": "Which animal is known as the 'King of the Jungle'?",
+      "choices": ["Tiger", "Elephant", "Gorilla", "Lion"],
+      "answer": 3
+    },
+    {
+      "q": "What is the smallest prime number?",
+      "choices": ["0", "1", "2", "3"],
+      "answer": 2
+    },
+    {
+      "q": "Who painted the Mona Lisa?",
+      "choices": ["Vincent van Gogh", "Pablo Picasso", "Leonardo da Vinci", "Michelangelo"],
+      "answer": 2
+    },
+    {
+      "q": "What is the capital of Australia?",
+      "choices": ["Sydney", "Melbourne", "Canberra", "Perth"],
+      "answer": 2
+    },
+    {
+      "q": "Which gas do plants absorb from the atmosphere?",
+      "choices": ["Oxygen", "Nitrogen", "Hydrogen", "Carbon Dioxide"],
+      "answer": 3
+    },
+    {
+      "q": "What does HTTP stand for?",
+      "choices": [
+        "HyperText Transfer Protocol",
+        "Hyper Transfer Text Protocol",
+        "High Transfer Text Procedure",
+        "HyperText Transmission Protocol"
+      ],
+      "answer": 0
+    },
+    {
+      "q": "How many sides does a hexagon have?",
+      "choices": ["5", "6", "7", "8"],
+      "answer": 1
+    },
+    {
+      "q": "Which country is home to the kangaroo?",
+      "choices": ["South Africa", "India", "Australia", "Brazil"],
+      "answer": 2
+    }
+  ]
+}
