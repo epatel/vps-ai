@@ -11,6 +11,7 @@ declare -A SERVICE_MAP=(
   ["projects/todo-api"]="todo-api"
   ["projects/asteroids"]="asteroids"
   ["projects/drop"]="drop"
+  ["projects/quiz"]="quiz"
 )
 
 # Get list of changed files in this merge

@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --panel: #16213e;
+  --panel2: #1e2a4a;
+  --fg: #e6e6f0;
+  --muted: #8888aa;
+  --accent: #4cb8c4;
+  --good: #4caf50;
+  --bad: #f44336;
+  --c1: #e74c3c;
+  --c2: #3498db;
+  --c3: #f1c40f;
+  --c4: #2ecc71;
+  --c5: #9b59b6;
+  --c6: #1abc9c;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg); color: var(--fg);
+  min-height: 100vh; padding: 16px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.container { width: 100%; max-width: 760px; }
+header h1 { font-size: 1.8em; letter-spacing: 1px; margin-bottom: 4px; }
+header .sub { color: var(--muted); font-size: .9em; margin-bottom: 24px; }
+.panel {
+  background: var(--panel); border-radius: 12px;
+  padding: 22px; margin-bottom: 16px;
+}
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+input, button {
+  font: inherit; padding: 12px 14px; border-radius: 8px; border: none;
+}
+input {
+  background: #0c1428; color: var(--fg); flex: 1; min-width: 140px;
+  border: 1px solid #2a3a60;
+}
+input:focus { outline: 2px solid var(--accent); }
+button {
+  background: var(--accent); color: #0a1428; cursor: pointer;
+  font-weight: 700; letter-spacing: .5px;
+  transition: filter .15s, transform .1s;
+}
+button:hover { filter: brightness(1.1); }
+button:active { transform: translateY(1px); }
+button.ghost { background: transparent; color: var(--fg); border: 1px solid #2a3a60; }
+button:disabled { opacity: .4; cursor: not-allowed; }
+.code {
+  font-size: 4em; letter-spacing: .35em; font-weight: 800;
+  color: var(--accent); text-align: center; padding: 14px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.smallnote { color: var(--muted); font-size: .85em; }
+.hidden { display: none !important; }
+
+.lobby-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px; margin-top: 14px;
+}
+.lobby-list .pill {
+  background: var(--panel2); padding: 8px 12px; border-radius: 8px;
+  font-size: .9em; text-align: center; overflow: hidden; text-overflow: ellipsis;
+}
+.lobby-list .pill.empty { color: var(--muted); font-style: italic; }
+
+.q-text {
+  font-size: 1.4em; line-height: 1.4; margin-bottom: 18px;
+}
+.q-meta { color: var(--muted); font-size: .85em; margin-bottom: 10px; }
+.choices {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+@media (max-width: 540px) { .choices { grid-template-columns: 1fr; } }
+.choice {
+  padding: 18px 16px; border-radius: 12px; cursor: pointer;
+  font-size: 1.05em; font-weight: 600; color: #fff;
+  border: 3px solid transparent; transition: transform .1s, opacity .15s;
+  text-align: left; min-height: 64px;
+  display: flex; align-items: center; gap: 12px;
+}
+.choice:hover { transform: translateY(-2px); }
+.choice .ix {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 6px;
+  background: rgba(0,0,0,.25); font-weight: 800;
+}
+.choice[data-i="0"] { background: var(--c1); }
+.choice[data-i="1"] { background: var(--c2); }
+.choice[data-i="2"] { background: var(--c3); color: #1a1a2e; }
+.choice[data-i="3"] { background: var(--c4); }
+.choice[data-i="4"] { background: var(--c5); }
+.choice[data-i="5"] { background: var(--c6); }
+.choice.locked { opacity: .35; cursor: default; }
+.choice.locked:hover { transform: none; }
+.choice.picked { outline: 3px solid #fff; }
+.choice.correct { border-color: #fff; box-shadow: 0 0 0 4px var(--good) inset; }
+.choice.wrong { border-color: #fff; box-shadow: 0 0 0 4px var(--bad) inset; opacity: .6; }
+
+.timer-bar {
+  height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden;
+  margin-bottom: 16px;
+}
+.timer-bar > div {
+  height: 100%; background: var(--accent); width: 100%;
+  transition: width 0.25s linear;
+}
+
+.score-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid #2a3a60;
+}
+.score-row:last-child { border-bottom: none; }
+.score-row .rank { color: var(--muted); width: 28px; }
+.score-row .name { flex: 1; }
+.score-row .score { font-weight: 700; color: var(--accent); }
+.score-row.you { background: rgba(76, 184, 196, .08); border-radius: 6px; padding-left: 8px; padding-right: 8px; }
+
+.bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; font-size: .9em;
+}
+.bar .swatch {
+  width: 14px; height: 14px; border-radius: 3px;
+}
+.bar .label { width: 22px; color: var(--muted); }
+.bar .track { flex: 1; height: 14px; background: var(--panel2); border-radius: 4px; overflow: hidden; }
+.bar .fill { height: 100%; background: #555; transition: width .35s; }
+.bar.correct .fill { background: var(--good); }
+.bar .num { width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.flash {
+  font-size: 1.5em; padding: 24px; text-align: center;
+  border-radius: 12px; margin-top: 12px; font-weight: 700;
+}
+.flash.good { background: rgba(76, 175, 80, .15); color: var(--good); }
+.flash.bad  { background: rgba(244, 67, 54, .15); color: var(--bad); }
+.flash.wait { background: var(--panel2); color: var(--muted); font-weight: 500; }
+
+.host-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.host-controls button { flex: 1; min-width: 130px; }
+
+.role-card {
+  background: var(--panel2); border-radius: 10px; padding: 18px;
+  margin-bottom: 10px; cursor: pointer;
+  transition: background .15s, transform .1s;
+  border: 1px solid #2a3a60;
+}
+.role-card:hover { background: #243353; transform: translateY(-1px); }
+.role-card h3 { margin-bottom: 4px; }
+.role-card p { color: var(--muted); font-size: .9em; }
+
+footer {
+  margin-top: 24px; color: var(--muted); font-size: .8em;
+  text-align: center;
+}
+footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>QUIZ</h1>
+    <div class="sub" id="deck-title">Multiplayer trivia</div>
+  </header>
+
+  <!-- Home / role pick -->
+  <section id="view-home" class="panel">
+    <div class="role-card" onclick="goJoin()">
+      <h3>Join a quiz</h3>
+      <p>Got a 4-letter code? Hop in and play.</p>
+    </div>
+    <div class="role-card" onclick="goHost()">
+      <h3>Host a new quiz</h3>
+      <p>Get a code, share it, and run the show.</p>
+    </div>
+  </section>
+
+  <!-- Join -->
+  <section id="view-join" class="panel hidden">
+    <h2 style="margin-bottom: 12px;">Join a quiz</h2>
+    <div class="row" style="margin-bottom: 10px;">
+      <input id="join-code" placeholder="Room code (4 letters)" maxlength="4"
+             style="text-transform: uppercase; letter-spacing: .3em; font-weight: 700;">
+    </div>
+    <div class="row" style="margin-bottom: 10px;">
+      <input id="join-name" placeholder="Your name" maxlength="20">
+    </div>
+    <div class="row">
+      <button onclick="doJoin()">Join</button>
+      <button class="ghost" onclick="goHome()">Back</button>
+    </div>
+    <div id="join-error" class="smallnote" style="color: var(--bad); margin-top: 10px;"></div>
+  </section>
+
+  <!-- Player: lobby waiting -->
+  <section id="view-player-lobby" class="panel hidden">
+    <h2>You're in!</h2>
+    <p class="smallnote">Waiting for the host to start the quiz.</p>
+    <div style="margin-top: 16px;">
+      <div class="smallnote">Room: <strong id="player-room"></strong></div>
+      <div class="smallnote">Name: <strong id="player-name"></strong></div>
+      <div class="smallnote">Players: <strong id="player-count">1</strong></div>
+    </div>
+  </section>
+
+  <!-- Player: question -->
+  <section id="view-player-q" class="panel hidden">
+    <div class="q-meta"><span id="player-q-num"></span> · <span id="player-score">Score: 0</span></div>
+    <div class="timer-bar"><div id="player-timer"></div></div>
+    <div class="q-text" id="player-q-text"></div>
+    <div class="choices" id="player-choices"></div>
+    <div id="player-flash" class="flash hidden"></div>
+  </section>
+
+  <!-- Player: final -->
+  <section id="view-player-final" class="panel hidden">
+    <h2 style="margin-bottom: 12px;">Final scores</h2>
+    <div id="player-final-board"></div>
+    <div class="row" style="margin-top: 16px;">
+      <button class="ghost" onclick="location.reload()">Done</button>
+    </div>
+  </section>
+
+  <!-- Host: lobby -->
+  <section id="view-host-lobby" class="panel hidden">
+    <h2 style="margin-bottom: 6px;">Room code</h2>
+    <div class="code" id="host-code">- - - -</div>
+    <div class="smallnote" style="text-align: center;">
+      Share this code or <a id="host-link" href="#" style="color: var(--accent);">this link</a>.
+      Players join at <span id="join-url" style="font-family: monospace;"></span>
+    </div>
+    <div style="margin-top: 18px;">
+      <strong id="lobby-count">0 players</strong> · <span id="deck-info" class="smallnote"></span>
+      <div class="lobby-list" id="lobby-list">
+        <div class="pill empty">No players yet</div>
+      </div>
+    </div>
+    <div class="host-controls">
+      <button onclick="hostStart()" id="host-start-btn">Start quiz</button>
+      <button class="ghost" onclick="goHome()">Cancel</button>
+    </div>
+  </section>
+
+  <!-- Host: question -->
+  <section id="view-host-q" class="panel hidden">
+    <div class="q-meta"><span id="host-q-num"></span> · <span id="host-answer-count">0 / 0 answered</span></div>
+    <div class="timer-bar"><div id="host-timer"></div></div>
+    <div class="q-text" id="host-q-text"></div>
+    <div class="choices" id="host-choices"></div>
+    <div class="host-controls">
+      <button onclick="hostReveal()">Reveal now</button>
+    </div>
+  </section>
+
+  <!-- Host: reveal -->
+  <section id="view-host-reveal" class="panel hidden">
+    <div class="q-meta">Results</div>
+    <div class="q-text" id="host-reveal-q"></div>
+    <div id="host-bars"></div>
+    <h3 style="margin: 18px 0 8px;">Leaderboard</h3>
+    <div id="host-board"></div>
+    <div class="host-controls">
+      <button id="host-next-btn" onclick="hostNext()">Next question</button>
+    </div>
+  </section>
+
+  <!-- Host: final -->
+  <section id="view-host-final" class="panel hidden">
+    <h2 style="margin-bottom: 12px;">Final scores</h2>
+    <div id="host-final-board"></div>
+    <div class="host-controls">
+      <button onclick="hostReset()">Play again</button>
+      <button class="ghost" onclick="location.reload()">Done</button>
+    </div>
+  </section>
+
+  <footer>
+    <a href="/">&larr; ai.memention.net</a>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+// ---------- WebSocket ----------
+let ws = null;
+let role = null;        // "host" | "player"
+let room = null;
+let hostToken = null;
+let playerId = null;
+let myName = null;
+let totalQuestions = 0;
+let timerEnd = 0;
+let timerRAF = null;
+let currentChoices = null;
+
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(obj));
+  }
+}
+
+function connectWs() {
+  return new Promise((resolve, reject) => {
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    ws = new WebSocket(proto + "//" + location.host + "/quiz/ws");
+    ws.onopen = () => resolve();
+    ws.onerror = () => reject(new Error("websocket error"));
+    ws.onclose = () => {
+      // soft notify on disconnect
+      console.log("ws closed");
+    };
+    ws.onmessage = (ev) => {
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      handleMsg(msg);
+    };
+  });
+}
+
+// ---------- View helpers ----------
+const views = [
+  "view-home", "view-join",
+  "view-player-lobby", "view-player-q", "view-player-final",
+  "view-host-lobby", "view-host-q", "view-host-reveal", "view-host-final",
+];
+function show(id) {
+  for (const v of views) {
+    const el = document.getElementById(v);
+    if (!el) continue;
+    el.classList.toggle("hidden", v !== id);
+  }
+}
+
+function goHome()  { show("view-home"); }
+function goHost()  { startHost(); }
+function goJoin()  {
+  show("view-join");
+  // prefill if ?room=ABCD in URL
+  const p = new URLSearchParams(location.search);
+  const r = (p.get("room") || "").toUpperCase();
+  if (r) document.getElementById("join-code").value = r;
+  document.getElementById("join-name").focus();
+}
+
+// ---------- Host flow ----------
+async function startHost() {
+  if (!ws) await connectWs();
+  role = "host";
+  send({ type: "create" });
+}
+
+function renderLobby(players, deckSize) {
+  const list = document.getElementById("lobby-list");
+  list.innerHTML = "";
+  if (!players.length) {
+    const div = document.createElement("div");
+    div.className = "pill empty";
+    div.textContent = "No players yet";
+    list.appendChild(div);
+  } else {
+    for (const p of players) {
+      const div = document.createElement("div");
+      div.className = "pill";
+      div.textContent = p.name;
+      list.appendChild(div);
+    }
+  }
+  document.getElementById("lobby-count").textContent =
+    players.length === 1 ? "1 player" : players.length + " players";
+  if (deckSize) {
+    totalQuestions = deckSize;
+    document.getElementById("deck-info").textContent = deckSize + " questions";
+  }
+  document.getElementById("host-start-btn").disabled = players.length === 0;
+}
+
+function hostStart()  { send({ type: "start", room, host_token: hostToken }); }
+function hostReveal() { send({ type: "reveal", room, host_token: hostToken }); }
+function hostNext()   { send({ type: "next", room, host_token: hostToken }); }
+function hostReset()  { send({ type: "reset", room, host_token: hostToken }); }
+
+// ---------- Player flow ----------
+function doJoin() {
+  const code = document.getElementById("join-code").value.trim().toUpperCase();
+  const name = document.getElementById("join-name").value.trim();
+  if (!code || code.length !== 4) {
+    return setError("Enter a 4-letter code.");
+  }
+  if (!name) {
+    return setError("Enter your name.");
+  }
+  myName = name;
+  setError("");
+  (ws ? Promise.resolve() : connectWs()).then(() => {
+    role = "player";
+    send({ type: "join", room: code, name });
+  }).catch(() => setError("Could not connect to server."));
+}
+
+function setError(msg) {
+  document.getElementById("join-error").textContent = msg;
+}
+
+// ---------- Renderers ----------
+function renderQuestion(msg, asHost) {
+  totalQuestions = msg.total;
+  currentChoices = msg.choices;
+  const num = `Question ${msg.index + 1} / ${msg.total}`;
+  if (asHost) {
+    document.getElementById("host-q-num").textContent = num;
+    document.getElementById("host-q-text").textContent = msg.question;
+    const wrap = document.getElementById("host-choices");
+    wrap.innerHTML = "";
+    msg.choices.forEach((c, i) => {
+      const div = document.createElement("div");
+      div.className = "choice locked";
+      div.dataset.i = i;
+      div.innerHTML = `<span class="ix">${"ABCDEF"[i]}</span><span>${escapeHtml(c)}</span>`;
+      wrap.appendChild(div);
+    });
+    document.getElementById("host-answer-count").textContent = `0 / ${Object.keys(latestPlayers).length} answered`;
+    show("view-host-q");
+    startTimer("host-timer", msg.duration);
+  } else {
+    document.getElementById("player-q-num").textContent = num;
+    document.getElementById("player-q-text").textContent = msg.question;
+    const wrap = document.getElementById("player-choices");
+    wrap.innerHTML = "";
+    msg.choices.forEach((c, i) => {
+      const div = document.createElement("div");
+      div.className = "choice";
+      div.dataset.i = i;
+      div.innerHTML = `<span class="ix">${"ABCDEF"[i]}</span><span>${escapeHtml(c)}</span>`;
+      div.onclick = () => playerPick(i, div);
+      wrap.appendChild(div);
+    });
+    document.getElementById("player-flash").classList.add("hidden");
+    show("view-player-q");
+    startTimer("player-timer", msg.duration);
+  }
+}
+
+let pickedIndex = null;
+function playerPick(i, el) {
+  if (pickedIndex !== null) return;
+  pickedIndex = i;
+  send({ type: "answer", choice: i });
+  // Lock all
+  document.querySelectorAll("#player-choices .choice").forEach(c => c.classList.add("locked"));
+  el.classList.add("picked");
+  el.classList.remove("locked");
+  const flash = document.getElementById("player-flash");
+  flash.className = "flash wait";
+  flash.textContent = "Answer locked. Hang tight...";
+  flash.classList.remove("hidden");
+}
+
+function showReveal(msg, asHost) {
+  stopTimer();
+  if (asHost) {
+    document.getElementById("host-reveal-q").textContent =
+      document.getElementById("host-q-text").textContent;
+    const total = msg.counts.reduce((a, b) => a + b, 0) || 1;
+    const bars = document.getElementById("host-bars");
+    bars.innerHTML = "";
+    msg.counts.forEach((n, i) => {
+      const correct = (i === msg.correct_index);
+      const pct = Math.round(100 * n / total);
+      const div = document.createElement("div");
+      div.className = "bar" + (correct ? " correct" : "");
+      div.innerHTML = `
+        <span class="swatch" style="background: var(--c${i+1});"></span>
+        <span class="label">${"ABCDEF"[i]}</span>
+        <span class="track"><span class="fill" style="width:${pct}%;"></span></span>
+        <span class="num">${n}</span>`;
+      bars.appendChild(div);
+    });
+    renderBoard("host-board", msg.leaderboard, null);
+    const btn = document.getElementById("host-next-btn");
+    btn.textContent = msg.is_last ? "Show final scores" : "Next question";
+    show("view-host-reveal");
+  } else {
+    // Mark correct/wrong on choices
+    const els = document.querySelectorAll("#player-choices .choice");
+    els.forEach((el, i) => {
+      el.classList.add("locked");
+      if (i === msg.correct_index) el.classList.add("correct");
+      else if (i === msg.your_choice) el.classList.add("wrong");
+    });
+    const flash = document.getElementById("player-flash");
+    flash.classList.remove("hidden");
+    if (msg.your_choice === null || msg.your_choice === undefined) {
+      flash.className = "flash bad";
+      flash.textContent = "No answer — 0 points.";
+    } else if (msg.you_correct) {
+      flash.className = "flash good";
+      flash.textContent = `Correct! +${msg.points_awarded} points`;
+    } else {
+      flash.className = "flash bad";
+      flash.textContent = `Wrong. Score: ${msg.score}`;
+    }
+    document.getElementById("player-score").textContent = "Score: " + msg.score;
+    pickedIndex = null;
+  }
+}
+
+function renderBoard(containerId, board, hilightId) {
+  const wrap = document.getElementById(containerId);
+  wrap.innerHTML = "";
+  if (!board.length) {
+    wrap.innerHTML = `<div class="smallnote">No players</div>`;
+    return;
+  }
+  board.forEach((p, i) => {
+    const div = document.createElement("div");
+    div.className = "score-row" + (p.id === hilightId ? " you" : "");
+    div.innerHTML = `
+      <span class="rank">${i + 1}.</span>
+      <span class="name">${escapeHtml(p.name)}</span>
+      <span class="score">${p.score}</span>`;
+    wrap.appendChild(div);
+  });
+}
+
+// ---------- Timer ----------
+function startTimer(elId, durationS) {
+  stopTimer();
+  const el = document.getElementById(elId);
+  timerEnd = Date.now() + durationS * 1000;
+  function tick() {
+    const remain = Math.max(0, timerEnd - Date.now());
+    const total = durationS * 1000;
+    el.style.width = (100 * remain / total) + "%";
+    if (remain > 0) timerRAF = requestAnimationFrame(tick);
+  }
+  tick();
+}
+function stopTimer() {
+  if (timerRAF) cancelAnimationFrame(timerRAF);
+  timerRAF = null;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+// ---------- Message dispatch ----------
+let latestPlayers = [];
+
+function handleMsg(msg) {
+  if (msg.title) {
+    document.getElementById("deck-title").textContent = msg.title;
+  }
+  switch (msg.type) {
+    case "created":
+      room = msg.room;
+      hostToken = msg.host_token;
+      totalQuestions = msg.deck_size;
+      document.getElementById("host-code").textContent = msg.room.split("").join(" ");
+      const url = location.origin + "/quiz/?room=" + msg.room;
+      document.getElementById("join-url").textContent = url;
+      const a = document.getElementById("host-link");
+      a.href = url;
+      a.textContent = "this link";
+      document.getElementById("deck-info").textContent = msg.deck_size + " questions";
+      latestPlayers = [];
+      renderLobby([], msg.deck_size);
+      show("view-host-lobby");
+      break;
+
+    case "joined":
+      playerId = msg.player_id;
+      room = msg.room;
+      document.getElementById("player-room").textContent = msg.room;
+      document.getElementById("player-name").textContent = msg.name;
+      show("view-player-lobby");
+      break;
+
+    case "lobby":
+      latestPlayers = msg.players;
+      if (role === "host") {
+        renderLobby(msg.players, msg.deck_size);
+      } else {
+        document.getElementById("player-count").textContent = msg.players.length;
+      }
+      break;
+
+    case "question":
+      renderQuestion(msg, role === "host");
+      break;
+
+    case "answer_count":
+      if (role === "host") {
+        document.getElementById("host-answer-count").textContent =
+          `${msg.answered} / ${msg.total} answered`;
+      }
+      break;
+
+    case "reveal":
+      showReveal(msg, role === "host");
+      break;
+
+    case "final":
+      stopTimer();
+      if (role === "host") {
+        renderBoard("host-final-board", msg.leaderboard, null);
+        show("view-host-final");
+      } else {
+        renderBoard("player-final-board", msg.leaderboard, playerId);
+        show("view-player-final");
+      }
+      break;
+
+    case "error":
+      if (role === "player") setError(msg.message);
+      else alert("Error: " + msg.message);
+      break;
+  }
+}
+
+// ---------- Init ----------
+window.addEventListener("DOMContentLoaded", () => {
+  // Show join URL placeholder
+  document.getElementById("join-url").textContent = location.origin + "/quiz/";
+  // Auto-route from URL
+  const params = new URLSearchParams(location.search);
+  if (params.get("room")) {
+    goJoin();
+  } else {
+    show("view-home");
+  }
+});
+</script>
+</body>
+</html>

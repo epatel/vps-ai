@@ -79,6 +79,7 @@ SERVICES = [
     ("Status Page", "/status", "port", 5001),
     ("Todo API", "/todo-api", "port", 5003, {"check_path": "/todo-api/health"}),
     ("Asteroids", "/asteroids", "port", 8082),
+    ("Quiz", "/quiz", "port", 8092, {"check_path": "/quiz/health"}),
     # Static file projects (check index.html exists)
     ("Scramble", "/scramble", "file", "scramble"),
     ("Badge", "/badge", "file", "badge"),

@@ -1,0 +1,14 @@
+[Unit]
+Description=Quiz multiplayer game server
+After=network.target
+
+[Service]
+Type=simple
+User=epatel
+WorkingDirectory=/home/epatel/vps-ai/projects/quiz
+ExecStart=/home/epatel/vps-ai/projects/quiz/venv/bin/python server.py --port 8092
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
