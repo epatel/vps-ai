@@ -63,6 +63,8 @@
         }
         .events .row { display: flex; gap: 10px; white-space: nowrap; overflow: hidden; }
         .events .ts { color: #6a7aaa; flex: 0 0 auto; }
+        .events .ts .date { color: #44567a; margin-right: 4px; }
+        .events .ts .date.today { display: none; }
         .events .src { color: #4caf50; flex: 0 0 auto; min-width: 0; }
         .events .msg { color: #e0e0e0; overflow: hidden; text-overflow: ellipsis; }
         .events .empty { color: #555; font-style: italic; }
@@ -181,10 +183,17 @@
                 box.innerHTML = '<div class="empty">no events yet</div>';
                 return;
             }
+            var today = new Date().toISOString().slice(0, 10);
             box.innerHTML = events.map(function(e) {
-                var ts = (e.ts || '').slice(11, 19);
+                var raw = e.ts || '';
+                var date = raw.slice(0, 10);
+                var time = raw.slice(11, 19);
+                var dateCls = date === today ? 'date today' : 'date';
                 return '<div class="row">' +
-                    '<span class="ts">' + escHtml(ts) + '</span>' +
+                    '<span class="ts">' +
+                        '<span class="' + dateCls + '">' + escHtml(date) + '</span>' +
+                        escHtml(time) +
+                    '</span>' +
                     '<span class="src">' + escHtml(e.source || '') + '</span>' +
                     '<span class="msg">' + escHtml(e.message || '') + '</span>' +
                     '</div>';
