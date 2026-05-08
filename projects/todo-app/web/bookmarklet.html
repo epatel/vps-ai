@@ -58,9 +58,12 @@
     border-radius: 8px;
     text-decoration: none;
     font-weight: 600;
-    user-select: all;
-    -webkit-user-select: all;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: element;
   }
+  .bookmarklet:active { cursor: grabbing; }
   .bookmarklet:hover { opacity: 0.9; }
   code, pre {
     background: var(--code-bg);
@@ -97,6 +100,7 @@
     <p><strong>Drag this button to your bookmarks bar:</strong></p>
     <p>
       <a class="bookmarklet"
+         draggable="true"
          href="javascript:(function(){var u=encodeURIComponent(location.href);var t=encodeURIComponent(document.title||'');var s='';try{s=encodeURIComponent(String(window.getSelection()||''));}catch(e){}var q='title='+t+'&url='+u+(s?'&text='+s:'');window.open('https://ai.memention.net/todo-app/?'+q,'_blank');})();">
         + Add to Todos
       </a>
