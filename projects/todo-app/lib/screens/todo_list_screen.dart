@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:web/web.dart' as web;
 import '../providers/auth_provider.dart';
 import '../providers/todo_provider.dart';
 import '../widgets/todo_tile.dart';
@@ -131,6 +132,30 @@ class _TodoListScreenState extends State<TodoListScreen> {
     }
   }
 
+  void _showAbout(BuildContext context) {
+    showAboutDialog(
+      context: context,
+      applicationName: 'Todos',
+      applicationVersion: '1.0.0',
+      applicationLegalese: 'A simple todo app.',
+      children: [
+        const SizedBox(height: 16),
+        const Text('Quickly add the page you are viewing as a todo:'),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            icon: const Icon(Icons.bookmark_add_outlined),
+            label: const Text('Get the bookmarklet'),
+            onPressed: () {
+              web.window.open('bookmarklet.html', '_blank');
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _swipeBackground(BuildContext context, {required bool archived}) {
     final scheme = Theme.of(context).colorScheme;
     final icon = archived ? Icons.unarchive_outlined : Icons.archive_outlined;
@@ -221,6 +246,11 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 todoProvider.loadArchivedTodos();
               }
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'About',
+            onPressed: () => _showAbout(context),
           ),
           IconButton(
             icon: const Icon(Icons.logout),

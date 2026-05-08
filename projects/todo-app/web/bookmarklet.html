@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Add to Todos — Bookmarklet</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --card: #fff;
+    --border: #e0e0e0;
+    --accent: #1976d2;
+    --code-bg: #f0f0f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121212;
+      --fg: #eaeaea;
+      --muted: #999;
+      --card: #1e1e1e;
+      --border: #333;
+      --accent: #64b5f6;
+      --code-bg: #2a2a2a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+  }
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
+  }
+  h1 { margin-top: 0; font-size: 1.8rem; }
+  h2 { font-size: 1.2rem; margin-top: 2rem; }
+  p { color: var(--fg); }
+  .muted { color: var(--muted); font-size: 0.95rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 24px 0;
+  }
+  .bookmarklet {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    user-select: all;
+    -webkit-user-select: all;
+  }
+  .bookmarklet:hover { opacity: 0.9; }
+  code, pre {
+    background: var(--code-bg);
+    border-radius: 4px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.9rem;
+  }
+  code { padding: 2px 6px; }
+  pre {
+    padding: 12px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  ol li, ul li { margin: 6px 0; }
+  a { color: var(--accent); }
+  .back {
+    display: inline-block;
+    margin-bottom: 16px;
+    text-decoration: none;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <a href="./" class="back">← Back to Todos</a>
+  <h1>Add to Todos — Bookmarklet</h1>
+  <p class="muted">A one-click bookmark that turns the page you're viewing into a new todo.</p>
+
+  <div class="card">
+    <p><strong>Drag this button to your bookmarks bar:</strong></p>
+    <p>
+      <a class="bookmarklet"
+         href="javascript:(function(){var u=encodeURIComponent(location.href);var t=encodeURIComponent(document.title||'');var s='';try{s=encodeURIComponent(String(window.getSelection()||''));}catch(e){}var q='title='+t+'&url='+u+(s?'&text='+s:'');window.open('https://ai.memention.net/todo-app/?'+q,'_blank');})();">
+        + Add to Todos
+      </a>
+    </p>
+    <p class="muted">Drag the button to your bookmarks bar. Clicking it from this page will just create a todo for this page itself — handy as a smoke test.</p>
+  </div>
+
+  <h2>How to use</h2>
+  <ol>
+    <li>Drag the button above to your browser's bookmarks bar.</li>
+    <li>Visit any web page you want to remember.</li>
+    <li>Click the bookmark — Todos opens in a new tab with the title and URL pre-filled.</li>
+    <li>Confirm in the dialog to save.</li>
+  </ol>
+
+  <h2>Browser-specific setup</h2>
+
+  <p><strong>Chrome / Edge / Firefox / Safari (desktop):</strong> drag-and-drop works as described.</p>
+
+  <p><strong>iOS Safari:</strong> drag-and-drop isn't available. Instead:</p>
+  <ol>
+    <li>Bookmark any page (tap Share → Add Bookmark).</li>
+    <li>Open Bookmarks, tap Edit, select the new bookmark.</li>
+    <li>Replace its URL with the code below, rename it to e.g. <code>todo</code>, save.</li>
+    <li>To use: type <code>todo</code> in the address bar and tap the bookmark suggestion.</li>
+  </ol>
+
+  <p><strong>Android Chrome:</strong> bookmarklets are unreliable — install this app as a PWA instead (menu → "Add to Home Screen"). Then "Todos" appears in the system share sheet from any app.</p>
+
+  <h2>Manual code</h2>
+  <p class="muted">If drag-and-drop doesn't work, copy this and paste it as a bookmark URL:</p>
+  <pre id="code">javascript:(function(){var u=encodeURIComponent(location.href);var t=encodeURIComponent(document.title||'');var s='';try{s=encodeURIComponent(String(window.getSelection()||''));}catch(e){}var q='title='+t+'&url='+u+(s?'&text='+s:'');window.open('https://ai.memention.net/todo-app/?'+q,'_blank');})();</pre>
+  <p>
+    <button onclick="navigator.clipboard.writeText(document.getElementById('code').textContent).then(function(){this.textContent='Copied!';}.bind(this));"
+            style="background:var(--accent);color:#fff;border:0;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600;">
+      Copy code
+    </button>
+  </p>
+
+  <h2>What it does</h2>
+  <p>The bookmarklet reads three things from the current page and opens the Todos app with them as query parameters:</p>
+  <ul>
+    <li><code>title</code> — the page's <code>&lt;title&gt;</code></li>
+    <li><code>url</code> — the page's address</li>
+    <li><code>text</code> — any text you have selected (optional)</li>
+  </ul>
+  <p>Todos picks these up via the same Web Share Target handler the PWA uses, opens the Add Todo dialog pre-filled, and cleans the query string from the URL.</p>
+</main>
+</body>
+</html>
