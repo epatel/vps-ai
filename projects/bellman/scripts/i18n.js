@@ -12,8 +12,8 @@
  *              mix monolingual and bilingual fields in the same record
  *              during partial migrations).
  *
- * Locale persists to localStorage. On first load we sniff `navigator.language`
- * and default to Swedish for `sv*` locales, otherwise English.
+ * Locale persists to localStorage. On first load we default to Swedish;
+ * users can switch to English via the footer toggle and the choice persists.
  *
  * Renderers don't subscribe individually — `setLocale` dispatches a
  * `localechange` event on `window`, and `app.js` simply re-renders the
@@ -28,11 +28,7 @@ function detectInitial() {
     const v = localStorage.getItem(STORAGE_KEY);
     if (SUPPORTED.includes(v)) return v;
   } catch {/* ignore */}
-  try {
-    const nav = (navigator.language || 'en').toLowerCase();
-    if (nav.startsWith('sv')) return 'sv';
-  } catch {/* ignore */}
-  return 'en';
+  return 'sv';
 }
 
 let _locale = detectInitial();
