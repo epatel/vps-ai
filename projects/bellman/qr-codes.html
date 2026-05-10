@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -289,7 +289,7 @@
       <label for="base-url" style="font-size: 0.85rem; color: #b8a684;">
         Base URL:
       </label>
-      <input id="base-url" type="url" placeholder="https://your-deployed-site.example" />
+      <input id="base-url" type="url" placeholder="https://ai.memention.net/bellman" />
       <button id="apply-btn" type="button">Apply &amp; regenerate</button>
       <button id="print-btn" type="button">🖨  Print</button>
       <a href="index.html">← Back to game</a>
@@ -346,21 +346,14 @@
 
     const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
 
-    function defaultBase() {
-      // If served over file:// or as an offline asset, fall back to a generic placeholder.
-      if (location.protocol === 'file:' || location.origin === 'null') {
-        return 'https://stockholm-mystery.example';
-      }
-      // Strip the file part — keep only origin + (any path prefix to the app).
-      const url = new URL('.', location.href);
-      // Normalise: drop trailing slashes; the URL builder re-adds the right separators.
-      return url.toString().replace(/\/+$/, '');
-    }
+    // Production deployment URL. The toolbar still lets you override it for
+    // local testing or future moves.
+    const DEFAULT_BASE = 'https://ai.memention.net/bellman';
 
     function buildUrl(base, stopId) {
       // QR codes encode #/stop/<id> against whichever base the operator uses.
       const trimmed = base.replace(/\/+$/, '');
-      return `${trimmed}/index.html#/stop/${stopId}`;
+      return `${trimmed}/#/stop/${stopId}`;
     }
 
     function makeQrSvg(text) {
@@ -413,16 +406,15 @@
     }
 
     // Initial population.
-    const initialBase = defaultBase();
-    baseInput.value = initialBase;
+    baseInput.value = DEFAULT_BASE;
     originHint.textContent =
-      `QR codes currently encode: ${initialBase}/index.html#/stop/<id>`;
-    renderCards(initialBase);
+      `QR codes currently encode: ${DEFAULT_BASE}/#/stop/<id>`;
+    renderCards(DEFAULT_BASE);
 
     // User overrides the base URL.
     applyBtn.addEventListener('click', () => {
-      const v = (baseInput.value || '').trim() || initialBase;
-      originHint.textContent = `QR codes currently encode: ${v}/index.html#/stop/<id>`;
+      const v = (baseInput.value || '').trim() || DEFAULT_BASE;
+      originHint.textContent = `QR codes currently encode: ${v}/#/stop/<id>`;
       renderCards(v);
     });
     baseInput.addEventListener('keydown', (e) => {
