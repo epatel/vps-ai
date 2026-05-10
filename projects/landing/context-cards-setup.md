@@ -142,7 +142,7 @@ The trigger phrase after the em-dash is the **only** thing the LLM uses to decid
 In a session in the target project, prompt:
 
 ```
-See https://gist.githubusercontent.com/epatel/1f714cfa373be02ab51de1f34c916476/raw
+See https://ai.memention.net/context-cards-setup.md
 Build index cards and add index entries to CLAUDE.md
 ```
 
