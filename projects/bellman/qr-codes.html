@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR Codes — Bellman's Lost Epistle</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=IM+Fell+English:ital@0;1&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* ---------- screen styles ---------- */
+    :root {
+      --paper: #faf6ec;
+      --ink: #1a0f08;
+      --line: #b8a684;
+      --accent: #6e1c12;
+      --gold: #c9a64a;
+      --font-display: 'Cinzel', 'Times New Roman', serif;
+      --font-body: 'IM Fell English', Georgia, 'Times New Roman', serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: #2a1810;
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 18px;
+      line-height: 1.5;
+    }
+    body {
+      padding: 2rem 1rem;
+      min-height: 100vh;
+    }
+    .toolbar {
+      max-width: 56rem;
+      margin: 0 auto 2rem;
+      padding: 1rem 1.25rem;
+      background: #1a0f08;
+      color: #e8d9b8;
+      border: 1px solid #c9a64a;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .toolbar h1 {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+    .toolbar p { font-size: 0.95rem; }
+    .toolbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .toolbar input[type="url"] {
+      flex: 1 1 18rem;
+      min-width: 0;
+      padding: 0.5rem 0.75rem;
+      background: #251710;
+      color: #e8d9b8;
+      border: 1px solid #b8a684;
+      border-radius: 3px;
+      font-family: var(--font-body);
+      font-size: 1rem;
+    }
+    .toolbar button, .toolbar a {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      color: #e8d9b8;
+      border: 1px solid #c9a64a;
+      border-radius: 3px;
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .toolbar button:hover, .toolbar a:hover { background: #2a1f15; }
+    .toolbar .hint {
+      color: #b8a684;
+      font-size: 0.85rem;
+      font-style: italic;
+    }
+
+    .sheet {
+      max-width: 56rem;
+      margin: 0 auto;
+    }
+
+    .qr-card {
+      background: var(--paper);
+      color: var(--ink);
+      border: 2px solid var(--ink);
+      border-radius: 4px;
+      padding: 2rem 1.75rem;
+      margin-bottom: 1.5rem;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+      position: relative;
+    }
+    @media (min-width: 700px) {
+      .qr-card {
+        grid-template-columns: minmax(220px, 280px) 1fr;
+        align-items: start;
+      }
+    }
+    .qr-card .ornament-line {
+      position: absolute;
+      top: 0.6rem; left: 0.6rem; right: 0.6rem; bottom: 0.6rem;
+      border: 1px solid var(--gold);
+      border-radius: 3px;
+      pointer-events: none;
+    }
+    .qr-image {
+      background: #fff;
+      padding: 0.5rem;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      width: 100%;
+      max-width: 280px;
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+    }
+    .qr-image svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .qr-info { padding: 0.25rem 0.25rem 0; }
+    .qr-stop-num {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .qr-title {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin: 0.15rem 0 0.4rem;
+      line-height: 1.15;
+    }
+    .qr-address {
+      font-size: 0.95rem;
+      color: #5a4530;
+      margin-bottom: 0.85rem;
+    }
+    .qr-witness {
+      font-style: italic;
+      font-size: 0.95rem;
+      margin-bottom: 0.85rem;
+    }
+    .qr-witness strong { font-style: normal; }
+    .qr-instructions {
+      border-top: 1px solid var(--line);
+      padding-top: 0.7rem;
+      margin-top: 0.7rem;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+    .qr-instructions strong {
+      font-family: var(--font-display);
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-size: 0.78rem;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+    .qr-url {
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      color: #6a563b;
+      word-break: break-all;
+      margin-top: 0.7rem;
+    }
+
+    /* Cover page */
+    .cover-card {
+      background: var(--paper);
+      color: var(--ink);
+      border: 2px solid var(--ink);
+      border-radius: 4px;
+      padding: 3rem 2.25rem;
+      margin-bottom: 1.5rem;
+      page-break-after: always;
+      break-after: page;
+      text-align: center;
+      position: relative;
+    }
+    .cover-card .ornament-line {
+      position: absolute;
+      top: 0.6rem; left: 0.6rem; right: 0.6rem; bottom: 0.6rem;
+      border: 1px solid var(--gold);
+    }
+    .cover-card h1 {
+      font-family: var(--font-display);
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+    .cover-card h2 {
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.5rem;
+    }
+    .cover-card p { margin-bottom: 0.85rem; }
+    .cover-card .ornament {
+      width: 80px;
+      height: 1px;
+      background: var(--gold);
+      margin: 1.5rem auto;
+      position: relative;
+    }
+    .cover-card .ornament::before {
+      content: '✦';
+      position: absolute;
+      left: 50%;
+      top: -0.7em;
+      transform: translateX(-50%);
+      color: var(--gold);
+      background: var(--paper);
+      padding: 0 0.5rem;
+      font-size: 0.9rem;
+    }
+    .cover-card ol {
+      text-align: left;
+      max-width: 28rem;
+      margin: 1rem auto;
+      padding-left: 1.5rem;
+    }
+    .cover-card ol li { margin-bottom: 0.4rem; }
+
+    /* ---------- print styles ---------- */
+    @media print {
+      html, body { background: #fff; padding: 0; }
+      .toolbar { display: none; }
+      .sheet { max-width: none; margin: 0; }
+      .qr-card, .cover-card {
+        margin: 0 0 0.5cm;
+        border-color: #000;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .qr-card {
+        page-break-after: always;
+        break-after: page;
+        min-height: calc(100vh - 1cm);
+      }
+      .qr-card:last-child { page-break-after: auto; break-after: auto; }
+      @page {
+        size: A4 portrait;
+        margin: 1.2cm;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="toolbar" id="toolbar">
+    <h1>QR codes for printing</h1>
+    <p>
+      One card per pub. Each card holds a QR linking to that stop's deep route
+      (e.g. <code>#/stop/wirstroms</code>). Print on A4 paper, cut, and post at
+      each pub. Players scan to begin that stop.
+    </p>
+    <div class="toolbar-row">
+      <label for="base-url" style="font-size: 0.85rem; color: #b8a684;">
+        Base URL:
+      </label>
+      <input id="base-url" type="url" placeholder="https://your-deployed-site.example" />
+      <button id="apply-btn" type="button">Apply &amp; regenerate</button>
+      <button id="print-btn" type="button">🖨  Print</button>
+      <a href="index.html">← Back to game</a>
+    </div>
+    <p class="hint" id="origin-hint">
+      Defaults to this page's origin so QR codes link to the same site that
+      hosts the app.
+    </p>
+  </div>
+
+  <div class="sheet">
+
+    <!-- Cover sheet — printed once at the top -->
+    <section class="cover-card">
+      <div class="ornament-line" aria-hidden="true"></div>
+      <h2>For the proprietor</h2>
+      <h1>Bellman's Lost Epistle</h1>
+      <p style="font-style: italic; color: #5a4530; margin-bottom: 1.25rem;">
+        A self-guided mystery walk across five Stockholm pubs.
+      </p>
+      <div class="ornament" aria-hidden="true"></div>
+      <p style="text-align: left; max-width: 28rem; margin: 0 auto 1rem;">
+        <strong>How to use these cards:</strong>
+      </p>
+      <ol>
+        <li>Print this sheet on A4 (one card per page).</li>
+        <li>Cut along the outer border of each card.</li>
+        <li>Post the matching card at each pub — bar, table-tent, or framed at the booth.</li>
+        <li>Players scan the QR to begin that stop on their phone.</li>
+      </ol>
+      <div class="ornament" aria-hidden="true"></div>
+      <p style="font-size: 0.9rem; color: #5a4530;">
+        QR codes deep-link directly to each pub's page. Players can scan in
+        any order — the linear unlock is enforced softly through the puzzle
+        chain (no clue from stop N, no answer at stop 5). Latecomers and
+        out-of-order groups still get a working stop page.
+      </p>
+    </section>
+
+    <!-- Per-pub cards inserted by JS -->
+    <div id="cards"></div>
+  </div>
+
+  <script type="module">
+    import qrcode from './vendor/qrcode-generator.mjs';
+    import { STOPS } from './scripts/stops.js';
+    import { pick } from './scripts/i18n.js';
+
+    const baseInput  = document.getElementById('base-url');
+    const applyBtn   = document.getElementById('apply-btn');
+    const printBtn   = document.getElementById('print-btn');
+    const cardsRoot  = document.getElementById('cards');
+    const originHint = document.getElementById('origin-hint');
+
+    const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
+
+    function defaultBase() {
+      // If served over file:// or as an offline asset, fall back to a generic placeholder.
+      if (location.protocol === 'file:' || location.origin === 'null') {
+        return 'https://stockholm-mystery.example';
+      }
+      // Strip the file part — keep only origin + (any path prefix to the app).
+      const url = new URL('.', location.href);
+      // Normalise: drop trailing slashes; the URL builder re-adds the right separators.
+      return url.toString().replace(/\/+$/, '');
+    }
+
+    function buildUrl(base, stopId) {
+      // QR codes encode #/stop/<id> against whichever base the operator uses.
+      const trimmed = base.replace(/\/+$/, '');
+      return `${trimmed}/index.html#/stop/${stopId}`;
+    }
+
+    function makeQrSvg(text) {
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      return qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
+    }
+
+    function renderCards(base) {
+      cardsRoot.innerHTML = '';
+      STOPS.forEach((stop) => {
+        const url = buildUrl(base, stop.id);
+
+        const card = document.createElement('section');
+        card.className = 'qr-card';
+        card.innerHTML = `
+          <div class="ornament-line" aria-hidden="true"></div>
+
+          <div class="qr-image">${makeQrSvg(url)}</div>
+
+          <div class="qr-info">
+            <div class="qr-stop-num">Stop ${ROMAN[stop.num]} of V</div>
+            <div class="qr-title">${escape(stop.title)}</div>
+            <div class="qr-address">${escape(stop.address)}</div>
+            <div class="qr-witness">
+              <strong>Witness:</strong> <em>${escape(stop.witness)}</em><br/>
+              <em>${escape(pick(stop.beat))}</em>
+            </div>
+            <div class="qr-instructions">
+              <strong>Scan to begin</strong>
+              Open your phone camera and point it at the code. The story
+              awaits — read, solve, and walk on. ${stop.num === 1
+                ? 'This is where the wine first chooses you.'
+                : `Verse ${ROMAN[stop.num]} is here, and a witness with something to say.`}
+            </div>
+            <div class="qr-url">${escape(url)}</div>
+          </div>
+        `;
+        cardsRoot.appendChild(card);
+      });
+    }
+
+    function escape(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Initial population.
+    const initialBase = defaultBase();
+    baseInput.value = initialBase;
+    originHint.textContent =
+      `QR codes currently encode: ${initialBase}/index.html#/stop/<id>`;
+    renderCards(initialBase);
+
+    // User overrides the base URL.
+    applyBtn.addEventListener('click', () => {
+      const v = (baseInput.value || '').trim() || initialBase;
+      originHint.textContent = `QR codes currently encode: ${v}/index.html#/stop/<id>`;
+      renderCards(v);
+    });
+    baseInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyBtn.click();
+      }
+    });
+
+    printBtn.addEventListener('click', () => window.print());
+  </script>
+</body>
+</html>

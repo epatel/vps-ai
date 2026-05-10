@@ -83,6 +83,7 @@ SERVICES = [
     # Static file projects (check index.html exists)
     ("Scramble", "/scramble", "file", "scramble"),
     ("Badge", "/badge", "file", "badge"),
+    ("Bellman", "/bellman", "file", "bellman"),
     ("Breakout", "/breakout", "file", "breakout"),
     ("Flutter Demo", "/flutter_demo", "file", "flutter_demo/build/web"),
     ("Todo App", "/todo-app", "file", "todo-app/build/web"),
