@@ -1,6 +1,6 @@
 import 'todo_image.dart';
 
-const String kDefaultCategory = 'Main';
+const String kDefaultCategory = 'Not set';
 
 class Todo {
   final String id;

@@ -124,7 +124,7 @@ def init_db():
     except sqlite3.OperationalError:
         pass
     try:
-        conn.execute("ALTER TABLE todos ADD COLUMN category TEXT DEFAULT 'Main'")
+        conn.execute("ALTER TABLE todos ADD COLUMN category TEXT DEFAULT 'Not set'")
     except sqlite3.OperationalError:
         pass
     conn.close()
@@ -544,7 +544,7 @@ def create_todo():
     data = request.get_json(force=True)
     title = (data.get("title") or "").strip()
     description = data.get("description", "")
-    category = (data.get("category") or "Main").strip() or "Main"
+    category = (data.get("category") or "Not set").strip() or "Not set"
 
     if not title:
         return jsonify({"error": "Title is required"}), 400
@@ -603,7 +603,7 @@ def update_todo(todo_id):
     archived = data.get("archived", todo["archived"])
     category = data.get("category", todo["category"])
     if isinstance(category, str):
-        category = category.strip() or "Main"
+        category = category.strip() or "Not set"
     now = datetime.now(timezone.utc).isoformat()
 
     db.execute(

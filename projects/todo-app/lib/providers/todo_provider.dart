@@ -35,7 +35,7 @@ class TodoProvider extends ChangeNotifier {
   }
 
   /// Distinct categories present on active todos. Always sorted alphabetically.
-  /// The default category ("Main") is always included so users can route
+  /// The default category ("Not set") is always included so users can route
   /// todos back to it even if no todo currently has it.
   List<String> get categories {
     final set = <String>{kDefaultCategory};
