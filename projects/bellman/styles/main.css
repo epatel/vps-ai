@@ -183,6 +183,12 @@ p.lead {
   margin-bottom: 1.25rem;
 }
 
+.song-box audio {
+  width: 100%;
+  margin-top: 0.5rem;
+  filter: sepia(0.35) hue-rotate(-15deg);
+}
+
 .story {
   font-size: 1.05rem;
   line-height: 1.7;
