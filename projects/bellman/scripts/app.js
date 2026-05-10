@@ -440,6 +440,21 @@ function renderFinale() {
   broadside.appendChild(el('pre', pick(FULL_EPISTLE.closing), 'closing-text'));
   app.appendChild(broadside);
 
+  // Recovered melody — a recording of the song to sing along with.
+  const songBox = el('section', null, 'parchment song-box');
+  songBox.appendChild(el('h2', pick({ en: 'The Melody', sv: 'Melodin' })));
+  songBox.appendChild(el('p', pick({
+    en: 'Sill i plunta — press play and sing along.',
+    sv: 'Sill i plunta — tryck på play och sjung med.',
+  }), 'lead'));
+  const audio = document.createElement('audio');
+  audio.controls = true;
+  audio.preload = 'metadata';
+  audio.src = 'assets/sill-i-plunta.mp3';
+  audio.setAttribute('aria-label', pick({ en: 'Sill i plunta — recording', sv: 'Sill i plunta — inspelning' }));
+  songBox.appendChild(audio);
+  app.appendChild(songBox);
+
   // Player choice.
   const choice = getFinaleChoice();
   if (!choice) {
