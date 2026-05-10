@@ -72,6 +72,12 @@ sudo -u "$WEBHOOK_USER" bash "$REPO_DIR/setup-hooks.sh"
 echo ""
 echo "--- Configuring nginx ---"
 cp "$REPO_DIR/nginx/security-headers.conf" /etc/nginx/snippets/security-headers.conf
+
+# Map .mjs to application/javascript so ES module scripts load under
+# strict-MIME browsers. Default nginx mime.types only covers .js.
+if ! grep -qE 'js[[:space:]]+mjs;' /etc/nginx/mime.types; then
+    sed -i 's|application/javascript\([[:space:]]*\)js;|application/javascript\1js mjs;|' /etc/nginx/mime.types
+fi
 cat > /etc/nginx/sites-available/ai.memention.net <<'NGINX'
 server {
     listen 80;
