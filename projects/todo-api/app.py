@@ -555,7 +555,7 @@ def create_todo():
         "SELECT COALESCE(MIN(sort_order), 1) as mn FROM todos WHERE user_id = ? AND archived = 0",
         (g.user_id,),
     ).fetchone()
-    sort_order = (row["mn"] or 1) - 1.0
+    sort_order = row["mn"] - 1.0
 
     todo_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
