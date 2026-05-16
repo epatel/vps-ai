@@ -121,6 +121,8 @@ Append to the project's `CLAUDE.md` (or create `CARDS.md` and import it):
 
 The trigger phrase after the em-dash is the **only** thing the LLM uses to decide whether to open the card. Phrase it as the situation, not the topic: "anything touching login" beats "auth module".
 
+Add to `CLAUDE.md` to keep it and the cards up to date.
+
 ### Step 5 — Verify
 
 - Every card is readable in isolation. Open each one cold; if it requires another card to make sense, fix it.
