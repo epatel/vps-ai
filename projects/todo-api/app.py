@@ -26,7 +26,7 @@ import io
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("TODO_DB_PATH", os.path.join(BASE_DIR, "todo.db"))
 JWT_SECRET = os.environ.get("TODO_JWT_SECRET", secrets.token_hex(32))
-JWT_EXPIRY_HOURS = int(os.environ.get("TODO_JWT_EXPIRY_HOURS", "24"))
+JWT_EXPIRY_HOURS = int(os.environ.get("TODO_JWT_EXPIRY_HOURS", "168"))
 BASE_URL = os.environ.get("TODO_BASE_URL", "https://ai.memention.net/todo-api")
 
 MAILJET_API_KEY = os.environ.get("MJ_APIKEY_PUBLIC", "")
