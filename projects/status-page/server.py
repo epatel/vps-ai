@@ -81,6 +81,7 @@ SERVICES = [
     ("Asteroids", "/asteroids", "port", 8082),
     ("Quiz", "/quiz", "port", 8092, {"check_path": "/quiz/health"}),
     ("SL MCP", "/sl-mcp", "port", 8095, {"check_path": "/sl-mcp/"}),
+    ("SL Chat", "/sl-chat", "port", 8788, {"check_path": "/sl-chat/"}),
     # Static file projects (check index.html exists)
     ("Scramble", "/scramble", "file", "scramble"),
     ("Badge", "/badge", "file", "badge"),
