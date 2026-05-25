@@ -36,6 +36,17 @@ Use mermaid (```` ```mermaid ```` fenced blocks) for diagrams — flows, compone
 
 Cards live under `cards/` flat — type is conveyed by the index section, not the path.
 
+## Coexistence with per-feature CLAUDE.md
+
+When features have their own directory with a co-located `CLAUDE.md` (e.g., `lib/features/<name>/CLAUDE.md`), **do not create a separate domain or feature card** for that feature. The co-located CLAUDE.md is auto-discovered by Claude Code and should be the single source of truth for that feature's contract.
+
+Cards are for content with no natural home directory:
+- **Architecture** — system topology, data flow (spans all features)
+- **Decisions** — rationale for choices (not owned by one feature)
+- **Shared patterns** — hook-wiring semantics, engine API (used by all features)
+
+**Rule of thumb:** If the content describes one feature's internal contract (nodes, context keys, hook guidance, boundary), it belongs in that feature's co-located CLAUDE.md. If it describes how multiple features interact or a system-wide concern, it belongs in a card.
+
 ## The architecture card
 
 One additional, **singleton** card belongs at the top of the index: `architecture`. It captures how components connect, data flows end to end, and the deployment shape — content that doesn't fit any single domain because it spans them.
