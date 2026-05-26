@@ -18,7 +18,7 @@ Based on what you found, present the user with a scoping summary and ask which p
 | Pattern | What it does | Best for | URL |
 |---------|-------------|----------|-----|
 | **Context Cards** | Compresses project knowledge into small, lazy-loaded reference cards indexed from CLAUDE.md | Any project where CLAUDE.md is growing large or agents need domain context | `https://ai.memention.net/cards/cards-instructions.md` |
-| **Feature-First Architecture** | Organizes code as hookable pipelines of named nodes; features are peers, not layers | Projects with multiple interacting features, event-driven or plugin architectures | `https://ai.memention.net/cards/feature-first-structured.md` |
+| **Feature-First Architecture** ⚗️ | Organizes code as hookable pipelines of named nodes; features are peers, not layers | Projects with multiple interacting features, event-driven or plugin architectures | `https://ai.memention.net/cards/feature-first-structured.md` |
 | **Two-Tier CLAUDE.md** | Splits per-feature CLAUDE.md into a slim always-loaded overview + on-demand full contract | Projects using feature-first architecture with 3+ node features | `https://ai.memention.net/cards/two-tier-claude-md.md` |
 
 Your scoping message to the user should include:
@@ -38,7 +38,7 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 - Create the `cards/` directory and populate cards
 - Append the index to `CLAUDE.md`
 
-**Feature-First Architecture** (`feature-first-structured.md`):
+**Feature-First Architecture** (`feature-first-structured.md`) — ⚗️ *Experimental*:
 - Identify existing features/modules that map to the pipeline model
 - Create per-feature `CLAUDE.md` files documenting nodes, context keys, hooks
 - This is a documentation/organization pattern — do NOT refactor code unless the user asks
