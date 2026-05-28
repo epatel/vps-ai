@@ -179,6 +179,8 @@ graph LR
   (after: alert customers)"| D
 ```
 
+The result is the opposite of a layered or tree-structured architecture: a **graph of features** connected through their exposed nodes. Each declares its own pipeline and which nodes of other features it participates in — no feature owns another.
+
 ## Feature Contracts (CLAUDE.md per feature)
 
 Each feature directory contains a `CLAUDE.md` that documents its contract — what the feature provides, what it expects, and how to participate. This serves as the manifest for AI agents working with the codebase.
@@ -208,28 +210,4 @@ features/
     CLAUDE.md
 ```
 
-The CLAUDE.md replaces formal type schemas with natural-language contracts. An agent reads the CLAUDE.md to know what keys are available at each node, what types they are, and how to participate — without reading the implementation. The engine's execution trace provides runtime verification that the hook actually fired where expected.
-
-This is intentionally soft. The contracts are maintained alongside the code, not enforced by the type system. For agentic development this is sufficient: the agent reads the contract, writes the hook, and verifies via the trace.
-
-## Feature Graph
-
-The result is not a tree of modules or a layered architecture — it is a **graph of features** connected through their exposed nodes. Each feature declares its own pipeline and declares which nodes of other features it participates in. No feature "owns" another.
-
-```
-feature returns
-  node validate_return
-    action: check return eligibility
-
-  node refund
-    action: process refund
-
-  -- returns hooks into place-order and inventory as middleware
-  hook place-order.confirm_order.after
-    if ctx.order.is_returnable
-      register_return_window(ctx.order)
-
-  hook inventory.check_stock.after
-    if ctx.has_pending_return
-      ctx.available += ctx.return_quantity
-```
+The CLAUDE.md replaces formal type schemas with natural-language contracts: an agent reads it to learn what keys exist at each node, their types, and how to participate — without reading the implementation. This is intentionally soft — contracts live alongside the code, not in the type system — and for agentic development it suffices: the agent reads the contract, writes the hook, and verifies via the engine's execution trace that it fired where expected.
