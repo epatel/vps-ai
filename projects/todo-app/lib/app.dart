@@ -45,11 +45,30 @@ class TodoApp extends StatelessWidget {
       themeMode: ThemeMode.system,
       home: Consumer<AuthProvider>(
         builder: (context, auth, _) {
+          // While we read the stored token from local storage, show a neutral
+          // splash rather than the login form — this avoids the login screen
+          // flashing for already-authenticated users on startup.
+          if (auth.isInitializing) {
+            return const _SplashScreen();
+          }
           if (auth.isAuthenticated) {
             return TodoListScreen(sharedData: sharedData);
           }
           return const LoginScreen();
         },
+      ),
+    );
+  }
+}
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
       ),
     );
   }

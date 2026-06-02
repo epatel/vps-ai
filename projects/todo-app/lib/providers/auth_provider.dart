@@ -8,6 +8,7 @@ class AuthProvider extends ChangeNotifier {
   String? _email;
   String? _userId;
   bool _isLoading = false;
+  bool _isInitializing = true;
   String? _error;
 
   AuthProvider(this._api) {
@@ -18,9 +19,11 @@ class AuthProvider extends ChangeNotifier {
     _token = 'mock-token';
     _email = 'debug@mock.local';
     _userId = 'mock-user';
+    _isInitializing = false;
   }
 
   bool get isAuthenticated => _token != null;
+  bool get isInitializing => _isInitializing;
   bool get isLoading => _isLoading;
   String? get email => _email;
   String? get userId => _userId;
@@ -31,16 +34,25 @@ class AuthProvider extends ChangeNotifier {
     _token = prefs.getString('auth_token');
     _email = prefs.getString('auth_email');
     _userId = prefs.getString('auth_user_id');
+
+    // Initialization (the local prefs read) is done. Optimistically treat a
+    // stored token as authenticated so we land directly on the list instead of
+    // flashing the login screen, then verify it in the background below.
+    _isInitializing = false;
     if (_token != null) {
       _api.setToken(_token);
-      // Verify token is still valid
+    }
+    notifyListeners();
+
+    if (_token != null) {
+      // Verify token is still valid; only bounce to login if it has expired.
       try {
         await _api.getMe();
       } catch (_) {
         await _clearAuth();
+        notifyListeners();
       }
     }
-    notifyListeners();
   }
 
   Future<void> _saveAuth(String token, String email, String userId) async {
