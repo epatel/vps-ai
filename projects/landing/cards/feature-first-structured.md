@@ -1,76 +1,52 @@
 # Feature-First Structured Architecture
 
-## Core Principle
+Organize code per feature, one directory each. Inside, a feature is a **pipeline of named nodes** — each node an observable, hookable step rather than an opaque function call.
 
-Organize code per feature. Each feature is not a black box with input/output — it is a **pipeline of named nodes**, where each node is an observable, hookable action point.
+## Layout
+
+```
+features/
+  place_order/
+    place_order.dart       ← pipeline definition
+    CLAUDE.md              ← contract: nodes, context keys, hooks
+  inventory/
+    inventory.dart
+    CLAUDE.md
+```
+
+One feature = one directory = one pipeline. Its `CLAUDE.md` is the contract.
 
 ## Node Anatomy
 
-Every node in a feature pipeline has:
+Every node in a pipeline has:
 
-- **Name** — a unique identifier within the feature (e.g. `validate_cart`)
-- **Input context** — the data flowing into this step
+- **Name** — unique within the feature (e.g. `validate_cart`)
+- **Input context** — data flowing in
 - **Action** — the node's own logic
-- **Output context** — the data flowing out
-- **Hook points** — `before` and `after` — where externals attach
+- **Output context** — data flowing out
+- **Hook points** — `before` and `after` — where other code attaches
 
-## Features As Peers
+## Hooks
 
-There is no distinction between "a feature" and "an external." Every feature is simultaneously a pipeline **and** potential middleware for other features. This is bi-directional — if feature A hooks into feature B, feature B can equally hook into feature A. Features are peers, not layers.
-
-## Middleware Binding
-
-Hooks are attached in one of two ways:
-
-**Static (config-time)** — wired during setup, always active for the lifetime of the system. These represent structural relationships between features.
+Other code (including other features) attaches at a node's `before`/`after` points to observe context, modify it, or short-circuit the pipeline. Wire them once at config time:
 
 ```
 config
-  bind inventory -> place-order.validate_cart.before     [static]
-  bind analytics -> place-order.*.after                  [static]
+  bind inventory -> place-order.validate_cart.before
+  bind analytics -> place-order.*.after
 ```
-
-**Dynamic (runtime)** — attached or detached during execution based on conditions, user context, feature flags, or business rules. These allow the feature graph to reshape itself at runtime.
-
-```
-runtime
-  -- seasonal: attach holiday pricing only during promotions
-  if promotion.is_active("holiday-sale")
-    handle = bind holiday_pricing -> place-order.calculate_totals.before
-  ...
-  unbind handle
-
-  -- per-customer: attach fraud check only for flagged accounts
-  if ctx.customer.risk_level > medium
-    handle = bind fraud -> place-order.charge_payment.before
-    run place-order
-    unbind handle
-```
-
-Static bindings are declared once and express the system's architecture. Dynamic bindings let the same architecture adapt to context — a pipeline's middleware set can differ per request, per customer, or per environment.
-
-## Middleware Capabilities
-
-At any node's hook points, any code (including other features) can:
-
-| Capability       | Description                                                      | Example                                              |
-|------------------|------------------------------------------------------------------|------------------------------------------------------|
-| **Observe**      | Read the context without changing it                             | Log the cart contents at `validate_cart`              |
-| **Modify**       | Alter the context before or after the node runs                  | Add a loyalty discount at `calculate_totals`          |
-| **Short-circuit**| Abort the pipeline from a hook                                   | Fraud detector aborts at `validate_cart`              |
-| **Side-effect**  | Trigger external actions from an after-hook                      | Send a webhook notification after `confirm_order`     |
 
 ## Example: `place-order` Feature
 
 ```
 feature place-order
   node validate_cart
-    before: hooks can reject invalid state, add custom validation rules
+    before: hooks can reject invalid state, add validation rules
     action: check items in stock, validate quantities
     after:  hooks observe validated cart
 
   node calculate_totals
-    before: hooks can inject discounts, tax overrides, currency conversion
+    before: hooks can inject discounts, tax overrides
     action: sum line items, apply taxes
     after:  hooks observe final totals
 
@@ -100,13 +76,7 @@ hook place-order.validate_cart.before
 -- Analytics observes every node (read-only)
 hook place-order.*.after
   emit_metric(node.name, ctx.duration, ctx.result)
-
--- Warehouse triggers a side-effect after confirm_order
-hook place-order.confirm_order.after
-  warehouse.reserve(ctx.order.items)
 ```
-
-## Pipeline Flow
 
 ```mermaid
 graph LR
@@ -119,95 +89,28 @@ graph LR
   E(["Fraud check"]) -.->|before: short-circuit| A
   F(["Loyalty plugin"]) -.->|before: modify| B
   G(["Analytics"]) -.->|after: observe| A
-  G -.->|after: observe| B
-  G -.->|after: observe| C
   G -.->|after: observe| D
-  H(["Warehouse"]) -.->|after: side-effect| D
 ```
 
-## Bi-Directional Composition
+## Feature Contract (CLAUDE.md per feature)
 
-Features hook into each other as equals. There is no caller/callee hierarchy — each feature is middleware for the others.
-
-```
-feature place-order
-  node confirm_order
-    action: persist order, assign order number
-
-  -- place-order acts as middleware for inventory
-  hook inventory.low_stock.after
-    if ctx.item in pending_orders
-      notify_customer("item may be delayed", ctx.item)
-
-feature inventory
-  node check_stock
-    action: query warehouse levels
-
-  node low_stock
-    action: flag items below threshold
-
-  -- inventory acts as middleware for place-order
-  hook place-order.validate_cart.before
-    for item in ctx.cart.items
-      if not in_stock(item)
-        abort("item unavailable: " + item.name)
-
-  hook place-order.confirm_order.after
-    for item in ctx.order.items
-      decrement_stock(item)
-```
-
-Both features remain autonomous — each owns its own pipeline — but they participate in each other's action points. The relationship is symmetric: `inventory` is middleware for `place-order`, and `place-order` is middleware for `inventory`.
-
-```mermaid
-graph LR
-  subgraph "place-order"
-    A["validate_cart"] --> B["calculate_totals"]
-    B --> C["charge_payment"]
-    C --> D["confirm_order"]
-  end
-
-  subgraph "inventory"
-    E["check_stock"] --> F["low_stock"]
-  end
-
-  A -.->|"inventory hooks in
-  (before: short-circuit)"| E
-  D -.->|"inventory hooks in
-  (after: decrement stock)"| E
-  F -.->|"place-order hooks in
-  (after: alert customers)"| D
-```
-
-The result is the opposite of a layered or tree-structured architecture: a **graph of features** connected through their exposed nodes. Each declares its own pipeline and which nodes of other features it participates in — no feature owns another.
-
-## Feature Contracts (CLAUDE.md per feature)
-
-Each feature directory contains a `CLAUDE.md` that documents its contract — what the feature provides, what it expects, and how to participate. This serves as the manifest for AI agents working with the codebase.
+Each feature directory holds a `CLAUDE.md` documenting its contract — what the feature provides, what it expects, how to participate. An agent reads it to learn what context keys exist at each node and how to hook in, without reading the implementation.
 
 A feature's CLAUDE.md should contain:
 
-- **Nodes** — each node's name, what context keys it expects (with types), what it produces, and hook guidance (when to use `before` vs `after`)
-- **Context keys table** — who writes each key, who reads it, and the type
-- **Existing hooks** — what other features have already wired into this feature's nodes
-- **Outbound hooks** — what nodes of other features this feature hooks into
+- **Nodes** — each node's name, what context keys it expects (with types), what it produces, and `before` vs `after` guidance
+- **Context keys table** — who writes each key, who reads it, the type
+- **Existing hooks** — what other features have wired into this feature
 - **How to add behavior** — a concrete code example, plus constraints ("do NOT set `total` directly — add to `discounts`")
-- **Public surface** — the entry-point function (e.g., `definePlaceOrder(engine)`)
-- **Owns / Does not own** — explicit boundary: what this feature handles vs what it delegates to hooks or other features
-- **Dynamic hooks** — runtime-bound hooks, not just static wiring (e.g., `holiday_pricing`, `fraud`)
+- **Public surface** — the entry-point function (e.g. `definePlaceOrder(engine)`)
+- **Owns / Does not own** — what this feature handles vs what it delegates
 
-For small features (≤2 nodes, contract ≤40 lines), a single CLAUDE.md is sufficient. For larger features (3+ nodes), split into a slim CLAUDE.md (always loaded, ~15 lines) and a CLAUDE_full.md (on-demand, full contract). See the two-tier CLAUDE.md pattern for details.
+The contract replaces formal type schemas with natural-language description: soft, co-located with the code, and enough for an agent to write a hook and verify via the engine's execution trace that it fired where expected.
 
-If the project also uses a cards system, per-feature content lives exclusively in the co-located CLAUDE.md/CLAUDE_full.md. Cards are reserved for cross-cutting documentation.
+For larger features (3+ nodes), split the contract into a slim always-loaded CLAUDE.md plus an on-demand full version (the two-tier CLAUDE.md pattern).
 
-```
-features/
-  place_order/
-    place_order.dart       ← pipeline definition
-    CLAUDE.md              ← contract: nodes, context keys, existing hooks
-  inventory/
-    inventory.dart
-    CLAUDE.md
-```
+When the project also uses a cards system, per-feature content lives only in the co-located CLAUDE.md — cards are reserved for cross-cutting documentation.
 
-The CLAUDE.md replaces formal type schemas with natural-language contracts: an agent reads it to learn what keys exist at each node, their types, and how to participate — without reading the implementation. This is intentionally soft — contracts live alongside the code, not in the type system — and for agentic development it suffices: the agent reads the contract, writes the hook, and verifies via the engine's execution trace that it fired where expected.
+---
+
+The advanced version of this pattern — features as bidirectional peers, runtime-bound (dynamic) hooks, and the full middleware capability model — lives in the **feature-first-advanced** card. Start here; reach for that only when features genuinely need to hook into each other or reshape the graph per request.
