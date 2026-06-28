@@ -168,14 +168,14 @@
   <header>
     <h1><span class="em">🎨</span> Emoji Mixer</h1>
     <div class="spacer"></div>
-    <button class="btn" id="clearBtn" title="Remove all emojis">🧹 Clear</button>
-    <button class="btn primary" id="downloadBtn" title="Download as PNG">⬇️ PNG</button>
+    <button class="btn" id="clearBtn" title="Remove all emojis from the mixing area">🧹 Clear</button>
+    <button class="btn primary" id="downloadBtn" title="Download a transparent PNG cropped tightly to your emojis">⬇️ PNG</button>
   </header>
 
   <main>
     <div class="stage-wrap">
       <div class="stage-frame" id="stageFrame">
-        <canvas id="stage"></canvas>
+        <canvas id="stage" title="Drag an emoji to move it. Drag the orange corner handle to scale & rotate. Press Esc to deselect."></canvas>
         <div class="stage-hint" id="hint">Tap an emoji on the right to add it.<br>Drag to move • corner handle to scale &amp; rotate.</div>
       </div>
 
@@ -183,25 +183,25 @@
       <div class="tools">
         <div class="group">
           <span class="label">Layer</span>
-          <button class="tbtn" id="layerUp" title="Bring forward">⬆️</button>
-          <button class="tbtn" id="layerDown" title="Send backward">⬇️</button>
-          <button class="tbtn" id="layerTop" title="Bring to front">⏫</button>
-          <button class="tbtn" id="layerBottom" title="Send to back">⏬</button>
+          <button class="tbtn" id="layerUp" title="Bring selected emoji forward one layer (])">⬆️</button>
+          <button class="tbtn" id="layerDown" title="Send selected emoji backward one layer ([)">⬇️</button>
+          <button class="tbtn" id="layerTop" title="Bring selected emoji to the front">⏫</button>
+          <button class="tbtn" id="layerBottom" title="Send selected emoji to the back">⏬</button>
         </div>
         <div class="sep"></div>
         <div class="group">
           <span class="label">Transform</span>
-          <button class="tbtn" id="scaleUp" title="Scale up">➕</button>
-          <button class="tbtn" id="scaleDown" title="Scale down">➖</button>
-          <button class="tbtn" id="rotL" title="Rotate left">↺</button>
-          <button class="tbtn" id="rotR" title="Rotate right">↻</button>
-          <button class="tbtn" id="mirror" title="Mirror left/right">🪞</button>
+          <button class="tbtn" id="scaleUp" title="Scale selected emoji up">➕</button>
+          <button class="tbtn" id="scaleDown" title="Scale selected emoji down">➖</button>
+          <button class="tbtn" id="rotL" title="Rotate selected emoji 15° left">↺</button>
+          <button class="tbtn" id="rotR" title="Rotate selected emoji 15° right">↻</button>
+          <button class="tbtn" id="mirror" title="Mirror selected emoji left ↔ right (M)">🪞</button>
         </div>
         <div class="sep"></div>
         <div class="group">
           <span class="label">Edit</span>
-          <button class="tbtn" id="duplicate" title="Duplicate">⧉</button>
-          <button class="tbtn danger" id="remove" title="Remove selected">🗑️</button>
+          <button class="tbtn" id="duplicate" title="Duplicate selected emoji (D)">⧉</button>
+          <button class="tbtn danger" id="remove" title="Remove selected emoji (Delete)">🗑️</button>
         </div>
       </div>
 
@@ -211,11 +211,11 @@
         <div class="cur" id="selCur" style="display:none"></div>
         <div class="field" id="fScale" style="display:none">
           <label>Scale: <span id="scaleVal"></span></label>
-          <input type="range" id="scaleRange" min="20" max="400" step="1">
+          <input type="range" id="scaleRange" min="20" max="400" step="1" title="Resize the selected emoji">
         </div>
         <div class="field" id="fRot" style="display:none">
           <label>Rotation: <span id="rotVal"></span>°</label>
-          <input type="range" id="rotRange" min="0" max="360" step="1">
+          <input type="range" id="rotRange" min="0" max="360" step="1" title="Rotate the selected emoji">
         </div>
       </div>
     </div>
@@ -224,7 +224,7 @@
     <div class="picker">
       <div class="picker-head">
         <div class="ttl">Emoji Selection</div>
-        <input type="text" id="search" placeholder="🔍 Search emojis…">
+        <input type="text" id="search" placeholder="🔍 Search emojis…" title="Search emojis by keyword (e.g. fire, heart, dog)">
         <div class="cats" id="cats"></div>
       </div>
       <div class="grid" id="grid"></div>
@@ -318,8 +318,58 @@ function resizeStage() {
 function itemById(id) { return items.find(i => i.id === id); }
 function selected() { return selectedId ? itemById(selectedId) : null; }
 
-/* half-extent of an emoji in px (square-ish bbox) */
-function halfSize(it) { return (BASE_SIZE * it.scale) / 2; }
+const EMOJI_FONT = `"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+
+/* Measure the actual rendered pixel bounds of an emoji glyph (at BASE_SIZE,
+   relative to the centre origin). Emoji glyphs are not perfectly square nor
+   centred, so we scan rendered pixels once per emoji and cache the result. */
+const metricsCache = {};
+function emojiMetrics(emoji) {
+  if (metricsCache[emoji]) return metricsCache[emoji];
+  const pad = 24;
+  const dim = BASE_SIZE + pad * 2;
+  const c = document.createElement("canvas");
+  c.width = dim; c.height = dim;
+  const cx = c.getContext("2d");
+  const ox = dim / 2, oy = dim / 2;
+  cx.font = `${BASE_SIZE}px ${EMOJI_FONT}`;
+  cx.textAlign = "center";
+  cx.textBaseline = "middle";
+  cx.fillText(emoji, ox, oy);
+  let minX = dim, minY = dim, maxX = -1, maxY = -1;
+  try {
+    const data = cx.getImageData(0, 0, dim, dim).data;
+    for (let y = 0; y < dim; y++) {
+      for (let x = 0; x < dim; x++) {
+        if (data[(y * dim + x) * 4 + 3] > 8) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+  } catch (e) { /* getImageData may throw if tainted — fall back below */ }
+  let box;
+  if (maxX < 0) {
+    // nothing drawn / unmeasurable — fall back to a centred square
+    const h = BASE_SIZE / 2;
+    box = { left: -h, right: h, top: -h, bottom: h };
+  } else {
+    box = { left: minX - ox, right: maxX + 1 - ox, top: minY - oy, bottom: maxY + 1 - oy };
+  }
+  metricsCache[emoji] = box;
+  return box;
+}
+
+/* Bounding box of an item in its own (pre-rotation) space, including scale & flip. */
+function itemBox(it) {
+  const m = emojiMetrics(it.emoji);
+  const s = it.scale;
+  let left = m.left * s, right = m.right * s;
+  if (it.flip) { const nl = -right, nr = -left; left = nl; right = nr; }
+  return { left, right, top: m.top * s, bottom: m.bottom * s };
+}
 
 /* convert client (mouse/touch) coords to logical canvas coords */
 function toLocal(clientX, clientY) {
@@ -339,18 +389,36 @@ function hitTest(px, py) {
   for (let i = items.length - 1; i >= 0; i--) {
     const it = items[i];
     const p = pointInItemSpace(it, px, py);
-    const h = halfSize(it);
-    if (Math.abs(p.x) <= h && Math.abs(p.y) <= h) return it;
+    const b = itemBox(it);
+    if (p.x >= b.left && p.x <= b.right && p.y >= b.top && p.y <= b.bottom) return it;
   }
   return null;
 }
 
-/* world position of the scale/rotate handle (bottom-right corner) */
+/* world position of the scale/rotate handle (bottom-right corner of the glyph box) */
 function handlePos(it) {
-  const h = halfSize(it);
+  const b = itemBox(it);
   const c = Math.cos(it.rot), s = Math.sin(it.rot);
-  // corner at (h, h) in item space
-  return { x: it.x + (h * c - h * s), y: it.y + (h * s + h * c) };
+  const x = b.right, y = b.bottom;
+  return { x: it.x + (x * c - y * s), y: it.y + (x * s + y * c) };
+}
+
+/* Axis-aligned bounding box of all items in world (canvas) coordinates. */
+function worldBBox() {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const it of items) {
+    const b = itemBox(it);
+    const c = Math.cos(it.rot), s = Math.sin(it.rot);
+    const corners = [[b.left, b.top], [b.right, b.top], [b.right, b.bottom], [b.left, b.bottom]];
+    for (const [x, y] of corners) {
+      const wx = it.x + (x * c - y * s), wy = it.y + (x * s + y * c);
+      if (wx < minX) minX = wx;
+      if (wx > maxX) maxX = wx;
+      if (wy < minY) minY = wy;
+      if (wy > maxY) maxY = wy;
+    }
+  }
+  return { minX, minY, maxX, maxY };
 }
 
 /* ---------------- Rendering ---------------- */
@@ -363,7 +431,7 @@ function render() {
     ctx.translate(it.x, it.y);
     ctx.rotate(it.rot);
     if (it.flip) ctx.scale(-1, 1);
-    ctx.font = `${BASE_SIZE * it.scale}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    ctx.font = `${BASE_SIZE * it.scale}px ${EMOJI_FONT}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(it.emoji, 0, 0);
@@ -378,21 +446,21 @@ function render() {
 }
 
 function drawSelection(it) {
-  const h = halfSize(it);
+  const b = itemBox(it);
   ctx.save();
   ctx.translate(it.x, it.y);
   ctx.rotate(it.rot);
   ctx.strokeStyle = "#6c8cff";
   ctx.lineWidth = 1.5;
   ctx.setLineDash([6, 4]);
-  ctx.strokeRect(-h, -h, h * 2, h * 2);
+  ctx.strokeRect(b.left, b.top, b.right - b.left, b.bottom - b.top);
   ctx.setLineDash([]);
-  // handle at bottom-right corner
+  // handle at bottom-right corner of the actual glyph box
   ctx.fillStyle = "#ffb648";
   ctx.strokeStyle = "#20160a";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.arc(h, h, 9, 0, Math.PI * 2);
+  ctx.arc(b.right, b.bottom, 9, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.restore();
@@ -617,25 +685,59 @@ function renderGrid() {
 searchEl.oninput = renderGrid;
 
 /* ---------------- Download PNG ---------------- */
+/* Trim fully-transparent borders off a canvas, returning a tight copy. */
+function trimCanvas(src) {
+  const w = src.width, h = src.height;
+  const sctx = src.getContext("2d");
+  let data;
+  try { data = sctx.getImageData(0, 0, w, h).data; }
+  catch (e) { return src; }
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] > 0) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return src; // nothing drawn
+  const tw = maxX - minX + 1, th = maxY - minY + 1;
+  const out = document.createElement("canvas");
+  out.width = tw; out.height = th;
+  out.getContext("2d").drawImage(src, minX, minY, tw, th, 0, 0, tw, th);
+  return out;
+}
+
 document.getElementById("downloadBtn").onclick = () => {
   if (!items.length) { toast("Add some emojis first"); return; }
   const scale = 2; // export at 2× the stage for crispness
+  const pad = 4;   // tiny margin so anti-aliased edges aren't clipped
+  const bb = worldBBox();
+  const minX = Math.floor(bb.minX) - pad;
+  const minY = Math.floor(bb.minY) - pad;
+  const bw = Math.max(1, Math.ceil(bb.maxX) - minX + pad);
+  const bh = Math.max(1, Math.ceil(bb.maxY) - minY + pad);
   const out = document.createElement("canvas");
-  out.width = W * scale; out.height = H * scale;
+  out.width = bw * scale; out.height = bh * scale;
   const o = out.getContext("2d");
   o.scale(scale, scale);
+  o.translate(-minX, -minY); // shift so the emoji bounds sit at the origin
   // transparent background by default
   for (const it of items) {
     o.save();
     o.translate(it.x, it.y);
     o.rotate(it.rot);
     if (it.flip) o.scale(-1, 1);
-    o.font = `${BASE_SIZE * it.scale}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    o.font = `${BASE_SIZE * it.scale}px ${EMOJI_FONT}`;
     o.textAlign = "center"; o.textBaseline = "middle";
     o.fillText(it.emoji, 0, 0);
     o.restore();
   }
-  out.toBlob((blob) => {
+  // pixel-tight trim so the PNG contains only the emojis and nothing more
+  trimCanvas(out).toBlob((blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "emoji-mix.png";
