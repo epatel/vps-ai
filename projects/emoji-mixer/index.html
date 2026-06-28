@@ -39,6 +39,7 @@
     display: inline-flex; align-items: center; gap: 6px; user-select: none;
     transition: background .12s, border-color .12s, transform .05s;
   }
+  select.btn { appearance: none; -webkit-appearance: none; padding-right: 12px; }
   .btn:hover { background: #2b3040; }
   .btn:active { transform: scale(.96); }
   .btn.primary { background: var(--accent); color: #20160a; border-color: var(--accent); font-weight: 700; }
@@ -168,6 +169,11 @@
   <header>
     <h1><span class="em">🎨</span> Emoji Mixer</h1>
     <div class="spacer"></div>
+    <select class="btn" id="renderMode" title="How emojis are drawn. SVG modes stay crisp at any size; HD Native keeps your platform's emoji look.">
+      <option value="supersample">🖌️ HD Native</option>
+      <option value="twemoji">🎨 Twemoji (SVG)</option>
+      <option value="noto">🎨 Noto (SVG)</option>
+    </select>
     <button class="btn" id="clearBtn" title="Remove all emojis from the mixing area">🧹 Clear</button>
     <button class="btn primary" id="downloadBtn" title="Download a transparent PNG cropped tightly to your emojis">⬇️ PNG</button>
   </header>
@@ -1441,6 +1447,114 @@ let W = 800, H = 600;
 
 const BASE_SIZE = 120; // px font size at scale 1.0
 
+/* ---------------- Render mode (emoji art source) ----------------
+   "supersample" — draw the platform emoji font into a higher-resolution
+                   backing store so large emojis antialias smoothly.
+   "twemoji"/"noto" — draw vector SVG glyphs (crisp at ANY size), loaded
+                   from a CDN with CORS so the canvas stays exportable. */
+const RENDER_MODE_KEY = "emoji-mixer-render-mode";
+let renderMode = localStorage.getItem(RENDER_MODE_KEY) || "supersample";
+
+const SVG_BASE = {
+  twemoji: "https://cdn.jsdelivr.net/gh/twitter/twemoji@v14.0.2/assets/svg/",
+  noto:    "https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@main/svg/",
+};
+
+/* device-pixel multiplier; supersample mode renders extra-large then downscales */
+function deviceScale() {
+  return Math.min(4, DPR * (renderMode === "supersample" ? 2 : 1));
+}
+
+/* emoji string -> hex codepoints (dropping VS16, matching twemoji/noto filenames) */
+function emojiCodepoints(emoji) {
+  const cps = [];
+  for (const ch of emoji) {
+    const cp = ch.codePointAt(0);
+    if (cp === 0xFE0F) continue;
+    cps.push(cp.toString(16));
+  }
+  return cps;
+}
+const NOTO_FLAGS_BASE = "https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@main/third_party/region-flags/svg/";
+/* two regional-indicator symbols -> ISO 3166 alpha-2 code (e.g. 🇸🇪 -> "SE"), else null */
+function regionCode(emoji) {
+  const chars = [...emoji];
+  const ind = chars.every(c => { const cp = c.codePointAt(0); return cp >= 0x1F1E6 && cp <= 0x1F1FF; });
+  if (!ind || chars.length !== 2) return null;
+  return chars.map(c => String.fromCharCode(65 + c.codePointAt(0) - 0x1F1E6)).join("");
+}
+function glyphURL(emoji, mode) {
+  const cps = emojiCodepoints(emoji);
+  if (!cps.length || !SVG_BASE[mode]) return null;
+  if (mode === "noto") {
+    const rc = regionCode(emoji);                 // Noto keeps country flags in a separate set
+    if (rc) return NOTO_FLAGS_BASE + rc + ".svg";
+    return SVG_BASE.noto + "emoji_u" + cps.join("_") + ".svg";
+  }
+  return SVG_BASE.twemoji + cps.join("-") + ".svg";
+}
+
+/* Async-loaded SVG glyph cache. glyphReady() returns a ready Image, or null
+   (not loaded yet / unavailable) so callers fall back to the platform font. */
+const glyphCache = {};   // key -> Image | null (null = failed/unavailable)
+const glyphLoading = {}; // key -> Promise
+function glyphKey(emoji, mode) { return mode + "|" + emoji; }
+function loadGlyph(emoji, mode = renderMode) {
+  const k = glyphKey(emoji, mode);
+  if (k in glyphCache) return Promise.resolve(glyphCache[k]);
+  if (glyphLoading[k]) return glyphLoading[k];
+  const url = glyphURL(emoji, mode);
+  if (!url) { glyphCache[k] = null; return Promise.resolve(null); }
+  const p = new Promise((res) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => { glyphCache[k] = img; delete glyphLoading[k]; scheduleRender(); res(img); };
+    img.onerror = () => { glyphCache[k] = null; delete glyphLoading[k]; res(null); };
+    img.src = url;
+  });
+  glyphLoading[k] = p;
+  return p;
+}
+function glyphReady(emoji) {
+  if (renderMode === "supersample") return null;
+  const k = glyphKey(emoji, renderMode);
+  if (k in glyphCache) return glyphCache[k];
+  loadGlyph(emoji);
+  return null;
+}
+
+let renderQueued = false;
+function scheduleRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => { renderQueued = false; render(); });
+}
+
+/* Paint one item onto a context (shared by the live canvas and PNG export). */
+function paintItem(c, it) {
+  c.save();
+  c.translate(it.x, it.y);
+  c.rotate(it.rot);
+  if (it.flip) c.scale(-1, 1);
+  const size = BASE_SIZE * it.scale;
+  const img = glyphReady(it.emoji);
+  if (img) {
+    c.imageSmoothingEnabled = true;
+    c.imageSmoothingQuality = "high";
+    // fit the glyph into a size×size box, preserving aspect (flags are wider than tall)
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    const f = size / Math.max(iw, ih);
+    const dw = iw * f, dh = ih * f;
+    c.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+  } else {
+    c.font = `${size}px ${EMOJI_FONT}`;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText(it.emoji, 0, 0);
+  }
+  c.restore();
+}
+
 /* ---------------- Persistence ---------------- */
 function save() {
   try {
@@ -1468,10 +1582,11 @@ function resizeStage() {
   W = Math.max(200, Math.floor(rect.width - 4));
   H = Math.max(200, Math.floor(rect.height - 4));
   DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  const ds = deviceScale();
   stage.style.width = W + "px";
   stage.style.height = H + "px";
-  stage.width = Math.floor(W * DPR);
-  stage.height = Math.floor(H * DPR);
+  stage.width = Math.floor(W * ds);
+  stage.height = Math.floor(H * ds);
   render();
 }
 
@@ -1584,20 +1699,11 @@ function worldBBox() {
 
 /* ---------------- Rendering ---------------- */
 function render() {
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const ds = deviceScale();
+  ctx.setTransform(ds, 0, 0, ds, 0, 0);
   ctx.clearRect(0, 0, W, H);
 
-  for (const it of items) {
-    ctx.save();
-    ctx.translate(it.x, it.y);
-    ctx.rotate(it.rot);
-    if (it.flip) ctx.scale(-1, 1);
-    ctx.font = `${BASE_SIZE * it.scale}px ${EMOJI_FONT}`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(it.emoji, 0, 0);
-    ctx.restore();
-  }
+  for (const it of items) paintItem(ctx, it);
 
   // selection overlay
   const sel = selected();
@@ -1766,6 +1872,19 @@ document.getElementById("clearBtn").onclick = () => {
   }
 };
 
+/* ---------------- Render mode selector ---------------- */
+const renderModeEl = document.getElementById("renderMode");
+renderModeEl.value = renderMode;
+renderModeEl.onchange = () => {
+  renderMode = renderModeEl.value;
+  try { localStorage.setItem(RENDER_MODE_KEY, renderMode); } catch (e) {}
+  if (renderMode !== "supersample") {
+    // warm the cache for what's already on the canvas, then repaint
+    [...new Set(items.map(i => i.emoji))].forEach(e => loadGlyph(e));
+  }
+  resizeStage(); // backing-store resolution depends on the mode
+};
+
 /* ---------------- Selected emoji panel (sliders) ---------------- */
 const scaleRange = document.getElementById("scaleRange");
 const rotRange = document.getElementById("rotRange");
@@ -1878,9 +1997,13 @@ function trimCanvas(src) {
   return out;
 }
 
-document.getElementById("downloadBtn").onclick = () => {
+document.getElementById("downloadBtn").onclick = async () => {
   if (!items.length) { toast("Add some emojis first"); return; }
-  const scale = 2; // export at 2× the stage for crispness
+  // In SVG modes, make sure every glyph image is loaded before drawing.
+  if (renderMode !== "supersample") {
+    await Promise.all([...new Set(items.map(i => i.emoji))].map(e => loadGlyph(e)));
+  }
+  const scale = renderMode === "supersample" ? 3 : 2; // supersample the export for crispness
   const pad = 4;   // tiny margin so anti-aliased edges aren't clipped
   const bb = worldBBox();
   const minX = Math.floor(bb.minX) - pad;
@@ -1893,16 +2016,7 @@ document.getElementById("downloadBtn").onclick = () => {
   o.scale(scale, scale);
   o.translate(-minX, -minY); // shift so the emoji bounds sit at the origin
   // transparent background by default
-  for (const it of items) {
-    o.save();
-    o.translate(it.x, it.y);
-    o.rotate(it.rot);
-    if (it.flip) o.scale(-1, 1);
-    o.font = `${BASE_SIZE * it.scale}px ${EMOJI_FONT}`;
-    o.textAlign = "center"; o.textBaseline = "middle";
-    o.fillText(it.emoji, 0, 0);
-    o.restore();
-  }
+  for (const it of items) paintItem(o, it);
   // pixel-tight trim so the PNG contains only the emojis and nothing more
   trimCanvas(out).toBlob((blob) => {
     const url = URL.createObjectURL(blob);

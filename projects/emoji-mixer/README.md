@@ -22,8 +22,20 @@ The UI has the three requested parts plus a download button:
 
 ### 3. Emoji selection matrix
 - Category tabs (Smileys, People, Animals, Food, Activity, Travel, Objects, Symbols, Flags).
-- A live search box (matches the glyph or a keyword like `fire`, `heart`, `dog`).
+- A live search box — matches the glyph, a name/keyword (`banana`, `sweden`,
+  `castle`), or a whole category (`flags`, `food`). Every emoji is searchable
+  by name (generated from the unicode-emoji-json dataset).
 - Tap any emoji to drop it into the centre of the mixing area.
+
+### Render quality (header selector)
+Large emojis can look rough because platform color-emoji fonts are bitmaps.
+A header dropdown picks how glyphs are drawn (remembered across reloads):
+- **HD Native** — the platform's own emoji, drawn into a supersampled
+  backing store so they antialias smoothly. No network needed; keeps the
+  native look.
+- **Twemoji (SVG)** / **Noto (SVG)** — vector glyphs from a CDN that stay
+  crisp at any size and in the exported PNG. Loaded with CORS so export still
+  works; any glyph a set lacks falls back to the platform font.
 
 ### Download as PNG
 - The **PNG** button in the header exports your composition (at 2× resolution,
@@ -44,8 +56,10 @@ The UI has the three requested parts plus a download button:
 
 ## Implementation
 - Single static `index.html`, no build step, no dependencies.
-- Emojis are rendered as text onto an HTML `<canvas>` (with the system color-emoji
-  font), which is also what makes the PNG export pixel-identical to the on-screen view.
+- Emojis are rendered onto an HTML `<canvas>` — either as text (with the system
+  color-emoji font) or as vector SVG images (Twemoji/Noto), selectable at runtime.
+  The same paint path feeds the live canvas and the PNG export, so the download
+  matches the on-screen view.
 - Selection rectangles, hit-testing and the scale/rotate handle use each emoji's
   **measured glyph bounds** (sampled once per emoji from rendered pixels and cached)
   rather than a fixed square, so the bounding box hugs the actual glyph.
