@@ -88,7 +88,7 @@ ISSUE_URL=$(echo "$ISSUE_JSON" | python3 -c "import sys,json; print(json.load(sy
 log "Issue #${ISSUE_NUM}: ${ISSUE_TITLE}"
 
 # Validate issue key (expect "key:<token>" in issue body)
-ISSUE_KEY=$(echo "$ISSUE_BODY" | grep -oP 'key:\K\S+' | head -1 || true)
+ISSUE_KEY=$(echo "$ISSUE_BODY" | grep -oP 'key:\s*\K\S+' | head -1 || true)
 if [[ -z "$ISSUE_KEY" ]]; then
   log "REJECTED issue #${ISSUE_NUM}: no key found in issue body"
   python3 "$SCRIPT_DIR/github-helper.py" post-comment <(echo "---ISSUE-COMMENT---
