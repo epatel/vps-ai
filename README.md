@@ -170,10 +170,13 @@ Agent-created projects live under `projects/`. Services are managed via systemd 
 |---------|-------------|
 | [asteroids](projects/asteroids/) | Multiplayer Asteroids arcade game with WebSocket networking |
 | [badge](projects/badge/) | E-paper badge designer/writer over BLE |
+| [bellman](projects/bellman/) | Self-guided pub-walk mystery game through five taverns in Gamla stan (mobile-first single-page web app) |
 | [breakout](projects/breakout/) | Classic Breakout brick-breaker game (single-page HTML) |
 | [drop](projects/drop/) | Instant cross-device sharing (text, links, images, files) via paired PWA |
+| [emoji-mixer](projects/emoji-mixer/) | Browser-based emoji collage tool — arrange and transform emojis, export a transparent PNG |
 | [flutter_demo](projects/flutter_demo/) | Flutter web demo app |
 | [poem](projects/poem/) | A poem about working with AI |
+| [quiz](projects/quiz/) | Realtime multiplayer trivia game (Kahoot-style) with room codes and a live leaderboard (Python aiohttp + WebSocket) |
 | [scramble](projects/scramble/) | Vectrex-style arcade flight shooter with terrain and enemies |
 | [status-page](projects/status-page/) | Server status dashboard with metrics graphs and a deploy/event log (Python + systemd service) |
 | [todo-api](projects/todo-api/) | REST API for todos with JWT auth (Python/Flask) |
