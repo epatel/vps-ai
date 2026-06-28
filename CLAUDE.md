@@ -195,3 +195,18 @@ tail -f .agent-issue-N.log
 # Reinstall git hooks after editing hooks/
 bash setup-hooks.sh
 ```
+
+## Keeping documentation up to date
+
+When you change how the system works, update both `CLAUDE.md` and `README.md`
+in the same change so they stay in sync with the code:
+
+- `CLAUDE.md` — guidance for agents working in this repo (internal detail, conventions)
+- `README.md` — public-facing overview of the system
+
+This applies to changes such as: new/renamed scripts or services, directory
+structure changes, the issue/webhook flow, the deploy pipeline, nginx/systemd
+conventions, and adding a new project.
+
+**Do not document the issue-authorization key scheme or `public.pem` in
+either file** — that mechanism is intentionally kept out of the public docs.
