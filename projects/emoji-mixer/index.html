@@ -2020,11 +2020,31 @@ document.getElementById("scaleDown").onclick = () => { const s = requireSel(); i
 document.getElementById("rotL").onclick = () => { const s = requireSel(); if (!s) return; s.rot -= Math.PI / 12; render(); syncSelPanel(); save(); };
 document.getElementById("rotR").onclick = () => { const s = requireSel(); if (!s) return; s.rot += Math.PI / 12; render(); syncSelPanel(); save(); };
 
-document.getElementById("clearBtn").onclick = () => {
+/* Two-click clear: the first click arms the button (no blocking dialog), the
+   second click within a few seconds actually clears. Auto-disarms on timeout. */
+let clearArmed = false, clearTimer = null;
+const clearBtn = document.getElementById("clearBtn");
+const CLEAR_LABEL = clearBtn.textContent;
+function disarmClear() {
+  clearArmed = false;
+  clearTimer = null;
+  clearBtn.textContent = CLEAR_LABEL;
+  clearBtn.classList.remove("danger");
+}
+clearBtn.onclick = () => {
   if (!items.length) return;
-  if (confirm("Remove everything from the mixing area?")) {
-    items = []; selectedId = null; render(); syncSelPanel(); save();
+  if (!clearArmed) {
+    clearArmed = true;
+    clearBtn.textContent = "🧹 Sure?";
+    clearBtn.classList.add("danger");
+    toast("Click Clear again to remove everything");
+    clearTimer = setTimeout(disarmClear, 3000);
+    return;
   }
+  clearTimeout(clearTimer);
+  disarmClear();
+  items = []; selectedId = null; render(); syncSelPanel(); save();
+  toast("Cleared 🧹");
 };
 
 /* ---------------- Render mode selector ---------------- */
