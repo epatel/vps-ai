@@ -262,6 +262,27 @@ const KEYWORDS = {
   "🚗":"car","✈️":"plane airplane","🚀":"rocket","🎉":"party celebrate","🎁":"gift present","💡":"idea bulb",
   "💰":"money","💎":"diamond gem","📱":"phone mobile","💻":"laptop computer","🌍":"earth world globe",
   "🌙":"moon","☀️":"sun","💩":"poop","👀":"eyes look","🤡":"clown","👑":"crown king queen",
+  // Buildings & places
+  "🏠":"house home","🏡":"house home garden","🏘️":"houses neighborhood homes","🏚️":"derelict abandoned house",
+  "🏗️":"construction building site crane","🏭":"factory industry","🏢":"office building","🏬":"department store mall",
+  "🏣":"post office japanese","🏤":"post office","🏥":"hospital","🏦":"bank","🏨":"hotel","🏪":"convenience store shop",
+  "🏫":"school","🏩":"love hotel","💒":"wedding chapel church","🏛️":"classical building bank museum",
+  "⛪":"church","🕌":"mosque","🕍":"synagogue","🛕":"hindu temple","🏰":"castle","🏯":"japanese castle",
+  "🗽":"statue of liberty new york","🗼":"tower eiffel tokyo","🌉":"bridge","🏟️":"stadium arena",
+  // Flags (country names + demonyms)
+  "🏁":"checkered flag race finish","🚩":"red flag","🎌":"crossed flags japan","🏴":"black flag","🏳️":"white flag surrender",
+  "🏳️‍🌈":"rainbow flag pride lgbt","🏴‍☠️":"pirate flag jolly roger",
+  "🇺🇳":"united nations un","🇺🇸":"usa united states america american","🇬🇧":"uk united kingdom britain british england",
+  "🇨🇦":"canada canadian","🇫🇷":"france french","🇩🇪":"germany german deutschland","🇮🇹":"italy italian",
+  "🇪🇸":"spain spanish espana","🇵🇹":"portugal portuguese","🇳🇱":"netherlands dutch holland","🇧🇪":"belgium belgian",
+  "🇸🇪":"sweden swedish sverige","🇳🇴":"norway norwegian","🇩🇰":"denmark danish","🇫🇮":"finland finnish",
+  "🇮🇪":"ireland irish","🇮🇸":"iceland icelandic","🇵🇱":"poland polish","🇨🇿":"czech czechia","🇦🇹":"austria austrian",
+  "🇨🇭":"switzerland swiss","🇬🇷":"greece greek","🇹🇷":"turkey turkish","🇷🇺":"russia russian","🇺🇦":"ukraine ukrainian",
+  "🇯🇵":"japan japanese nippon","🇨🇳":"china chinese","🇰🇷":"korea korean south","🇮🇳":"india indian",
+  "🇧🇷":"brazil brazilian","🇦🇷":"argentina argentine","🇲🇽":"mexico mexican","🇦🇺":"australia australian",
+  "🇳🇿":"new zealand kiwi","🇿🇦":"south africa","🇪🇬":"egypt egyptian","🇸🇦":"saudi arabia","🇦🇪":"uae emirates dubai",
+  "🇮🇱":"israel israeli","🇹🇭":"thailand thai","🇻🇳":"vietnam vietnamese","🇵🇭":"philippines filipino",
+  "🇮🇩":"indonesia indonesian","🇲🇾":"malaysia malaysian","🇸🇬":"singapore singaporean",
 };
 
 const STORAGE_KEY = "emoji-mixer-state-v1";
@@ -658,11 +679,17 @@ function renderGrid() {
   const q = searchEl.value.trim().toLowerCase();
   let emojis;
   if (q) {
-    const all = new Set();
-    CATEGORIES.forEach(c => parseList(c.list).forEach(e => all.add(e)));
-    emojis = [...all].filter(e => {
-      const kw = KEYWORDS[e] || "";
-      return e.includes(q) || kw.includes(q);
+    // Match by literal char, keyword, or category name; dedupe, keep order.
+    const seen = new Set();
+    emojis = [];
+    CATEGORIES.forEach(c => {
+      const catMatch = c.name.toLowerCase().includes(q);
+      parseList(c.list).forEach(e => {
+        const kw = KEYWORDS[e] || "";
+        if ((catMatch || e.includes(q) || kw.includes(q)) && !seen.has(e)) {
+          seen.add(e); emojis.push(e);
+        }
+      });
     });
   } else {
     emojis = parseList(CATEGORIES[activeCat].list);
