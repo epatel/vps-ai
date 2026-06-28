@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Emoji Mixer</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #1b1e28;
+    --panel2: #232734;
+    --accent: #ffb648;
+    --accent2: #6c8cff;
+    --text: #e8eaf0;
+    --muted: #9aa0b4;
+    --danger: #ff5d6c;
+    --border: #2e3342;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overscroll-behavior: none;
+  }
+  body { display: flex; flex-direction: column; height: 100vh; }
+
+  header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 700; letter-spacing: .3px; }
+  header h1 .em { font-weight: 400; }
+  header .spacer { flex: 1; }
+  .btn {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 9px; padding: 8px 12px; font-size: 14px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; user-select: none;
+    transition: background .12s, border-color .12s, transform .05s;
+  }
+  .btn:hover { background: #2b3040; }
+  .btn:active { transform: scale(.96); }
+  .btn.primary { background: var(--accent); color: #20160a; border-color: var(--accent); font-weight: 700; }
+  .btn.primary:hover { background: #ffc269; }
+  .btn.danger { color: var(--danger); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  main {
+    flex: 1; display: flex; min-height: 0; overflow: hidden;
+  }
+
+  /* Mixing area */
+  .stage-wrap {
+    flex: 1; display: flex; flex-direction: column; min-width: 0;
+    padding: 12px; gap: 10px;
+  }
+  .stage-frame {
+    flex: 1; position: relative; border-radius: 14px; overflow: hidden;
+    border: 1px solid var(--border);
+    background:
+      linear-gradient(45deg, #1a1d27 25%, transparent 25%),
+      linear-gradient(-45deg, #1a1d27 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #1a1d27 75%),
+      linear-gradient(-45deg, transparent 75%, #1a1d27 75%);
+    background-size: 24px 24px;
+    background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+    background-color: #15171f;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 0;
+  }
+  #stage { display: block; touch-action: none; cursor: grab; }
+  #stage.dragging { cursor: grabbing; }
+  .stage-hint {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    color: var(--muted); font-size: 15px; text-align: center; pointer-events: none;
+    width: 80%;
+  }
+
+  /* Tool area */
+  .tools {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 8px 10px;
+  }
+  .tools .group { display: flex; gap: 6px; align-items: center; }
+  .tools .sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 2px; }
+  .tools .label { color: var(--muted); font-size: 12px; margin-right: 2px; }
+  .tbtn {
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+    width: 40px; height: 40px; border-radius: 9px; font-size: 18px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; user-select: none;
+    transition: background .12s, transform .05s;
+  }
+  .tbtn:hover { background: #2b3040; }
+  .tbtn:active { transform: scale(.92); }
+  .tbtn.danger { color: var(--danger); }
+  .tbtn:disabled { opacity: .35; cursor: not-allowed; }
+
+  /* Selection panel */
+  .sel-panel {
+    width: 100%; display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 8px 12px;
+  }
+  .sel-panel .field { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 120px; }
+  .sel-panel label { font-size: 11px; color: var(--muted); }
+  .sel-panel input[type=range] { width: 100%; accent-color: var(--accent); }
+  .sel-panel .cur { font-size: 22px; }
+  .sel-panel .empty { color: var(--muted); font-size: 13px; }
+
+  /* Emoji picker */
+  .picker {
+    width: 320px; max-width: 42vw; display: flex; flex-direction: column;
+    background: var(--panel); border-left: 1px solid var(--border);
+  }
+  .picker .picker-head {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .picker .picker-head .ttl { font-size: 13px; color: var(--muted); font-weight: 600; }
+  #search {
+    width: 100%; background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); padding: 8px 10px; font-size: 14px; outline: none;
+  }
+  #search:focus { border-color: var(--accent2); }
+  .cats { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+  .cat {
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 5px 8px; font-size: 17px; cursor: pointer; flex: 0 0 auto;
+  }
+  .cat.active { border-color: var(--accent); background: #2b2415; }
+  .grid {
+    flex: 1; overflow-y: auto; padding: 8px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+    gap: 4px; align-content: start;
+  }
+  .grid .e {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 26px; border-radius: 8px; cursor: pointer; user-select: none;
+    background: transparent; border: none;
+  }
+  .grid .e:hover { background: var(--panel2); }
+  .grid .e:active { transform: scale(.85); }
+  .grid .none { grid-column: 1/-1; color: var(--muted); text-align: center; padding: 20px; font-size: 13px; }
+
+  /* Mobile layout */
+  @media (max-width: 720px) {
+    main { flex-direction: column; }
+    .picker {
+      width: 100%; max-width: 100%; border-left: none; border-top: 1px solid var(--border);
+      height: 38vh; min-height: 200px;
+    }
+    .stage-wrap { padding: 8px; }
+    header h1 { font-size: 16px; }
+    .btn { padding: 7px 10px; font-size: 13px; }
+  }
+  .toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: #20160a; padding: 10px 16px; border-radius: 10px;
+    font-weight: 600; font-size: 14px; opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s; z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+</style>
+</head>
+<body>
+  <header>
+    <h1><span class="em">🎨</span> Emoji Mixer</h1>
+    <div class="spacer"></div>
+    <button class="btn" id="clearBtn" title="Remove all emojis">🧹 Clear</button>
+    <button class="btn primary" id="downloadBtn" title="Download as PNG">⬇️ PNG</button>
+  </header>
+
+  <main>
+    <div class="stage-wrap">
+      <div class="stage-frame" id="stageFrame">
+        <canvas id="stage"></canvas>
+        <div class="stage-hint" id="hint">Tap an emoji on the right to add it.<br>Drag to move • corner handle to scale &amp; rotate.</div>
+      </div>
+
+      <!-- Tool area -->
+      <div class="tools">
+        <div class="group">
+          <span class="label">Layer</span>
+          <button class="tbtn" id="layerUp" title="Bring forward">⬆️</button>
+          <button class="tbtn" id="layerDown" title="Send backward">⬇️</button>
+          <button class="tbtn" id="layerTop" title="Bring to front">⏫</button>
+          <button class="tbtn" id="layerBottom" title="Send to back">⏬</button>
+        </div>
+        <div class="sep"></div>
+        <div class="group">
+          <span class="label">Transform</span>
+          <button class="tbtn" id="scaleUp" title="Scale up">➕</button>
+          <button class="tbtn" id="scaleDown" title="Scale down">➖</button>
+          <button class="tbtn" id="rotL" title="Rotate left">↺</button>
+          <button class="tbtn" id="rotR" title="Rotate right">↻</button>
+          <button class="tbtn" id="mirror" title="Mirror left/right">🪞</button>
+        </div>
+        <div class="sep"></div>
+        <div class="group">
+          <span class="label">Edit</span>
+          <button class="tbtn" id="duplicate" title="Duplicate">⧉</button>
+          <button class="tbtn danger" id="remove" title="Remove selected">🗑️</button>
+        </div>
+      </div>
+
+      <!-- Selected emoji panel -->
+      <div class="sel-panel" id="selPanel">
+        <div class="empty" id="selEmpty">No emoji selected — tap one in the mixing area.</div>
+        <div class="cur" id="selCur" style="display:none"></div>
+        <div class="field" id="fScale" style="display:none">
+          <label>Scale: <span id="scaleVal"></span></label>
+          <input type="range" id="scaleRange" min="20" max="400" step="1">
+        </div>
+        <div class="field" id="fRot" style="display:none">
+          <label>Rotation: <span id="rotVal"></span>°</label>
+          <input type="range" id="rotRange" min="0" max="360" step="1">
+        </div>
+      </div>
+    </div>
+
+    <!-- Emoji picker matrix -->
+    <div class="picker">
+      <div class="picker-head">
+        <div class="ttl">Emoji Selection</div>
+        <input type="text" id="search" placeholder="🔍 Search emojis…">
+        <div class="cats" id="cats"></div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ---------------- Emoji data ---------------- */
+const CATEGORIES = [
+  { icon: "😀", name: "Smileys", list: "😀 😃 😄 😁 😆 😅 😂 🤣 🥲 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🥸 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈 👿 👻 💀 ☠️ 👽 👾 🤖 🎃 😺 😸 😹 😻 😼 😽 🙀 😿 😾" },
+  { icon: "👋", name: "People", list: "👋 🤚 🖐️ ✋ 🖖 👌 🤌 🤏 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 🖕 👇 ☝️ 👍 👎 ✊ 👊 🤛 🤜 👏 🙌 👐 🤲 🤝 🙏 ✍️ 💅 🤳 💪 🦾 🦵 🦶 👂 🦻 👃 🧠 🫀 🫁 🦷 🦴 👀 👁️ 👅 👄 💋 🩸 👶 🧒 👦 👧 🧑 👱 👨 🧔 👩 🧓 👴 👵 🙍 🙎 🙅 🙆 💁 🙋 🧏 🙇 🤦 🤷 👮 🕵️ 💂 👷 🤴 👸 👳 👲 🧕 🤰 🤱 👼 🎅 🤶 🦸 🦹 🧙 🧚 🧛 🧜 🧝 🧞 🧟 💆 💇 🚶 🏃 💃 🕺 👯 🧖 🧗 🤺 🏇 ⛷️ 🏂 🏌️ 🏄 🚣 🏊 ⛹️ 🏋️ 🚴 🚵 🤸 🤼 🤽 🤾 🤹 🧘" },
+  { icon: "🐶", name: "Animals", list: "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐻‍❄️ 🐨 🐯 🦁 🐮 🐷 🐽 🐸 🐵 🙈 🙉 🙊 🐒 🐔 🐧 🐦 🐤 🐣 🐥 🦆 🦅 🦉 🦇 🐺 🐗 🐴 🦄 🐝 🪱 🐛 🦋 🐌 🐞 🐜 🪰 🪲 🪳 🦟 🦗 🕷️ 🕸️ 🦂 🐢 🐍 🦎 🦖 🦕 🐙 🦑 🦐 🦞 🦀 🐡 🐠 🐟 🐬 🐳 🐋 🦈 🐊 🐅 🐆 🦓 🦍 🦧 🐘 🦛 🦏 🐪 🐫 🦒 🦘 🐃 🐂 🐄 🐎 🐖 🐏 🐑 🦙 🐐 🦌 🐕 🐩 🦮 🐈 🐓 🦃 🦤 🦚 🦜 🦢 🦩 🕊️ 🐇 🦝 🦨 🦡 🦦 🦥 🐁 🐀 🐿️ 🦔 🐾 🐉 🐲 🌵 🎄 🌲 🌳 🌴 🌱 🌿 ☘️ 🍀 🎍 🌾 🌷 🌹 🥀 🌺 🌸 🌼 🌻" },
+  { icon: "🍔", name: "Food", list: "🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍈 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🍆 🥑 🥦 🥬 🥒 🌶️ 🫑 🌽 🥕 🫒 🧄 🧅 🥔 🍠 🥐 🥯 🍞 🥖 🥨 🧀 🥚 🍳 🧈 🥞 🧇 🥓 🥩 🍗 🍖 🌭 🍔 🍟 🍕 🥪 🥙 🧆 🌮 🌯 🫔 🥗 🥘 🫕 🥫 🍝 🍜 🍲 🍛 🍣 🍱 🥟 🦪 🍤 🍙 🍚 🍘 🍥 🥠 🥮 🍢 🍡 🍧 🍨 🍦 🥧 🧁 🍰 🎂 🍮 🍭 🍬 🍫 🍿 🍩 🍪 🌰 🥜 🍯 🥛 🍼 🫖 ☕ 🍵 🧃 🥤 🧋 🍶 🍺 🍻 🥂 🍷 🥃 🍸 🍹 🧉 🍾" },
+  { icon: "⚽", name: "Activity", list: "⚽ 🏀 🏈 ⚾ 🥎 🎾 🏐 🏉 🥏 🎱 🪀 🏓 🏸 🏒 🏑 🥍 🏏 🪃 🥅 ⛳ 🪁 🏹 🎣 🤿 🥊 🥋 🎽 🛹 🛼 🛷 ⛸️ 🥌 🎿 ⛷️ 🏂 🪂 🏋️ 🤼 🤸 ⛹️ 🤺 🤾 🏌️ 🏇 🧘 🏄 🏊 🤽 🚣 🧗 🚵 🚴 🏆 🥇 🥈 🥉 🏅 🎖️ 🏵️ 🎗️ 🎫 🎟️ 🎪 🤹 🎭 🩰 🎨 🎬 🎤 🎧 🎼 🎹 🥁 🪘 🎷 🎺 🪗 🎸 🪕 🎻 🎲 ♟️ 🎯 🎳 🎮 🎰 🧩" },
+  { icon: "🚗", name: "Travel", list: "🚗 🚕 🚙 🚌 🚎 🏎️ 🚓 🚑 🚒 🚐 🛻 🚚 🚛 🚜 🦯 🦽 🦼 🛴 🚲 🛵 🏍️ 🛺 🚨 🚔 🚍 🚘 🚖 🚡 🚠 🚟 🚃 🚋 🚞 🚝 🚄 🚅 🚈 🚂 🚆 🚇 🚊 🚉 ✈️ 🛫 🛬 🛩️ 💺 🛰️ 🚀 🛸 🚁 🛶 ⛵ 🚤 🛥️ 🛳️ ⛴️ 🚢 ⚓ ⛽ 🚧 🚦 🚥 🗺️ 🗿 🗽 🗼 🏰 🏯 🏟️ 🎡 🎢 🎠 ⛲ ⛱️ 🏖️ 🏝️ 🏜️ 🌋 ⛰️ 🏔️ 🗻 🏕️ ⛺ 🏠 🏡 🏘️ 🏚️ 🏗️ 🏭 🏢 🏬 🏣 🏤 🏥 🏦 🏨 🏪 🏫 🏩 💒 🏛️ ⛪ 🕌 🕍 🛕 🕋 ⛩️ 🌁 🌃 🏙️ 🌄 🌅 🌆 🌇 🌉 🎇 🎆 🌌 🌠" },
+  { icon: "💡", name: "Objects", list: "⌚ 📱 💻 ⌨️ 🖥️ 🖨️ 🖱️ 🕹️ 💽 💾 💿 📷 📸 📹 🎥 📞 ☎️ 📟 📠 📺 📻 🧭 ⏱️ ⏲️ ⏰ 🕰️ ⌛ ⏳ 📡 🔋 🔌 💡 🔦 🕯️ 🧯 🛢️ 💸 💵 💴 💶 💷 💰 💳 💎 ⚖️ 🧰 🔧 🔨 ⚒️ 🛠️ ⛏️ 🔩 ⚙️ 🧲 🔫 💣 🧨 🔪 🗡️ ⚔️ 🛡️ 🚬 ⚰️ ⚱️ 🏺 🔮 📿 🧿 💈 🔭 🔬 🕳️ 💊 💉 🩸 🩹 🩺 🌡️ 🧹 🧺 🧻 🚽 🚰 🚿 🛁 🛀 🧼 🪒 🧽 🧴 🛎️ 🔑 🗝️ 🚪 🪑 🛋️ 🛏️ 🛌 🧸 🖼️ 🛍️ 🛒 🎁 🎈 🎏 🎀 🎊 🎉 🎎 🏮 🎐 🧧 ✉️ 📩 📨 📧 💌 📥 📤 📦 🏷️ 📪 📫 📬 📭 📮 📯 📜 📃 📄 📑 📊 📈 📉 🗒️ 🗓️ 📆 📅 📇 🗃️ 🗳️ 🗄️ 📋 📁 📂 🗂️ 🗞️ 📰 📓 📔 📒 📕 📗 📘 📙 📚 📖 🔖 🔗 📎 🖇️ 📐 📏 📌 📍 ✂️ 🖊️ 🖋️ ✒️ 🖌️ 🖍️ 📝 ✏️ 🔍 🔎 🔏 🔐 🔒 🔓" },
+  { icon: "❤️", name: "Symbols", list: "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 ☮️ ✝️ ☪️ 🕉️ ☸️ ✡️ 🔯 🕎 ☯️ ☦️ 🛐 ⛎ ♈ ♉ ♊ ♋ ♌ ♍ ♎ ♏ ♐ ♑ ♒ ♓ 🆔 ⚛️ 🉑 ☢️ ☣️ 📴 📳 🈶 🈚 🈸 🈺 🈷️ ✴️ 🆚 💮 🉐 ㊙️ ㊗️ 🈴 🈵 🈹 🈲 🅰️ 🅱️ 🆎 🆑 🅾️ 🆘 ❌ ⭕ 🛑 ⛔ 📛 🚫 💯 💢 ♨️ 🚷 🚯 🚳 🚱 🔞 📵 🚭 ❗ ❕ ❓ ❔ ‼️ ⁉️ 🔅 🔆 〽️ ⚠️ 🚸 🔱 ⚜️ 🔰 ♻️ ✅ 🈯 💹 ❇️ ✳️ ❎ 🌐 💠 Ⓜ️ 🌀 💤 🏧 🚾 ♿ 🅿️ 🛗 🈳 🈂️ 🛂 🛃 🛄 🛅 🚹 🚺 🚼 ⚧️ 🚻 🚮 🎦 📶 🈁 🔣 ℹ️ 🔤 🔡 🔠 🆖 🆗 🆙 🆒 🆕 🆓 0️⃣ 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣ 8️⃣ 9️⃣ 🔟 🔢 #️⃣ *️⃣ ⏏️ ▶️ ⏸️ ⏯️ ⏹️ ⏺️ ⏭️ ⏮️ ⏩ ⏪ ⏫ ⏬ ◀️ 🔼 🔽 ➡️ ⬅️ ⬆️ ⬇️ ↗️ ↘️ ↙️ ↖️ ↕️ ↔️ ↪️ ↩️ ⤴️ ⤵️ 🔀 🔁 🔂 🔄 🔃 ➕ ➖ ➗ ✖️ ♾️ 💲 💱 ™️ ©️ ®️ 〰️ ➰ ➿ 🔚 🔙 🔛 🔝 🔜 ✔️ ☑️ 🔘 🔴 🟠 🟡 🟢 🔵 🟣 ⚫ ⚪ 🟤 🔺 🔻 🔸 🔹 🔶 🔷 🔳 🔲 ▪️ ▫️ ◾ ◽ ◼️ ◻️ ⬛ ⬜ 🟥 🟧 🟨 🟩 🟦 🟪 🟫 ⭐ 🌟 ✨ ⚡ ☄️ 💥 🔥 🌈 ☀️ 🌤️ ⛅ 🌥️ ☁️ 🌦️ 🌧️ ⛈️ 🌩️ 🌨️ ❄️ ☃️ ⛄ 🌬️ 💨 💧 💦 ☔ ☂️ 🌊 🌫️" },
+  { icon: "🚩", name: "Flags", list: "🏁 🚩 🎌 🏴 🏳️ 🏳️‍🌈 🏳️‍⚧️ 🏴‍☠️ 🇺🇳 🇺🇸 🇬🇧 🇨🇦 🇫🇷 🇩🇪 🇮🇹 🇪🇸 🇵🇹 🇳🇱 🇧🇪 🇸🇪 🇳🇴 🇩🇰 🇫🇮 🇮🇪 🇮🇸 🇵🇱 🇨🇿 🇦🇹 🇨🇭 🇬🇷 🇹🇷 🇷🇺 🇺🇦 🇯🇵 🇨🇳 🇰🇷 🇮🇳 🇧🇷 🇦🇷 🇲🇽 🇦🇺 🇳🇿 🇿🇦 🇪🇬 🇸🇦 🇦🇪 🇮🇱 🇹🇭 🇻🇳 🇵🇭 🇮🇩 🇲🇾 🇸🇬" },
+];
+
+/* search keywords — light mapping for common terms */
+const KEYWORDS = {
+  "😀":"grin smile happy","😂":"laugh joy tears","🤣":"rofl laugh","😍":"love heart eyes","🥰":"love hearts",
+  "😎":"cool sunglasses","😭":"cry sob","😡":"angry mad rage","🤔":"think hmm","😴":"sleep tired",
+  "💀":"skull dead","👻":"ghost boo","🤖":"robot","🎃":"pumpkin halloween","👽":"alien",
+  "❤️":"heart love red","🔥":"fire hot lit","⭐":"star","✨":"sparkles","🌈":"rainbow",
+  "👍":"thumbs up like","👎":"thumbs down dislike","🙏":"pray thanks","👏":"clap","💪":"muscle strong",
+  "🐶":"dog puppy","🐱":"cat kitty","🦁":"lion","🐸":"frog","🦄":"unicorn","🐼":"panda","🐵":"monkey",
+  "🍕":"pizza","🍔":"burger","🍟":"fries","🌮":"taco","🍩":"donut","🍪":"cookie","🎂":"cake birthday",
+  "☕":"coffee","🍺":"beer","🍷":"wine","⚽":"soccer football","🏀":"basketball","🎮":"game controller",
+  "🚗":"car","✈️":"plane airplane","🚀":"rocket","🎉":"party celebrate","🎁":"gift present","💡":"idea bulb",
+  "💰":"money","💎":"diamond gem","📱":"phone mobile","💻":"laptop computer","🌍":"earth world globe",
+  "🌙":"moon","☀️":"sun","💩":"poop","👀":"eyes look","🤡":"clown","👑":"crown king queen",
+};
+
+const STORAGE_KEY = "emoji-mixer-state-v1";
+
+/* ---------------- State ---------------- */
+const stage = document.getElementById("stage");
+const ctx = stage.getContext("2d");
+let DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+
+let items = [];        // {id, emoji, x, y, scale, rot, flip}
+let selectedId = null;
+let nextId = 1;
+
+/* logical canvas size (CSS px) */
+let W = 800, H = 600;
+
+const BASE_SIZE = 120; // px font size at scale 1.0
+
+/* ---------------- Persistence ---------------- */
+function save() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ items, selectedId, nextId }));
+  } catch (e) {}
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (Array.isArray(s.items)) {
+      items = s.items;
+      selectedId = s.selectedId ?? null;
+      nextId = s.nextId ?? (items.reduce((m, i) => Math.max(m, i.id), 0) + 1);
+    }
+  } catch (e) {}
+}
+
+/* ---------------- Canvas sizing ---------------- */
+function resizeStage() {
+  const frame = document.getElementById("stageFrame");
+  const rect = frame.getBoundingClientRect();
+  // keep some padding inside the frame
+  W = Math.max(200, Math.floor(rect.width - 4));
+  H = Math.max(200, Math.floor(rect.height - 4));
+  DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  stage.style.width = W + "px";
+  stage.style.height = H + "px";
+  stage.width = Math.floor(W * DPR);
+  stage.height = Math.floor(H * DPR);
+  render();
+}
+
+/* ---------------- Item geometry ---------------- */
+function itemById(id) { return items.find(i => i.id === id); }
+function selected() { return selectedId ? itemById(selectedId) : null; }
+
+/* half-extent of an emoji in px (square-ish bbox) */
+function halfSize(it) { return (BASE_SIZE * it.scale) / 2; }
+
+/* convert client (mouse/touch) coords to logical canvas coords */
+function toLocal(clientX, clientY) {
+  const r = stage.getBoundingClientRect();
+  return { x: (clientX - r.left) * (W / r.width), y: (clientY - r.top) * (H / r.height) };
+}
+
+/* rotate a point around item center, inverse — returns local coords relative to item (pre-rotation) */
+function pointInItemSpace(it, px, py) {
+  const dx = px - it.x, dy = py - it.y;
+  const c = Math.cos(-it.rot), s = Math.sin(-it.rot);
+  return { x: dx * c - dy * s, y: dx * s + dy * c };
+}
+
+function hitTest(px, py) {
+  // topmost first
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    const p = pointInItemSpace(it, px, py);
+    const h = halfSize(it);
+    if (Math.abs(p.x) <= h && Math.abs(p.y) <= h) return it;
+  }
+  return null;
+}
+
+/* world position of the scale/rotate handle (bottom-right corner) */
+function handlePos(it) {
+  const h = halfSize(it);
+  const c = Math.cos(it.rot), s = Math.sin(it.rot);
+  // corner at (h, h) in item space
+  return { x: it.x + (h * c - h * s), y: it.y + (h * s + h * c) };
+}
+
+/* ---------------- Rendering ---------------- */
+function render() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  for (const it of items) {
+    ctx.save();
+    ctx.translate(it.x, it.y);
+    ctx.rotate(it.rot);
+    if (it.flip) ctx.scale(-1, 1);
+    ctx.font = `${BASE_SIZE * it.scale}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(it.emoji, 0, 0);
+    ctx.restore();
+  }
+
+  // selection overlay
+  const sel = selected();
+  if (sel) drawSelection(sel);
+
+  document.getElementById("hint").style.display = items.length ? "none" : "block";
+}
+
+function drawSelection(it) {
+  const h = halfSize(it);
+  ctx.save();
+  ctx.translate(it.x, it.y);
+  ctx.rotate(it.rot);
+  ctx.strokeStyle = "#6c8cff";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeRect(-h, -h, h * 2, h * 2);
+  ctx.setLineDash([]);
+  // handle at bottom-right corner
+  ctx.fillStyle = "#ffb648";
+  ctx.strokeStyle = "#20160a";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(h, h, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ---------------- Interaction ---------------- */
+let drag = null; // {mode:'move'|'transform', startAngle, startDist, startScale, startRot, offx, offy}
+
+const HANDLE_R = 18;
+
+function onPointerDown(e) {
+  e.preventDefault();
+  const p = toLocal(e.clientX, e.clientY);
+
+  // check handle of currently selected item first
+  const sel = selected();
+  if (sel) {
+    const hp = handlePos(sel);
+    if (Math.hypot(p.x - hp.x, p.y - hp.y) <= HANDLE_R) {
+      const dx = p.x - sel.x, dy = p.y - sel.y;
+      drag = {
+        mode: "transform", id: sel.id,
+        startAngle: Math.atan2(dy, dx),
+        startDist: Math.hypot(dx, dy),
+        startScale: sel.scale,
+        startRot: sel.rot,
+      };
+      stage.classList.add("dragging");
+      stage.setPointerCapture?.(e.pointerId);
+      return;
+    }
+  }
+
+  const hit = hitTest(p.x, p.y);
+  if (hit) {
+    // move to top of selection visually? keep order; just select
+    selectedId = hit.id;
+    drag = { mode: "move", id: hit.id, offx: p.x - hit.x, offy: p.y - hit.y };
+    stage.classList.add("dragging");
+    stage.setPointerCapture?.(e.pointerId);
+    syncSelPanel();
+    render();
+  } else {
+    if (selectedId !== null) { selectedId = null; syncSelPanel(); render(); }
+  }
+}
+
+function onPointerMove(e) {
+  if (!drag) return;
+  e.preventDefault();
+  const it = itemById(drag.id);
+  if (!it) { drag = null; return; }
+  const p = toLocal(e.clientX, e.clientY);
+
+  if (drag.mode === "move") {
+    it.x = p.x - drag.offx;
+    it.y = p.y - drag.offy;
+  } else if (drag.mode === "transform") {
+    const dx = p.x - it.x, dy = p.y - it.y;
+    const ang = Math.atan2(dy, dx);
+    const dist = Math.hypot(dx, dy);
+    it.rot = drag.startRot + (ang - drag.startAngle);
+    let sc = drag.startScale * (dist / Math.max(8, drag.startDist));
+    it.scale = Math.min(4, Math.max(0.2, sc));
+  }
+  render();
+  syncSelPanel();
+}
+
+function onPointerUp(e) {
+  if (drag) { drag = null; stage.classList.remove("dragging"); save(); }
+}
+
+stage.addEventListener("pointerdown", onPointerDown);
+window.addEventListener("pointermove", onPointerMove);
+window.addEventListener("pointerup", onPointerUp);
+window.addEventListener("pointercancel", onPointerUp);
+
+/* double click / tap toggles nothing special; keep simple */
+
+/* ---------------- Add emoji ---------------- */
+function addEmoji(emoji) {
+  const jitter = (Math.random() - 0.5);
+  const it = {
+    id: nextId++, emoji,
+    x: W / 2 + jitter * 60,
+    y: H / 2 + jitter * 60,
+    scale: 1, rot: 0, flip: false,
+  };
+  items.push(it);
+  selectedId = it.id;
+  render(); syncSelPanel(); save();
+}
+
+/* ---------------- Tool actions ---------------- */
+function requireSel() {
+  const s = selected();
+  if (!s) { toast("Select an emoji first"); return null; }
+  return s;
+}
+function idx(it) { return items.indexOf(it); }
+
+document.getElementById("remove").onclick = () => {
+  const s = requireSel(); if (!s) return;
+  items = items.filter(i => i.id !== s.id);
+  selectedId = null; render(); syncSelPanel(); save();
+};
+document.getElementById("duplicate").onclick = () => {
+  const s = requireSel(); if (!s) return;
+  const copy = { ...s, id: nextId++, x: s.x + 24, y: s.y + 24 };
+  items.push(copy); selectedId = copy.id; render(); syncSelPanel(); save();
+};
+document.getElementById("mirror").onclick = () => {
+  const s = requireSel(); if (!s) return;
+  s.flip = !s.flip; render(); save();
+};
+document.getElementById("layerUp").onclick = () => {
+  const s = requireSel(); if (!s) return;
+  const i = idx(s); if (i < items.length - 1) { items.splice(i, 1); items.splice(i + 1, 0, s); render(); save(); }
+};
+document.getElementById("layerDown").onclick = () => {
+  const s = requireSel(); if (!s) return;
+  const i = idx(s); if (i > 0) { items.splice(i, 1); items.splice(i - 1, 0, s); render(); save(); }
+};
+document.getElementById("layerTop").onclick = () => {
+  const s = requireSel(); if (!s) return;
+  items = items.filter(i => i.id !== s.id); items.push(s); render(); save();
+};
+document.getElementById("layerBottom").onclick = () => {
+  const s = requireSel(); if (!s) return;
+  items = items.filter(i => i.id !== s.id); items.unshift(s); render(); save();
+};
+document.getElementById("scaleUp").onclick = () => { const s = requireSel(); if (!s) return; s.scale = Math.min(4, s.scale * 1.12); render(); syncSelPanel(); save(); };
+document.getElementById("scaleDown").onclick = () => { const s = requireSel(); if (!s) return; s.scale = Math.max(0.2, s.scale / 1.12); render(); syncSelPanel(); save(); };
+document.getElementById("rotL").onclick = () => { const s = requireSel(); if (!s) return; s.rot -= Math.PI / 12; render(); syncSelPanel(); save(); };
+document.getElementById("rotR").onclick = () => { const s = requireSel(); if (!s) return; s.rot += Math.PI / 12; render(); syncSelPanel(); save(); };
+
+document.getElementById("clearBtn").onclick = () => {
+  if (!items.length) return;
+  if (confirm("Remove all emojis from the mixing area?")) {
+    items = []; selectedId = null; render(); syncSelPanel(); save();
+  }
+};
+
+/* ---------------- Selected emoji panel (sliders) ---------------- */
+const scaleRange = document.getElementById("scaleRange");
+const rotRange = document.getElementById("rotRange");
+function syncSelPanel() {
+  const s = selected();
+  const empty = document.getElementById("selEmpty");
+  const cur = document.getElementById("selCur");
+  const fScale = document.getElementById("fScale");
+  const fRot = document.getElementById("fRot");
+  const hasSel = !!s;
+  empty.style.display = hasSel ? "none" : "block";
+  cur.style.display = hasSel ? "block" : "none";
+  fScale.style.display = hasSel ? "flex" : "none";
+  fRot.style.display = hasSel ? "flex" : "none";
+  // enable/disable tool buttons
+  document.querySelectorAll(".tbtn").forEach(b => b.disabled = !hasSel);
+  if (!s) return;
+  cur.textContent = s.emoji;
+  scaleRange.value = Math.round(s.scale * 100);
+  document.getElementById("scaleVal").textContent = (s.scale).toFixed(2) + "×";
+  let deg = Math.round(((s.rot * 180 / Math.PI) % 360 + 360) % 360);
+  rotRange.value = deg;
+  document.getElementById("rotVal").textContent = deg;
+}
+scaleRange.oninput = () => { const s = selected(); if (!s) return; s.scale = (+scaleRange.value) / 100; render(); document.getElementById("scaleVal").textContent = s.scale.toFixed(2) + "×"; };
+scaleRange.onchange = save;
+rotRange.oninput = () => { const s = selected(); if (!s) return; s.rot = (+rotRange.value) * Math.PI / 180; render(); document.getElementById("rotVal").textContent = rotRange.value; };
+rotRange.onchange = save;
+
+/* ---------------- Emoji picker ---------------- */
+const grid = document.getElementById("grid");
+const catsEl = document.getElementById("cats");
+const searchEl = document.getElementById("search");
+let activeCat = 0;
+
+function buildCats() {
+  catsEl.innerHTML = "";
+  CATEGORIES.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "cat" + (i === activeCat ? " active" : "");
+    b.textContent = c.icon;
+    b.title = c.name;
+    b.onclick = () => { activeCat = i; searchEl.value = ""; buildCats(); renderGrid(); };
+    catsEl.appendChild(b);
+  });
+}
+
+function parseList(str) { return str.split(/\s+/).filter(Boolean); }
+
+function renderGrid() {
+  const q = searchEl.value.trim().toLowerCase();
+  let emojis;
+  if (q) {
+    const all = new Set();
+    CATEGORIES.forEach(c => parseList(c.list).forEach(e => all.add(e)));
+    emojis = [...all].filter(e => {
+      const kw = KEYWORDS[e] || "";
+      return e.includes(q) || kw.includes(q);
+    });
+  } else {
+    emojis = parseList(CATEGORIES[activeCat].list);
+  }
+  grid.innerHTML = "";
+  if (!emojis.length) {
+    const d = document.createElement("div");
+    d.className = "none"; d.textContent = "No emojis found.";
+    grid.appendChild(d); return;
+  }
+  const frag = document.createDocumentFragment();
+  emojis.forEach(e => {
+    const b = document.createElement("button");
+    b.className = "e"; b.textContent = e; b.title = "Add " + e;
+    b.onclick = () => addEmoji(e);
+    frag.appendChild(b);
+  });
+  grid.appendChild(frag);
+}
+searchEl.oninput = renderGrid;
+
+/* ---------------- Download PNG ---------------- */
+document.getElementById("downloadBtn").onclick = () => {
+  if (!items.length) { toast("Add some emojis first"); return; }
+  const scale = 2; // export at 2× the stage for crispness
+  const out = document.createElement("canvas");
+  out.width = W * scale; out.height = H * scale;
+  const o = out.getContext("2d");
+  o.scale(scale, scale);
+  // transparent background by default
+  for (const it of items) {
+    o.save();
+    o.translate(it.x, it.y);
+    o.rotate(it.rot);
+    if (it.flip) o.scale(-1, 1);
+    o.font = `${BASE_SIZE * it.scale}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    o.textAlign = "center"; o.textBaseline = "middle";
+    o.fillText(it.emoji, 0, 0);
+    o.restore();
+  }
+  out.toBlob((blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "emoji-mix.png";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast("PNG downloaded 🎉");
+  }, "image/png");
+};
+
+/* ---------------- Toast ---------------- */
+let toastTimer = null;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 1600);
+}
+
+/* ---------------- Keyboard shortcuts ---------------- */
+window.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  const s = selected();
+  if ((e.key === "Delete" || e.key === "Backspace") && s) { e.preventDefault(); document.getElementById("remove").click(); }
+  else if (e.key === "[" && s) document.getElementById("layerDown").click();
+  else if (e.key === "]" && s) document.getElementById("layerUp").click();
+  else if (e.key.toLowerCase() === "m" && s) document.getElementById("mirror").click();
+  else if (e.key.toLowerCase() === "d" && s) document.getElementById("duplicate").click();
+  else if (e.key === "Escape") { selectedId = null; syncSelPanel(); render(); }
+});
+
+/* ---------------- Init ---------------- */
+load();
+buildCats();
+renderGrid();
+window.addEventListener("resize", resizeStage);
+resizeStage();
+syncSelPanel();
+</script>
+</body>
+</html>

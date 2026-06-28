@@ -91,6 +91,7 @@ SERVICES = [
     ("Flutter Demo", "/flutter_demo", "file", "flutter_demo/build/web"),
     ("Todo App", "/todo-app", "file", "todo-app/build/web"),
     ("Trump's 48h", "/trumps48hours", "file", "trumps48hours"),
+    ("Emoji Mixer", "/emoji-mixer", "file", "emoji-mixer"),
 ]
 
 # History buffers: each entry is [time_label, min, max, avg]
