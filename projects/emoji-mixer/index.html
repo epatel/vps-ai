@@ -1601,6 +1601,19 @@ const EMOJI_FONT = `"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans
    centred, so we scan rendered pixels once per emoji and cache the result. */
 const metricsCache = {};
 function emojiMetrics(emoji) {
+  // In SVG modes the glyph is drawn from an image fit into a BASE_SIZE box
+  // (aspect preserved), so the selection bounds must follow the image, not the
+  // platform-font glyph. Falls through to the native measurement until the
+  // image has loaded (and a re-render then refreshes the box).
+  if (renderMode !== "supersample") {
+    const img = glyphReady(emoji);
+    if (img) {
+      const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+      const mx = Math.max(iw, ih) || 1;
+      const hw = (BASE_SIZE / 2) * (iw / mx), hh = (BASE_SIZE / 2) * (ih / mx);
+      return { left: -hw, right: hw, top: -hh, bottom: hh };
+    }
+  }
   if (metricsCache[emoji]) return metricsCache[emoji];
   const pad = 24;
   const dim = BASE_SIZE + pad * 2;
