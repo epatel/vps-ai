@@ -179,6 +179,7 @@
     <input type="file" id="imageInput" accept="image/*" multiple hidden>
     <button class="btn" id="clearBtn" title="Remove all emojis and images from the mixing area">🧹 Clear</button>
     <button class="btn primary" id="downloadBtn" title="Download a transparent PNG cropped tightly to your emojis">⬇️ PNG</button>
+    <button class="btn" id="copyBtn" title="Copy the PNG to your clipboard">📋 Copy</button>
   </header>
 
   <main>
@@ -2159,8 +2160,10 @@ function trimCanvas(src) {
   return out;
 }
 
-document.getElementById("downloadBtn").onclick = async () => {
-  if (!items.length) { toast("Add some emojis first"); return; }
+/* Build the tightly-trimmed export canvas for the current mix (shared by
+   download and copy-to-clipboard). Returns null if there's nothing to export. */
+async function buildExportCanvas() {
+  if (!items.length) { toast("Add some emojis first"); return null; }
   // Make sure every glyph/image is decoded before drawing the export.
   const preloads = [];
   if (renderMode !== "supersample") {
@@ -2183,14 +2186,39 @@ document.getElementById("downloadBtn").onclick = async () => {
   // transparent background by default
   for (const it of items) paintItem(o, it);
   // pixel-tight trim so the PNG contains only the emojis and nothing more
-  trimCanvas(out).toBlob((blob) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "emoji-mix.png";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast("PNG downloaded 🎉");
-  }, "image/png");
+  return trimCanvas(out);
+}
+
+/* Promise wrapper for canvas.toBlob. */
+function canvasToBlob(canvas, type) {
+  return new Promise((resolve) => canvas.toBlob(resolve, type));
+}
+
+document.getElementById("downloadBtn").onclick = async () => {
+  const canvas = await buildExportCanvas();
+  if (!canvas) return;
+  const blob = await canvasToBlob(canvas, "image/png");
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "emoji-mix.png";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast("PNG downloaded 🎉");
+};
+
+document.getElementById("copyBtn").onclick = async () => {
+  if (!navigator.clipboard || typeof ClipboardItem === "undefined") {
+    toast("Clipboard not supported — use ⬇️ PNG"); return;
+  }
+  const canvas = await buildExportCanvas();
+  if (!canvas) return;
+  try {
+    const blob = await canvasToBlob(canvas, "image/png");
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    toast("Copied to clipboard 📋");
+  } catch (e) {
+    toast("Copy failed — use ⬇️ PNG");
+  }
 };
 
 /* ---------------- Toast ---------------- */
