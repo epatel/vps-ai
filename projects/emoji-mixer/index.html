@@ -70,6 +70,7 @@
     display: flex; align-items: center; justify-content: center;
     min-height: 0;
   }
+  .stage-frame.drag-over { border-color: var(--accent2); box-shadow: inset 0 0 0 2px var(--accent2); }
   #stage { display: block; touch-action: none; cursor: grab; }
   #stage.dragging { cursor: grabbing; }
   .stage-hint {
@@ -174,7 +175,9 @@
       <option value="twemoji">🎨 Twemoji (SVG)</option>
       <option value="noto">🎨 Noto (SVG)</option>
     </select>
-    <button class="btn" id="clearBtn" title="Remove all emojis from the mixing area">🧹 Clear</button>
+    <button class="btn" id="imageBtn" title="Add an image — or drag &amp; drop / paste one onto the canvas">🖼️ Image</button>
+    <input type="file" id="imageInput" accept="image/*" multiple hidden>
+    <button class="btn" id="clearBtn" title="Remove all emojis and images from the mixing area">🧹 Clear</button>
     <button class="btn primary" id="downloadBtn" title="Download a transparent PNG cropped tightly to your emojis">⬇️ PNG</button>
   </header>
 
@@ -182,7 +185,7 @@
     <div class="stage-wrap">
       <div class="stage-frame" id="stageFrame">
         <canvas id="stage" title="Drag an emoji to move it. Drag the orange corner handle to scale & rotate. Press Esc to deselect."></canvas>
-        <div class="stage-hint" id="hint">Tap an emoji on the right to add it.<br>Drag to move • corner handle to scale &amp; rotate.</div>
+        <div class="stage-hint" id="hint">Tap an emoji on the right to add it — or drop / paste an image here.<br>Drag to move • corner handle to scale &amp; rotate.</div>
       </div>
 
       <!-- Tool area -->
@@ -1530,6 +1533,38 @@ function scheduleRender() {
   requestAnimationFrame(() => { renderQueued = false; render(); });
 }
 
+/* Imported-image items: cache decoded <img> by their data URL (or remote URL).
+   Items carry { src } and are otherwise transformed exactly like emojis. */
+const imageCache = {};
+function imageFor(it) {
+  let img = imageCache[it.src];
+  if (img === undefined) {
+    img = new Image();
+    img.onload = () => scheduleRender();
+    img.onerror = () => {};
+    img.src = it.src;
+    imageCache[it.src] = img;
+  }
+  return img && img.complete && (img.naturalWidth || img.width) ? img : null;
+}
+function ensureImage(src) {
+  return new Promise((res) => {
+    let img = imageCache[src];
+    if (img && img.complete && (img.naturalWidth || img.width)) return res(img);
+    img = new Image();
+    img.onload = () => { imageCache[src] = img; res(img); };
+    img.onerror = () => res(null);
+    img.src = src;
+    imageCache[src] = img;
+  });
+}
+
+/* Bitmap to draw for an item: an imported image, or (for emojis) the SVG glyph. */
+function itemImage(it) {
+  if (it.src) return imageFor(it);
+  return glyphReady(it.emoji);
+}
+
 /* Paint one item onto a context (shared by the live canvas and PNG export). */
 function paintItem(c, it) {
   c.save();
@@ -1537,21 +1572,22 @@ function paintItem(c, it) {
   c.rotate(it.rot);
   if (it.flip) c.scale(-1, 1);
   const size = BASE_SIZE * it.scale;
-  const img = glyphReady(it.emoji);
+  const img = itemImage(it);
   if (img) {
     c.imageSmoothingEnabled = true;
     c.imageSmoothingQuality = "high";
-    // fit the glyph into a size×size box, preserving aspect (flags are wider than tall)
+    // fit into a size×size box, preserving aspect (flags/photos aren't square)
     const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
     const f = size / Math.max(iw, ih);
     const dw = iw * f, dh = ih * f;
     c.drawImage(img, -dw / 2, -dh / 2, dw, dh);
-  } else {
+  } else if (it.emoji) {
     c.font = `${size}px ${EMOJI_FONT}`;
     c.textAlign = "center";
     c.textBaseline = "middle";
     c.fillText(it.emoji, 0, 0);
   }
+  // image items not yet decoded paint nothing this frame; onload re-renders.
   c.restore();
 }
 
@@ -1599,6 +1635,14 @@ const EMOJI_FONT = `"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans
 /* Measure the actual rendered pixel bounds of an emoji glyph (at BASE_SIZE,
    relative to the centre origin). Emoji glyphs are not perfectly square nor
    centred, so we scan rendered pixels once per emoji and cache the result. */
+/* Centred BASE_SIZE box matching an image's aspect ratio (longest side = BASE_SIZE). */
+function aspectBox(img) {
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  const mx = Math.max(iw, ih) || 1;
+  const hw = (BASE_SIZE / 2) * (iw / mx), hh = (BASE_SIZE / 2) * (ih / mx);
+  return { left: -hw, right: hw, top: -hh, bottom: hh };
+}
+
 const metricsCache = {};
 function emojiMetrics(emoji) {
   // In SVG modes the glyph is drawn from an image fit into a BASE_SIZE box
@@ -1607,12 +1651,7 @@ function emojiMetrics(emoji) {
   // image has loaded (and a re-render then refreshes the box).
   if (renderMode !== "supersample") {
     const img = glyphReady(emoji);
-    if (img) {
-      const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-      const mx = Math.max(iw, ih) || 1;
-      const hw = (BASE_SIZE / 2) * (iw / mx), hh = (BASE_SIZE / 2) * (ih / mx);
-      return { left: -hw, right: hw, top: -hh, bottom: hh };
-    }
+    if (img) return aspectBox(img);
   }
   if (metricsCache[emoji]) return metricsCache[emoji];
   const pad = 24;
@@ -1651,9 +1690,18 @@ function emojiMetrics(emoji) {
   return box;
 }
 
+/* BASE_SIZE-unit bounds for any item (imported image or emoji). */
+function itemMetrics(it) {
+  if (it.src) {
+    const img = imageFor(it);
+    return img ? aspectBox(img) : { left: -BASE_SIZE / 2, right: BASE_SIZE / 2, top: -BASE_SIZE / 2, bottom: BASE_SIZE / 2 };
+  }
+  return emojiMetrics(it.emoji);
+}
+
 /* Bounding box of an item in its own (pre-rotation) space, including scale & flip. */
 function itemBox(it) {
-  const m = emojiMetrics(it.emoji);
+  const m = itemMetrics(it);
   const s = it.scale;
   let left = m.left * s, right = m.right * s;
   if (it.flip) { const nl = -right, nr = -left; left = nl; right = nr; }
@@ -1819,7 +1867,43 @@ window.addEventListener("pointermove", onPointerMove);
 window.addEventListener("pointerup", onPointerUp);
 window.addEventListener("pointercancel", onPointerUp);
 
-/* double click / tap toggles nothing special; keep simple */
+/* ---------------- Add image: file picker, drag & drop, paste ---------------- */
+const imageInput = document.getElementById("imageInput");
+document.getElementById("imageBtn").onclick = () => imageInput.click();
+imageInput.onchange = async () => {
+  await addImageFiles(imageInput.files);
+  imageInput.value = ""; // allow re-picking the same file
+};
+
+const stageFrame = document.getElementById("stageFrame");
+["dragenter", "dragover"].forEach(ev =>
+  stageFrame.addEventListener(ev, (e) => { e.preventDefault(); stageFrame.classList.add("drag-over"); }));
+["dragleave", "dragend"].forEach(ev =>
+  stageFrame.addEventListener(ev, () => stageFrame.classList.remove("drag-over")));
+stageFrame.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  stageFrame.classList.remove("drag-over");
+  const p = toLocal(e.clientX, e.clientY); // drop position in canvas coords
+  if (e.dataTransfer.files && e.dataTransfer.files.length) {
+    await addImageFiles(e.dataTransfer.files, p.x, p.y);
+  } else {
+    // image dragged from another tab arrives as a URL, not a file
+    const url = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+    if (url && /^https?:\/\//.test(url.trim())) addImageSrc(url.trim(), p.x, p.y);
+  }
+});
+
+window.addEventListener("paste", (e) => {
+  const items_ = e.clipboardData && e.clipboardData.items;
+  if (!items_) return;
+  const files = [...items_].filter(i => i.kind === "file" && i.type.startsWith("image/"))
+                           .map(i => i.getAsFile()).filter(Boolean);
+  if (files.length) { e.preventDefault(); addImageFiles(files); }
+});
+
+// Stop an image dropped just outside the canvas from navigating the page away.
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => e.preventDefault());
 
 /* ---------------- Add emoji ---------------- */
 function addEmoji(emoji) {
@@ -1835,10 +1919,67 @@ function addEmoji(emoji) {
   render(); syncSelPanel(); save();
 }
 
+/* ---------------- Imported images ---------------- */
+const MAX_IMG_DIM = 1600; // downscale huge images to keep storage/perf sane
+
+/* Read an image File/Blob into a (possibly downscaled) data URL. */
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(fr.error);
+    fr.onload = () => {
+      const url = fr.result;
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode failed"));
+      img.onload = () => {
+        const mx = Math.max(img.naturalWidth, img.naturalHeight);
+        if (mx <= MAX_IMG_DIM) return resolve(url); // keep original (preserves format/transparency)
+        const f = MAX_IMG_DIM / mx;
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * f);
+        c.height = Math.round(img.naturalHeight * f);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL("image/png"));
+      };
+      img.src = url;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+/* Add an imported image as an item, placed at (x,y) in canvas coords (default: centre). */
+async function addImageSrc(src, x = W / 2, y = H / 2) {
+  const img = await ensureImage(src);
+  if (!img) { toast("Couldn't load that image"); return; }
+  // default display size: longest side ≈ 45% of the smaller canvas dimension
+  const target = Math.min(W, H) * 0.45;
+  const it = {
+    id: nextId++, src,
+    x, y,
+    scale: Math.max(0.2, Math.min(4, target / BASE_SIZE)),
+    rot: 0, flip: false,
+  };
+  items.push(it);
+  selectedId = it.id;
+  render(); syncSelPanel(); save();
+  toast("Image added 🖼️");
+}
+
+/* Pull image files out of a drop / paste / file-input and add them. */
+async function addImageFiles(files, x, y) {
+  const imgs = [...files].filter(f => f.type.startsWith("image/"));
+  if (!imgs.length) return false;
+  for (const f of imgs) {
+    try { await addImageSrc(await fileToDataURL(f), x, y); }
+    catch (e) { toast("Couldn't read an image"); }
+  }
+  return true;
+}
+
 /* ---------------- Tool actions ---------------- */
 function requireSel() {
   const s = selected();
-  if (!s) { toast("Select an emoji first"); return null; }
+  if (!s) { toast("Select an item first"); return null; }
   return s;
 }
 function idx(it) { return items.indexOf(it); }
@@ -1880,7 +2021,7 @@ document.getElementById("rotR").onclick = () => { const s = requireSel(); if (!s
 
 document.getElementById("clearBtn").onclick = () => {
   if (!items.length) return;
-  if (confirm("Remove all emojis from the mixing area?")) {
+  if (confirm("Remove everything from the mixing area?")) {
     items = []; selectedId = null; render(); syncSelPanel(); save();
   }
 };
@@ -1915,7 +2056,15 @@ function syncSelPanel() {
   // enable/disable tool buttons
   document.querySelectorAll(".tbtn").forEach(b => b.disabled = !hasSel);
   if (!s) return;
-  cur.textContent = s.emoji;
+  cur.replaceChildren();
+  if (s.src) {
+    const im = document.createElement("img");
+    im.src = s.src;
+    im.style.cssText = "height:24px;width:auto;max-width:48px;object-fit:contain;border-radius:4px;vertical-align:middle";
+    cur.appendChild(im);
+  } else {
+    cur.textContent = s.emoji;
+  }
   scaleRange.value = Math.round(s.scale * 100);
   document.getElementById("scaleVal").textContent = (s.scale).toFixed(2) + "×";
   let deg = Math.round(((s.rot * 180 / Math.PI) % 360 + 360) % 360);
@@ -2012,10 +2161,13 @@ function trimCanvas(src) {
 
 document.getElementById("downloadBtn").onclick = async () => {
   if (!items.length) { toast("Add some emojis first"); return; }
-  // In SVG modes, make sure every glyph image is loaded before drawing.
+  // Make sure every glyph/image is decoded before drawing the export.
+  const preloads = [];
   if (renderMode !== "supersample") {
-    await Promise.all([...new Set(items.map(i => i.emoji))].map(e => loadGlyph(e)));
+    [...new Set(items.filter(i => i.emoji).map(i => i.emoji))].forEach(e => preloads.push(loadGlyph(e)));
   }
+  items.filter(i => i.src).forEach(i => preloads.push(ensureImage(i.src)));
+  if (preloads.length) await Promise.all(preloads);
   const scale = renderMode === "supersample" ? 3 : 2; // supersample the export for crispness
   const pad = 4;   // tiny margin so anti-aliased edges aren't clipped
   const bb = worldBBox();
