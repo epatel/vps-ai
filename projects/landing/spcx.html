@@ -401,7 +401,7 @@
     if(st==='next' && !nextLabel) nextLabel=e.when+' · '+(e.pct?('+'+e.pct+'%'):e.t);
     lastDone = done;
     if(e.pct){ cum+=e.pct; if(done) releasedCum=cum; }
-    var pctChip = e.pct ? '<span class="chip acc">+'+e.pct+'%</span><span class="chip">'+(e.full?'100%':cum+'% cum')+'</span>' : '<span class="chip">'+e.t+'</span>';
+    var pctChip = e.pct ? '<span class="chip acc">+'+e.pct+'%</span><span class="chip">'+(e.full?'100%':cum+'% total')+'</span>' : '<span class="chip">'+e.t+'</span>';
     html+='<div class="stage '+st+'">'
       +'<span class="node"></span>'
       +'<div class="row1"><span class="tmark">'+e.t+'</span><span class="when">'+e.when+'</span></div>'
