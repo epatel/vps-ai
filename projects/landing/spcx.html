@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPCX Flight Plan — IPO lock-up & index release tracker</title>
+<style>
+  :root{
+    --void:#0A0C10;
+    --panel:#13161C;
+    --panel-2:#171B22;
+    --hair:#262B34;
+    --hair-soft:#1E232B;
+    --bone:#ECE8DD;
+    --mute:#8B919C;
+    --dim:#5B616B;
+    --flame:#F6A24A;
+    --flame-dim:rgba(246,162,74,.14);
+    --go:#6FD08C;
+    --hold:#E0705F;
+    --mono:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--void);
+    color:var(--bone);
+    font-family:var(--sans);
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    /* cheap static ambience — no blur, no image, no JS */
+    background-image:
+      radial-gradient(1200px 600px at 75% -10%, rgba(246,162,74,.06), transparent 60%),
+      radial-gradient(900px 500px at 0% 0%, rgba(80,110,160,.05), transparent 55%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+
+  /* ---- type primitives ---- */
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--flame);font-weight:600;
+    display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"";width:22px;height:1px;background:var(--flame);opacity:.7}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+  .label{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--mute)}
+
+  /* ---- top bar ---- */
+  .topbar{
+    border-bottom:1px solid var(--hair);
+    position:sticky;top:0;z-index:20;
+    background:rgba(10,12,16,.82);
+  }
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:54px}
+  .brand{display:flex;align-items:baseline;gap:10px;font-family:var(--mono);font-size:13px;letter-spacing:.08em}
+  .brand b{color:var(--bone);font-weight:700}
+  .brand span{color:var(--dim)}
+  .tchip{font-family:var(--mono);font-size:12px;color:var(--mute);display:flex;align-items:center;gap:8px}
+  .tchip .dot{width:7px;height:7px;border-radius:50%;background:var(--go);box-shadow:0 0 0 0 rgba(111,208,140,.6);animation:pulse 2.6s ease-out infinite}
+  .tchip b{color:var(--flame);font-weight:600}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(111,208,140,.5)}70%{box-shadow:0 0 0 6px rgba(111,208,140,0)}100%{box-shadow:0 0 0 0 rgba(111,208,140,0)}}
+
+  /* ---- hero ---- */
+  .hero{padding:64px 0 40px;border-bottom:1px solid var(--hair)}
+  .hero h1{
+    font-size:clamp(30px,5.5vw,52px);line-height:1.02;font-weight:800;
+    letter-spacing:-.02em;margin:18px 0 14px;max-width:14ch;
+  }
+  .hero h1 em{font-style:normal;color:var(--flame)}
+  .hero .lede{color:var(--mute);max-width:52ch;font-size:15.5px}
+
+  .clock{
+    margin:34px 0 8px;
+    display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;
+  }
+  .clock .face{
+    font-family:var(--mono);font-variant-numeric:tabular-nums;
+    font-size:clamp(34px,7vw,62px);font-weight:600;letter-spacing:.01em;
+    line-height:1;color:var(--bone);
+  }
+  .clock .face .tplus{color:var(--flame)}
+  .clock .face .sep{color:var(--dim);margin:0 .04em}
+  .clock .face .s{color:var(--flame)}
+  .clock .meta{font-family:var(--mono);font-size:12px;color:var(--dim);padding-bottom:6px}
+  .clock .meta b{color:var(--mute);font-weight:500}
+
+  /* ---- telemetry strip ---- */
+  .telem{
+    display:grid;grid-template-columns:repeat(4,1fr);
+    border:1px solid var(--hair);border-radius:10px;overflow:hidden;margin-top:30px;
+    background:var(--panel);
+  }
+  .telem .cell{padding:18px 20px;border-right:1px solid var(--hair-soft)}
+  .telem .cell:last-child{border-right:0}
+  .telem .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:26px;font-weight:600;margin-top:8px;color:var(--bone)}
+  .telem .v small{font-size:13px;color:var(--mute);margin-left:3px;font-weight:500}
+  .telem .delta{font-family:var(--mono);font-size:11.5px;margin-top:6px}
+  .telem .up{color:var(--go)} .telem .down{color:var(--hold)}
+  .asof{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:12px}
+
+  /* ---- sections ---- */
+  section.block{padding:54px 0;border-bottom:1px solid var(--hair)}
+  .head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:26px;flex-wrap:wrap}
+  .head h2{font-size:21px;font-weight:700;letter-spacing:-.01em}
+  .head .note{font-family:var(--mono);font-size:11px;color:var(--dim);max-width:42ch;text-align:right}
+
+  /* ---- index cards ---- */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .card{
+    background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:22px;
+    transition:border-color .25s ease,transform .25s ease;
+  }
+  .card:hover{border-color:#3a414c;transform:translateY(-3px)}
+  .card .ttl{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .card .ttl h3{font-size:15px;font-weight:700}
+  .card .date{font-family:var(--mono);font-size:13px;color:var(--flame);margin:14px 0 10px;font-variant-numeric:tabular-nums}
+  .card p{font-size:13px;color:var(--mute);line-height:1.5}
+  .card .fine{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:12px;line-height:1.5}
+
+  .pill{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;
+    padding:4px 9px;border-radius:999px;white-space:nowrap;border:1px solid}
+  .pill.go{color:var(--go);border-color:rgba(111,208,140,.35);background:rgba(111,208,140,.08)}
+  .pill.armed{color:var(--flame);border-color:rgba(246,162,74,.4);background:var(--flame-dim)}
+  .pill.hold{color:var(--hold);border-color:rgba(224,112,95,.35);background:rgba(224,112,95,.08)}
+  .pill.lock{color:var(--dim);border-color:var(--hair);background:transparent}
+
+  /* ---- lock-up rail timeline (signature) ---- */
+  .ascent{display:grid;grid-template-columns:128px 1fr;gap:0}
+  .gauge{position:relative}
+  .gauge .track{position:sticky;top:90px;height:520px;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px}
+  .gauge .bar{position:relative;width:8px;flex:1;border-radius:999px;background:var(--hair-soft);overflow:hidden}
+  .gauge .fill{position:absolute;left:0;bottom:0;width:100%;height:0;
+    background:linear-gradient(180deg,var(--flame),rgba(246,162,74,.45));transition:height 1.2s cubic-bezier(.2,.7,.2,1)}
+  .gauge .read{font-family:var(--mono);text-align:center}
+  .gauge .read .pct{font-size:30px;font-weight:600;color:var(--flame);font-variant-numeric:tabular-nums}
+  .gauge .read .cap{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-top:4px}
+
+  .stages{position:relative;padding-left:30px}
+  .stages::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:1px;background:var(--hair)}
+  .stage{position:relative;padding:0 0 26px}
+  .stage:last-child{padding-bottom:0}
+  .stage .node{position:absolute;left:-30px;top:4px;width:11px;height:11px;border-radius:50%;
+    background:var(--void);border:2px solid var(--dim)}
+  .stage.done .node{border-color:var(--go);background:var(--go)}
+  .stage.next .node{border-color:var(--flame);background:var(--flame);box-shadow:0 0 0 4px var(--flame-dim)}
+  .stage .row1{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .stage .tmark{font-family:var(--mono);font-size:12px;color:var(--flame);font-weight:600;min-width:62px}
+  .stage .when{font-family:var(--mono);font-size:13px;color:var(--bone);font-variant-numeric:tabular-nums}
+  .stage .desc{color:var(--mute);font-size:13px;margin-top:4px}
+  .stage .tags{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:5px;border:1px solid var(--hair);
+    background:var(--panel);color:var(--bone);font-variant-numeric:tabular-nums}
+  .chip.acc{color:var(--flame);border-color:rgba(246,162,74,.3)}
+  .stage .bonus{font-family:var(--mono);font-size:11px;color:var(--hold);margin-top:9px;line-height:1.5;
+    border-left:2px solid rgba(224,112,95,.4);padding-left:10px}
+
+  /* ---- financials ---- */
+  .fin{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .fin .f{background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:20px}
+  .fin .f .v{font-family:var(--mono);font-size:25px;font-weight:600;margin-top:10px;font-variant-numeric:tabular-nums}
+  .fin .f .v small{font-size:12px;color:var(--mute);margin-left:4px;font-weight:500}
+  .fin .f .sub{font-family:var(--mono);font-size:11px;margin-top:10px}
+  .fin .f .sub.up{color:var(--go)} .fin .f .sub.down{color:var(--hold)} .fin .f .sub.flat{color:var(--dim)}
+
+  /* ---- key facts ---- */
+  .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .fact{background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:22px}
+  .fact h3{font-size:14px;font-weight:700;margin-bottom:14px}
+  .fact dl{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13px}
+  .fact dt{color:var(--dim);font-family:var(--mono);font-size:11px;letter-spacing:.04em}
+  .fact dd{text-align:right;font-family:var(--mono);color:var(--bone);font-variant-numeric:tabular-nums}
+
+  footer{padding:40px 0 60px;color:var(--dim)}
+  footer p{font-family:var(--mono);font-size:11px;line-height:1.7;max-width:70ch}
+
+  /* reveal */
+  .rise{opacity:0;transform:translateY(14px);animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+  .rise.d1{animation-delay:.06s}.rise.d2{animation-delay:.12s}.rise.d3{animation-delay:.18s}
+  @keyframes rise{to{opacity:1;transform:none}}
+
+  @media (max-width:820px){
+    .telem{grid-template-columns:1fr 1fr}
+    .telem .cell:nth-child(2){border-right:0}
+    .telem .cell:nth-child(1),.telem .cell:nth-child(2){border-bottom:1px solid var(--hair-soft)}
+    .cards,.fin,.facts{grid-template-columns:1fr}
+    .ascent{grid-template-columns:1fr}
+    .gauge{display:none}
+    .head .note{text-align:left}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important;scroll-behavior:auto}
+    .rise{opacity:1;transform:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand"><b>SPCX</b><span>· NASDAQ · SpaceX, Inc.</span></div>
+    <div class="tchip"><span class="dot"></span>live · <b id="chipT">T+ —</b> since pricing</div>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow rise">Flight Plan</p>
+    <h1 class="rise d1">The lock-up clock is <em>running</em>.</h1>
+    <p class="lede rise d1">Every insider release and index inclusion measured from the June 11, 2026 IPO pricing — counted live, the way mission control counts a flight.</p>
+
+    <div class="clock rise d2">
+      <div class="face" id="clock"><span class="tplus">T+</span> <span id="cd">00000</span></div>
+      <div class="meta">liftoff · <b>11 Jun 2026</b> pricing &nbsp;·&nbsp; days : hh : mm : ss</div>
+    </div>
+
+    <div class="telem rise d3">
+      <div class="cell">
+        <div class="label">Last price</div>
+        <div class="v">$153.23</div>
+        <div class="delta up">+13.5% vs IPO</div>
+      </div>
+      <div class="cell">
+        <div class="label">IPO price</div>
+        <div class="v">$135<small>/sh</small></div>
+        <div class="delta" style="color:var(--dim)">555.6M shares</div>
+      </div>
+      <div class="cell">
+        <div class="label">Market cap</div>
+        <div class="v">$2.02<small>T</small></div>
+        <div class="delta" style="color:var(--dim)">fully diluted</div>
+      </div>
+      <div class="cell">
+        <div class="label">Block unlocked</div>
+        <div class="v"><span id="telPct">0</span><small>%</small></div>
+        <div class="delta up" id="telNext">next release —</div>
+      </div>
+    </div>
+    <p class="asof">Price &amp; market cap as of Jun 26, 2026 close (latest session). Schedule states update live.</p>
+  </div>
+</header>
+
+<main>
+  <section class="block">
+    <div class="wrap">
+      <div class="head">
+        <h2>Index inclusions</h2>
+        <p class="note">Status derived from each index's published methodology; effective dates subject to the index provider's eligibility ruling.</p>
+      </div>
+      <div class="cards" id="indexCards"></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="head">
+        <h2>Insider lock-up — release sequence</h2>
+        <p class="note">Clocks run from the Jun 11, 2026 pricing date per the 424B4. Percentages are of the 180-day locked block.</p>
+      </div>
+      <div class="ascent">
+        <div class="gauge">
+          <div class="track">
+            <div class="read"><div class="pct" id="gaugePct">0%</div><div class="cap">released</div></div>
+            <div class="bar"><div class="fill" id="gaugeFill"></div></div>
+            <div class="read"><div class="cap">locked block</div></div>
+          </div>
+        </div>
+        <div class="stages" id="stages"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="head"><h2>Three-segment snapshot · FY2025</h2></div>
+      <div class="fin">
+        <div class="f"><div class="label">Starlink — connectivity</div><div class="v">$11.4<small>B rev</small></div><div class="sub up">+49.8% YoY</div></div>
+        <div class="f"><div class="label">Space — launch</div><div class="v">$4.1<small>B rev</small></div><div class="sub down">−$657M op. loss</div></div>
+        <div class="f"><div class="label">AI — xAI / Grok</div><div class="v">$3.2<small>B rev</small></div><div class="sub down">−$6.4B op. loss</div></div>
+        <div class="f"><div class="label">Consolidated EBITDA</div><div class="v">$6.6<small>B</small></div><div class="sub flat">adjusted / non-GAAP</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="head"><h2>Key facts</h2></div>
+      <div class="facts">
+        <div class="fact">
+          <h3>IPO details</h3>
+          <dl>
+            <dt>Pricing</dt><dd>Jun 11, 2026</dd>
+            <dt>First trade</dt><dd>Jun 12, 2026</dd>
+            <dt>Price</dt><dd>$135 / sh</dd>
+            <dt>Ticker</dt><dd>SPCX</dd>
+            <dt>Shares</dt><dd>555.6M</dd>
+          </dl>
+        </div>
+        <div class="fact">
+          <h3>Starlink subscribers</h3>
+          <dl>
+            <dt>As of</dt><dd>Mar 31, 2026</dd>
+            <dt>Subs</dt><dd>10.3M</dd>
+            <dt>Growth</dt><dd>+105% YoY</dd>
+            <dt>Coverage</dt><dd>164 markets</dd>
+            <dt>TAM</dt><dd>$1.6T</dd>
+          </dl>
+        </div>
+        <div class="fact">
+          <h3>Operational milestone</h3>
+          <dl>
+            <dt>Starship</dt><dd>payload H2 '26</dd>
+            <dt>Flt tests</dt><dd>12 (May '26)</dd>
+            <dt>Next</dt><dd>orbital refuel</dd>
+            <dt>Voting</dt><dd>Musk ~82.4%</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Informational tracker — not financial advice. Schedule and methodology from SpaceX SEC filings (S-1 / 424B4); prices from market-data providers. Dates and provider rulings subject to change.</p>
+    <p style="margin-top:8px">Disclaimer: This page is provided for informational and educational purposes only and does not constitute investment, legal, tax, or financial advice, nor a recommendation or solicitation to buy or sell any security. Figures, dates, and milestones are estimates compiled from public filings and third-party sources, may contain errors, and can change without notice. Always verify against primary SEC filings and consult a licensed financial advisor before making investment decisions. The author accepts no liability for actions taken based on this content.</p>
+    <p style="margin-top:8px">Built for SPCX investors · liftoff 11 Jun 2026.</p>
+  </div>
+</footer>
+
+<script>
+"use strict";
+(function(){
+  // T0 = pricing date. All "T+ days after pricing" labels are consistent with this anchor.
+  var T0 = new Date('2026-06-11T00:00:00');
+
+  // Lock-up block events — incremental % of the 180-day locked block (base case).
+  var BLOCK = [
+    {d:'2026-08-01', t:'~T+51', when:'Late Jul / early Aug', desc:'Q2 2026 earnings window', pct:20,
+      bonus:'⚡ +10% if SPCX closes ≥ $175.50 (30% over IPO) on ≥5 of the 10 trading days ending on the Q2 release.'},
+    {d:'2026-08-20', t:'T+70',  when:'Aug 20, 2026', desc:'Automatic tranche', pct:7},
+    {d:'2026-09-10', t:'T+90',  when:'Sep 10, 2026', desc:'Automatic tranche', pct:7},
+    {d:'2026-09-24', t:'T+105', when:'Sep 24, 2026', desc:'Automatic tranche', pct:7},
+    {d:'2026-10-09', t:'T+120', when:'Oct 9, 2026',  desc:'Automatic tranche', pct:7},
+    {d:'2026-10-24', t:'T+135', when:'Oct 24, 2026', desc:'Automatic tranche', pct:7},
+    {d:'2026-11-01', t:'~T+143',when:'Late Oct / early Nov', desc:'Q3 2026 earnings window', pct:28},
+    {d:'2026-12-08', t:'T+180', when:'Dec 8, 2026',  desc:'Full lock-up expiry — remaining shares', pct:17, full:true}
+  ];
+  var EXTENDED = {d:'2027-06-12', t:'T+366', when:'Jun 12, 2027', desc:'Musk & certain major investors — extended 366-day lock-up expires. No early-release provisions.'};
+
+  var INDEX = [
+    {name:'MSCI indexes', date:'2026-06-25', label:'Jun 25, 2026',
+      desc:"Earliest effective date under MSCI's large-IPO early-inclusion rule (close of the 10th trading day).",
+      fine:'Subject to MSCI eligibility determination after listing.'},
+    {name:'Nasdaq-100', date:'2026-07-07', label:'Jul 7, 2026',
+      desc:'Fast-track entry for a top-market-cap new listing.',
+      fine:'Eligibility tied to trading-day seasoning; effective date set by Nasdaq.'},
+    {name:'S&P 500', date:'2027-07-01', label:'Mid-2027 or later', locked:true,
+      desc:'Standard rules apply: 12-month seasoning plus GAAP profitability. A fast-track proposal was rejected.',
+      fine:'No accelerated path available.'}
+  ];
+
+  var DAY = 86400000;
+  function d(s){return new Date(s+'T00:00:00');}
+  function fmtDays(n){return String(n).padStart(5,'0');}
+  function pad(n){return String(n).padStart(2,'0');}
+
+  // ---- live mission clock ----
+  var cdEl=document.getElementById('cd'), chipT=document.getElementById('chipT');
+  function tick(){
+    var now=new Date();
+    var ms=now-T0, sign=ms<0?'−':'';
+    var a=Math.abs(ms);
+    var days=Math.floor(a/DAY), r=a%DAY;
+    var hh=Math.floor(r/3600000); r%=3600000;
+    var mm=Math.floor(r/60000); var ss=Math.floor((r%60000)/1000);
+    cdEl.innerHTML = sign+fmtDays(days)
+      +'<span class="sep">:</span>'+pad(hh)
+      +'<span class="sep">:</span>'+pad(mm)
+      +'<span class="sep">:</span><span class="s">'+pad(ss)+'</span>';
+    chipT.textContent='T+ '+days+'d';
+  }
+  tick(); setInterval(tick,1000);
+
+  // ---- state from real date ----
+  var now=new Date();
+  function stateOf(date,prevDone){ // returns 'done' | 'next' | 'pending'
+    if(now>=date) return 'done';
+    return prevDone ? 'next' : 'pending';
+  }
+
+  // ---- lock-up rail ----
+  var stagesEl=document.getElementById('stages');
+  var cum=0, releasedCum=0, nextLabel=null, lastDone=true, html='';
+  var all=BLOCK.concat([EXTENDED]);
+  for(var i=0;i<all.length;i++){
+    var e=all[i], dt=d(e.d), done=now>=dt;
+    var st = done ? 'done' : (lastDone ? 'next' : 'pending');
+    if(st==='next' && !nextLabel) nextLabel=e.when+' · '+(e.pct?('+'+e.pct+'%'):e.t);
+    lastDone = done;
+    if(e.pct){ cum+=e.pct; if(done) releasedCum=cum; }
+    var pctChip = e.pct ? '<span class="chip acc">+'+e.pct+'%</span><span class="chip">'+(e.full?'100%':cum+'% cum')+'</span>' : '<span class="chip">'+e.t+'</span>';
+    html+='<div class="stage '+st+'">'
+      +'<span class="node"></span>'
+      +'<div class="row1"><span class="tmark">'+e.t+'</span><span class="when">'+e.when+'</span></div>'
+      +'<div class="desc">'+e.desc+'</div>'
+      +'<div class="tags">'+pctChip+'</div>'
+      +(e.bonus?'<div class="bonus">'+e.bonus+'</div>':'')
+      +'</div>';
+  }
+  stagesEl.innerHTML=html;
+
+  // gauge reflects released % of the locked block
+  document.getElementById('gaugePct').textContent=releasedCum+'%';
+  document.getElementById('gaugeFill').style.height=releasedCum+'%';
+  document.getElementById('telPct').textContent=releasedCum;
+  document.getElementById('telNext').textContent= nextLabel ? ('next · '+nextLabel) : 'fully released';
+  if(!nextLabel) document.getElementById('telNext').className='delta';
+
+  // ---- index cards ----
+  var ic=document.getElementById('indexCards'), out='', prevDoneIdx=true;
+  for(var j=0;j<INDEX.length;j++){
+    var x=INDEX[j], xd=d(x.date), pdone=now>=xd;
+    var pill, ptxt;
+    if(x.locked){ pill='lock'; ptxt='Locked'; }
+    else if(pdone){ pill='go'; ptxt='Effective'; }
+    else { pill='hold'; ptxt='Pending'; }
+    out+='<div class="card">'
+      +'<div class="ttl"><h3>'+x.name+'</h3><span class="pill '+pill+'">'+ptxt+'</span></div>'
+      +'<div class="date">'+x.label+'</div>'
+      +'<p>'+x.desc+'</p>'
+      +'<div class="fine">'+x.fine+'</div>'
+      +'</div>';
+  }
+  ic.innerHTML=out;
+})();
+</script>
+</body>
+</html>
