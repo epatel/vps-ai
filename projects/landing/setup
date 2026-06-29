@@ -22,6 +22,7 @@ Based on what you found, present the user with a scoping summary and ask which p
 | **Feature-First Advanced** ⚗️ | Adds bidirectional peer features, runtime-bound hooks, full middleware model | Feature-first projects where features hook into each other or middleware varies per request | `https://ai.memention.net/cards/feature-first-advanced.md` |
 | **Two-Tier CLAUDE.md** | Splits per-feature CLAUDE.md into a slim always-loaded overview + on-demand full contract | Projects using feature-first architecture with 3+ node features | `https://ai.memention.net/cards/two-tier-claude-md.md` |
 | **Shared Project Plan** | A single `project-plan.md` holding the goal + live state that every spawned agent reads first and updates, so independent agents share one objective | Work fanned out across subagents, worktrees, or issue-driven autonomous runs | `https://ai.memention.net/cards/project-plan.md` |
+| **Agent Skills** | Installs reusable Claude Code skills into the project's `.claude/skills/` directory so agents can invoke them locally | Any project that benefits from shared, reusable skills (refactoring, planning, discovery, etc.) | `https://github.com/epatel/agent-skills/` |
 
 Your scoping message to the user should include:
 
@@ -56,6 +57,18 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 **Shared Project Plan** (`project-plan.md`):
 - Create `project-plan.md` at the repo root with Goal, Non-goals, Milestones, Decisions, Current state, and Open questions sections
 - Reference it from `CLAUDE.md` (`@project-plan.md`) and from any subagent/worktree spawn prompt so every agent reads it first and updates it before finishing
+
+**Agent Skills** (`https://github.com/epatel/agent-skills/`):
+- Clone or sparse-checkout the repo and copy the desired skill directories into the project's `.claude/skills/` directory (one directory per skill, each containing its `SKILL.md`)
+- Available skills include: `adt-types`, `backward-planning`, `clean-modules`, `design-system`, `focused-refactor`, `makefile-actions`, `project-discovery`, `state-machines`
+- Install only the skills relevant to the project — ask the user which ones if unsure
+- These are **project-scoped** (committed under `.claude/skills/`), so every agent and worktree for this project can invoke them
+- Example:
+  ```bash
+  git clone --depth 1 https://github.com/epatel/agent-skills.git /tmp/agent-skills
+  mkdir -p .claude/skills
+  cp -r /tmp/agent-skills/focused-refactor .claude/skills/
+  ```
 
 ## Step 4 — Verify
 
