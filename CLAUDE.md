@@ -4,66 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # VPS Agent Manager
 
-GitHub-issue-driven autonomous agent system on `ai.memention.net` (Ubuntu 24.04, x86_64).
+GitHub-issue-driven autonomous agent system on `ai.memention.net` (Ubuntu 24.04,
+x86_64). A new issue on `epatel/vps-ai` becomes a git-worktree agent run that
+opens a reviewed PR; merged changes are pulled and deployed on the server.
+Stack: Python + shell orchestration, with independent apps/games/services under
+`projects/`.
 
-## How it works
+Always read @project-plan.md before starting — it holds the shared goal and
+current state for work fanned out across issue-driven agents.
 
-1. A **GitHub Webhook** fires when a new issue is opened on `epatel/vps-ai`
-2. The **webhook receiver** (`webhook-receiver.py`) validates the HMAC signature and dispatches the event
-3. It runs `monitor-issues.sh` which fetches the issue details from GitHub
-4. For each new issue, it creates `issues/issue-N.md` and spawns `run-agent.sh`
-5. `run-agent.sh` pulls latest `main`, creates an isolated **git worktree** at `.worktrees/issue-N/`, and runs Claude there
-6. A comment is posted on the issue that the agent has started
-7. After the agent finishes, it pushes the `issue-N` branch and creates a **PR** for review
-8. Posts the agent's summary as a comment on the GitHub issue and closes it
-9. When a PR is merged (or code is pushed to main), the webhook triggers `git pull` on the server
-10. A **post-merge git hook** auto-restarts services and rebuilds Flutter web apps when their source files change
+## Context Cards
 
-## Directory structure
+Lazy-loaded reference cards under `cards/`. Open one when its trigger matches:
 
-```
-├── CLAUDE.md                 <- this file
-├── webhook-receiver.py       <- HTTP webhook server (behind nginx)
-├── monitor-issues.sh         <- fetches issue & spawns agent
-├── run-agent.sh              <- agent runner (worktree + post-processing)
-├── github-helper.py          <- GitHub API helper (comments, PRs, close)
-├── post-progress.sh          <- lets agents post progress to issues
-├── setup-hooks.sh            <- installs git hooks from hooks/
-├── setup-server.sh           <- one-time server provisioning
-├── hooks/
-│   └── post-merge            <- restarts services + rebuilds Flutter apps
-├── .system-prompt.md         <- system prompt given to every agent
-├── .env.issues               <- config (gitignored)
-├── .gitignore
-├── issues/                   <- issue tracking files (issue-N.md)
-├── projects/                 <- project directories
-└── .worktrees/               <- temporary agent worktrees (gitignored)
-```
-
-## Setup after cloning
-
-```bash
-# One-time server setup
-sudo bash setup-server.sh
-
-# Or manually:
-# Install git hooks
-bash setup-hooks.sh
-
-# Create .env.issues
-cat > .env.issues << 'EOF'
-GITHUB_TOKEN=<fine-grained-pat>
-GITHUB_REPO=epatel/vps-ai
-WEBHOOK_SECRET=<random-secret>
-EOF
-chmod 600 .env.issues
-```
-
-### GitHub token permissions (fine-grained PAT)
-
-- **Issues**: Read and write
-- **Pull requests**: Read and write
-- **Contents**: Read and write
+- [architecture](cards/architecture.md) — how the issue→worktree→PR→deploy pipeline fits together, components, systemd services
+- [server-setup](cards/server-setup.md) — provisioning, GitHub PAT, `.env.issues`, webhook configuration
+- [deploy-pipeline](cards/deploy-pipeline.md) — post-merge hook + Flutter-web GitHub Actions build and restricted-key rsync deploy
+- [nginx-conventions](cards/nginx-conventions.md) — serving a project through nginx, location-block rules
+- [status-page](cards/status-page.md) — registering a project with the status monitor and the `/status/log` event endpoint
+- [landing-page](cards/landing-page.md) — the root landing page and adding a project card
 
 ## Agent execution environment
 
@@ -72,108 +31,6 @@ chmod 600 .env.issues
 - The agent is on branch `issue-N` — it must NOT switch branches
 - System prompt is loaded from `.system-prompt.md`
 - The agent has `--dangerously-skip-permissions` (full autonomy)
-
-## Services
-
-Services are managed via systemd. The post-merge hook automatically restarts
-them when their project files change on merge/pull.
-
-To add a new service, edit `hooks/post-merge` and add an entry to `SERVICE_MAP`:
-```bash
-["projects/my-project"]="my-service"
-```
-Then run `bash setup-hooks.sh` to reinstall the hook.
-
-## Flutter web projects
-
-Flutter web apps are built and deployed by **GitHub Actions**
-(`.github/workflows/build-flutter-web.yml`). On push to `main`, the workflow
-detects which `projects/*/` directories changed, runs `flutter build web` in
-each, and `rsync`s the output into `~/vps-ai/projects/<name>/build/web/` on
-the server.
-
-- Build output (`build/`) is **gitignored** — never commit it
-- The `--base-href /<project-name>/` flag is applied automatically
-- Pull requests build but do not deploy
-- Adding a new Flutter project requires no config changes — just create it under `projects/`
-- Flutter is **not** required on the server; the post-merge hook does not build Flutter projects
-
-Deploy is over SSH using a restricted key:
-
-- `DEPLOY_SSH_KEY` (GitHub secret) — private ed25519 key
-- `DEPLOY_KNOWN_HOSTS` (GitHub secret) — output of `ssh-keyscan -t ed25519 ai.memention.net`
-- The matching public key sits in `epatel@ai.memention.net:~/.ssh/authorized_keys`,
-  prefixed with `command="rrsync -wo /home/epatel/vps-ai/projects",no-pty,no-agent-forwarding,no-port-forwarding,no-X11-forwarding`
-  so the key can only `rsync` into subpaths under `~/vps-ai/projects/`
-
-## Nginx configuration
-
-Nginx config lives at `/etc/nginx/sites-available/ai.memention.net` on the server.
-`sites-enabled` is a **symlink** to `sites-available` — always edit `sites-available`.
-
-When adding a new project that needs to be served:
-
-- **Static sites**: Add an `alias` location block pointing to the project directory
-- **Python services**: Add a `proxy_pass` location block to the service port
-- **WebSocket services**: Add a separate location block with `proxy_http_version 1.1` and `Upgrade` headers
-- **Flutter web apps**: Use `alias` to `build/web/` with `try_files` for SPA routing
-
-The catch-all `location /` serves the landing page. New location blocks must be added
-**before** it (nginx uses longest prefix match, but the catch-all `alias` can interfere).
-
-After editing: `sudo nginx -t && sudo systemctl reload nginx`
-
-## Status page monitoring
-
-`projects/status-page/server.py` monitors all services. When adding a new project:
-
-1. Add an entry to the `SERVICES` list in `server.py`
-2. Use `check_type="port"` for backend services, `"file"` for static sites
-3. For POST-only services, add `{"port_only": True}` flag to skip GET-based nginx check
-4. For APIs with no root route, add `{"check_path": "/path/to/health"}` flag
-5. The status page checks nginx routing — it detects fallback/catch-all responses as "degraded"
-
-### Event log
-
-The status page exposes `POST /status/log` for posting deploy/notification events
-(JSON `{"source": "...", "message": "..."}`, Bearer token auth via the
-`STATUS_LOG_TOKEN` env var). The last 200 events are kept in
-`projects/status-page/.events.jsonl` (gitignored, restored on restart); the
-last five render in the "Recent Events" panel below METRICS. The token lives
-in a systemd drop-in (`/etc/systemd/system/status-page.service.d/env.conf`) on
-the server and as the `STATUS_LOG_TOKEN` GitHub Actions secret. The Flutter
-deploy workflow posts a success/failure event per matrix project; other hooks
-or scripts can post via the same endpoint.
-
-## Landing page
-
-The root URL (`/`) serves `projects/landing/index.html` — a static page with clickable
-cards linking to each project. When adding a new project:
-
-1. Add a card to `projects/landing/index.html` inside the `<div class="cards">` block
-2. Use a `data-path` attribute on the status dot to match the service path in `projects/status-page/server.py`
-3. For projects not served through nginx (e.g. Poem), link to the GitHub source and omit the status dot
-4. Pick a badge type: `game`, `app`, `tool`, or `api`
-
-The page fetches `/status/json` to show live status dots (green/orange/red) on each card.
-
-## Configuration (`.env.issues`)
-
-```
-GITHUB_TOKEN=<fine-grained-pat>
-GITHUB_REPO=epatel/vps-ai
-WEBHOOK_SECRET=<random-secret>
-# Optional:
-# HOST_DESCRIPTION=<custom-description>
-```
-
-## Webhook setup
-
-Add a webhook on `epatel/vps-ai` repo settings:
-- **URL:** `https://ai.memention.net/webhook`
-- **Content type:** `application/json`
-- **Secret:** matches `WEBHOOK_SECRET` in `.env.issues`
-- **Events:** Issues, Pull requests, Pushes
 
 ## Logs
 
@@ -198,10 +55,11 @@ bash setup-hooks.sh
 
 ## Keeping documentation up to date
 
-When you change how the system works, update both `CLAUDE.md` and `README.md`
-in the same change so they stay in sync with the code:
+When you change how the system works, update both `CLAUDE.md` (and the relevant
+`cards/` file) and `README.md` in the same change so they stay in sync with the
+code:
 
-- `CLAUDE.md` — guidance for agents working in this repo (internal detail, conventions)
+- `CLAUDE.md` + `cards/` — guidance for agents working in this repo (internal detail, conventions)
 - `README.md` — public-facing overview of the system
 
 This applies to changes such as: new/renamed scripts or services, directory

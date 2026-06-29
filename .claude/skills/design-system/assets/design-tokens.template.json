@@ -1,0 +1,154 @@
+{
+  "$description": "Starter design tokens. Primitives are theme-independent; semantic.light and semantic.dark alias into them. Replace the accent ramp and font families with the brand's; keep the semantic key sets identical across themes.",
+  "primitive": {
+    "color": {
+      "$type": "color",
+      "neutral": {
+        "0":   { "$value": "#ffffff" },
+        "50":  { "$value": "#f8fafc" },
+        "100": { "$value": "#f1f5f9" },
+        "200": { "$value": "#e2e8f0" },
+        "300": { "$value": "#cbd5e1" },
+        "400": { "$value": "#94a3b8" },
+        "500": { "$value": "#64748b" },
+        "600": { "$value": "#475569" },
+        "700": { "$value": "#334155" },
+        "800": { "$value": "#1e293b" },
+        "900": { "$value": "#0f172a" },
+        "950": { "$value": "#020617" }
+      },
+      "accent": {
+        "50":  { "$value": "#eff6ff" },
+        "100": { "$value": "#dbeafe" },
+        "200": { "$value": "#bfdbfe" },
+        "300": { "$value": "#93c5fd" },
+        "400": { "$value": "#60a5fa" },
+        "500": { "$value": "#3b82f6" },
+        "600": { "$value": "#2563eb" },
+        "700": { "$value": "#1d4ed8" },
+        "800": { "$value": "#1e40af" },
+        "900": { "$value": "#1e3a8a" }
+      },
+      "success": { "$value": "#16a34a" },
+      "warning": { "$value": "#d97706" },
+      "danger":  { "$value": "#dc2626" },
+      "info":    { "$value": "#2563eb" }
+    }
+  },
+  "semantic": {
+    "light": {
+      "color": {
+        "$type": "color",
+        "bg":             { "$value": "{primitive.color.neutral.0}" },
+        "surface":        { "$value": "{primitive.color.neutral.0}" },
+        "surface-raised": { "$value": "{primitive.color.neutral.50}" },
+        "surface-sunken": { "$value": "{primitive.color.neutral.100}" },
+        "text-primary":   { "$value": "{primitive.color.neutral.900}" },
+        "text-secondary": { "$value": "{primitive.color.neutral.600}" },
+        "text-muted":     { "$value": "{primitive.color.neutral.400}" },
+        "border":         { "$value": "{primitive.color.neutral.200}" },
+        "border-strong":  { "$value": "{primitive.color.neutral.300}" },
+        "accent":         { "$value": "{primitive.color.accent.600}" },
+        "accent-hover":   { "$value": "{primitive.color.accent.700}" },
+        "on-accent":      { "$value": "{primitive.color.neutral.0}" },
+        "focus-ring":     { "$value": "{primitive.color.accent.500}" },
+        "success":        { "$value": "{primitive.color.success}" },
+        "warning":        { "$value": "{primitive.color.warning}" },
+        "danger":         { "$value": "{primitive.color.danger}" },
+        "info":           { "$value": "{primitive.color.info}" },
+        "on-status":      { "$value": "{primitive.color.neutral.0}" }
+      }
+    },
+    "dark": {
+      "color": {
+        "$type": "color",
+        "bg":             { "$value": "{primitive.color.neutral.950}" },
+        "surface":        { "$value": "{primitive.color.neutral.900}" },
+        "surface-raised": { "$value": "{primitive.color.neutral.800}" },
+        "surface-sunken": { "$value": "{primitive.color.neutral.950}" },
+        "text-primary":   { "$value": "{primitive.color.neutral.50}" },
+        "text-secondary": { "$value": "{primitive.color.neutral.300}" },
+        "text-muted":     { "$value": "{primitive.color.neutral.500}" },
+        "border":         { "$value": "{primitive.color.neutral.800}" },
+        "border-strong":  { "$value": "{primitive.color.neutral.700}" },
+        "accent":         { "$value": "{primitive.color.accent.500}" },
+        "accent-hover":   { "$value": "{primitive.color.accent.400}" },
+        "on-accent":      { "$value": "{primitive.color.neutral.950}" },
+        "focus-ring":     { "$value": "{primitive.color.accent.400}" },
+        "success":        { "$value": "{primitive.color.success}" },
+        "warning":        { "$value": "{primitive.color.warning}" },
+        "danger":         { "$value": "{primitive.color.danger}" },
+        "info":           { "$value": "{primitive.color.info}" },
+        "on-status":      { "$value": "{primitive.color.neutral.0}" }
+      }
+    }
+  },
+  "space": {
+    "$type": "dimension",
+    "0":  { "$value": "0px" },
+    "1":  { "$value": "4px" },
+    "2":  { "$value": "8px" },
+    "3":  { "$value": "12px" },
+    "4":  { "$value": "16px" },
+    "5":  { "$value": "20px" },
+    "6":  { "$value": "24px" },
+    "8":  { "$value": "32px" },
+    "10": { "$value": "40px" },
+    "12": { "$value": "48px" },
+    "16": { "$value": "64px" },
+    "24": { "$value": "96px" }
+  },
+  "radius": {
+    "$type": "dimension",
+    "none": { "$value": "0px" },
+    "sm":   { "$value": "4px" },
+    "md":   { "$value": "8px" },
+    "lg":   { "$value": "12px" },
+    "xl":   { "$value": "16px" },
+    "full": { "$value": "9999px" }
+  },
+  "border-width": {
+    "$type": "dimension",
+    "thin":  { "$value": "1px" },
+    "thick": { "$value": "2px" }
+  },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "sans": { "$value": "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" },
+      "mono": { "$value": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" }
+    },
+    "size": {
+      "$type": "dimension",
+      "xs":   { "$value": "12px" },
+      "sm":   { "$value": "14px" },
+      "base": { "$value": "16px" },
+      "lg":   { "$value": "18px" },
+      "xl":   { "$value": "20px" },
+      "2xl":  { "$value": "24px" },
+      "3xl":  { "$value": "30px" },
+      "4xl":  { "$value": "36px" }
+    },
+    "weight": {
+      "$type": "fontWeight",
+      "regular":  { "$value": 400 },
+      "medium":   { "$value": 500 },
+      "semibold": { "$value": 600 },
+      "bold":     { "$value": 700 }
+    },
+    "line-height": {
+      "$type": "number",
+      "tight":   { "$value": 1.2 },
+      "snug":    { "$value": 1.35 },
+      "normal":  { "$value": 1.5 },
+      "relaxed": { "$value": 1.7 }
+    }
+  },
+  "shadow": {
+    "$type": "shadow",
+    "$description": "Tuned for light backgrounds; dark themes typically soften these or substitute a subtle border for elevation.",
+    "sm": { "$value": "0 1px 2px rgba(15, 23, 42, 0.08)" },
+    "md": { "$value": "0 4px 8px rgba(15, 23, 42, 0.10)" },
+    "lg": { "$value": "0 12px 24px rgba(15, 23, 42, 0.14)" }
+  }
+}
