@@ -101,6 +101,13 @@
   .telem .up{color:var(--go)} .telem .down{color:var(--hold)}
   .asof{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:12px}
 
+  /* ---- live price widget (TradingView) ---- */
+  .tv-quote{margin-top:6px}
+  .tv-quote .tradingview-widget-container,
+  .tv-quote .tradingview-widget-container__widget{width:100%}
+  .tv-quote iframe{display:block!important;width:100%!important}
+  .telem .ipo-ref{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:10px}
+
   /* ---- sections ---- */
   section.block{padding:54px 0;border-bottom:1px solid var(--hair)}
   .head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:26px;flex-wrap:wrap}
@@ -218,18 +225,25 @@
 
     <div class="telem rise d3">
       <div class="cell">
-        <div class="label">Last price</div>
-        <div class="v">$153.23</div>
-        <div class="delta up">+13.5% vs IPO</div>
+        <div class="label">Last price · live</div>
+        <div class="tv-quote">
+          <div class="tradingview-widget-container">
+            <div class="tradingview-widget-container__widget"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js" async>
+            {"symbol":"NASDAQ:SPCX","width":"100%","isTransparent":true,"colorTheme":"dark","locale":"en"}
+            </script>
+          </div>
+        </div>
+        <div class="ipo-ref">IPO $135 · Jun 11, 2026</div>
       </div>
       <div class="cell">
         <div class="label">IPO price</div>
         <div class="v">$135<small>/sh</small></div>
-        <div class="delta" style="color:var(--dim)">555.6M shares</div>
+        <div class="delta" style="color:var(--dim)">638.9M float · incl. greenshoe</div>
       </div>
       <div class="cell">
         <div class="label">Market cap</div>
-        <div class="v">$2.02<small>T</small></div>
+        <div class="v">$2.16<small>T</small></div>
         <div class="delta" style="color:var(--dim)">fully diluted</div>
       </div>
       <div class="cell">
@@ -238,7 +252,7 @@
         <div class="delta up" id="telNext">next release —</div>
       </div>
     </div>
-    <p class="asof">Price &amp; market cap as of Jun 26, 2026 close (latest session). Schedule states update live.</p>
+    <p class="asof">Last price is live via TradingView. Market cap as of Jul 1, 2026. Schedule states update live.</p>
   </div>
 </header>
 
@@ -257,7 +271,7 @@
     <div class="wrap">
       <div class="head">
         <h2>Insider lock-up — release sequence</h2>
-        <p class="note">Clocks run from the Jun 11, 2026 pricing date per the 424B4. Percentages are of the 180-day locked block.</p>
+        <p class="note">Clocks run from the Jun 11, 2026 pricing date per the 424B4. Percentages are of the ~4.56B-share 180-day locked block (excludes Musk's 366-day 6.4B block); "float +%" is each release's increase over the 638.9M float going into that step; "float →" is the running tradable float after it.</p>
       </div>
       <div class="ascent">
         <div class="gauge">
@@ -295,7 +309,7 @@
             <dt>First trade</dt><dd>Jun 12, 2026</dd>
             <dt>Price</dt><dd>$135 / sh</dd>
             <dt>Ticker</dt><dd>SPCX</dd>
-            <dt>Shares</dt><dd>555.6M</dd>
+            <dt>Float</dt><dd>638.9M</dd>
           </dl>
         </div>
         <div class="fact">
@@ -348,7 +362,7 @@
     {d:'2026-11-01', t:'~T+143',when:'Late Oct / early Nov', desc:'Q3 2026 earnings window', pct:28},
     {d:'2026-12-08', t:'T+180', when:'Dec 8, 2026',  desc:'Full lock-up expiry — remaining shares', pct:17, full:true}
   ];
-  var EXTENDED = {d:'2027-06-12', t:'T+366', when:'Jun 12, 2027', desc:'Musk & certain major investors — extended 366-day lock-up expires. No early-release provisions.'};
+  var EXTENDED = {d:'2027-06-12', t:'T+366', when:'Jun 12, 2027', desc:'Musk ~6.4B shares (Class B + options) — extended 366-day lock-up expires. No early-release provisions.'};
 
   var INDEX = [
     {name:'MSCI indexes', date:'2026-06-25', label:'Jun 25, 2026',
@@ -363,9 +377,14 @@
   ];
 
   var DAY = 86400000;
+  // Share basis — verified vs. 424B4 / market data (see spcx_research.md).
+  var FLOAT  = 638.9e6;   // public float incl. fully-exercised 83.3M greenshoe (base offering 555.6M)
+  var FD     = 13.08e9;   // basic share count (13.0759B)
+  var LOCKED = 4.56e9;    // 180-day locked block ONLY — excludes Musk's 366-day 6.4B block
   function d(s){return new Date(s+'T00:00:00');}
   function fmtDays(n){return String(n).padStart(5,'0');}
   function pad(n){return String(n).padStart(2,'0');}
+  function fmtSh(n){return n>=1e9?(n/1e9).toFixed(2)+'B':n>=1e6?Math.round(n/1e6)+'M':Math.round(n).toLocaleString();}
 
   // ---- live mission clock ----
   var cdEl=document.getElementById('cd'), chipT=document.getElementById('chipT');
@@ -393,7 +412,7 @@
 
   // ---- lock-up rail ----
   var stagesEl=document.getElementById('stages');
-  var cum=0, releasedCum=0, nextLabel=null, lastDone=true, html='';
+  var cum=0, releasedCum=0, nextLabel=null, lastDone=true, html='', flt=FLOAT;
   var all=BLOCK.concat([EXTENDED]);
   for(var i=0;i<all.length;i++){
     var e=all[i], dt=d(e.d), done=now>=dt;
@@ -401,7 +420,17 @@
     if(st==='next' && !nextLabel) nextLabel=e.when+' · '+(e.pct?('+'+e.pct+'%'):e.t);
     lastDone = done;
     if(e.pct){ cum+=e.pct; if(done) releasedCum=cum; }
-    var pctChip = e.pct ? '<span class="chip acc">+'+e.pct+'%</span><span class="chip">'+(e.full?'100%':cum+'% total')+'</span>' : '<span class="chip">'+e.t+'</span>';
+    var pctChip;
+    if(e.pct){
+      var sh = e.pct/100*LOCKED, fl = sh/flt*100;  // vs. float going into this step
+      flt += sh;                                    // running float after this release
+      pctChip = '<span class="chip acc">+'+e.pct+'% of block</span>'
+        +'<span class="chip">'+fmtSh(sh)+' sh</span>'
+        +'<span class="chip">float +'+Math.round(fl)+'%</span>'
+        +'<span class="chip">float → '+fmtSh(flt)+'</span>';
+    } else {
+      pctChip = '<span class="chip">'+e.t+'</span>';
+    }
     html+='<div class="stage '+st+'">'
       +'<span class="node"></span>'
       +'<div class="row1"><span class="tmark">'+e.t+'</span><span class="when">'+e.when+'</span></div>'
