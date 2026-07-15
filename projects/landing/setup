@@ -10,6 +10,9 @@ Before asking the user anything, orient yourself:
 1. Read the project's existing `CLAUDE.md` (if any), `README.md`, `package.json` / `pubspec.yaml` / `Cargo.toml` / `go.mod` or equivalent.
 2. Walk the top-level directory structure.
 3. Note: language/framework, approximate size (files, modules), whether it already has a `cards/` directory or per-feature `CLAUDE.md` files.
+4. Decide the mode: **setup** (little or no agentic structure exists) or **update** (the project already has CLAUDE.md + cards, skills under `.claude/skills/`, a project plan, or similar).
+
+**If this is an update, be careful:** the existing setup encodes decisions and project knowledge. Do not re-apply patterns over it or replace files wholesale — extend and refresh instead. In update mode, prefer running the `review-agentic-setup` skill (see the Agent Skills pattern below) to audit and modernize what exists before adding anything new, and treat every existing file as intentional until shown otherwise.
 
 ## Step 2 — Present scope
 
@@ -26,6 +29,7 @@ Based on what you found, present the user with a scoping summary and ask which p
 
 Your scoping message to the user should include:
 
+- Whether you are in **setup** or **update** mode, and why
 - A 2-3 sentence summary of what you found (stack, size, current state of docs)
 - For each pattern: whether you recommend it and a one-line reason why or why not
 - Ask the user to confirm which patterns to apply
@@ -60,7 +64,8 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 
 **Agent Skills** (`https://github.com/epatel/agent-skills/`):
 - Clone or sparse-checkout the repo and copy the desired skill directories into the project's `.claude/skills/` directory (one directory per skill, each containing its `SKILL.md`)
-- Available skills include: `adt-types`, `backward-planning`, `clean-modules`, `design-system`, `focused-refactor`, `makefile-actions`, `project-discovery`, `state-machines`
+- Available skills include: `adt-types`, `backward-planning`, `clean-modules`, `design-system`, `focused-refactor`, `makefile-actions`, `project-discovery`, `review-agentic-setup`, `state-machines`
+- `review-agentic-setup` reviews and modernizes an existing agentic setup (CLAUDE.md, cards, skills, hooks) against the current model — install it whenever the project already has structure, and run it as the first step in **update** mode
 - Install only the skills relevant to the project — ask the user which ones if unsure
 - These are **project-scoped** (committed under `.claude/skills/`), so every agent and worktree for this project can invoke them
 - Example:
@@ -82,5 +87,5 @@ After applying all selected patterns:
 ## Notes
 
 - These patterns document existing code — they do not restructure or refactor it
-- If the project already has partial setup (e.g., some cards exist), extend rather than replace
+- If the project already has partial setup (e.g., some cards exist), extend rather than replace — never overwrite an existing card, feature doc, or skill without showing the user what would be lost
 - When in doubt about a pattern's applicability, ask the user — do not guess
