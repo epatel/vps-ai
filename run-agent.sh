@@ -18,9 +18,49 @@ SYSTEM_PROMPT="$(sed -e "s|{{REPO_ROOT}}|$SCRIPT_DIR|g" -e "s|{{HOST_DESCRIPTION
 HELPER="$SCRIPT_DIR/github-helper.py"
 AUTH_REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
 AGENT_OUTPUT_FILE="$SCRIPT_DIR/.agent-issue-${ISSUE_NUM}.output"
+AGENT_LOG_FILE="$SCRIPT_DIR/.agent-issue-${ISSUE_NUM}.log"
 
 WORKTREE_DIR="$SCRIPT_DIR/.worktrees/issue-${ISSUE_NUM}"
 BRANCH_NAME="issue-${ISSUE_NUM}"
+
+# With `set -e` any failed step aborts this script. Without a trap that is
+# silent on GitHub: the issue keeps the "Agent is starting work..." comment
+# forever and a crash is indistinguishable from a long-running agent.
+# STAGE is updated as the run progresses so the comment can say where it died.
+STAGE="starting up"
+
+report_failure() {
+  local exit_code=$?
+  trap - EXIT
+  [[ $exit_code -eq 0 ]] && return 0
+
+  echo "=== Agent FAILED for issue #${ISSUE_NUM} (exit ${exit_code}) during: ${STAGE} ==="
+
+  local tail_output=""
+  if [[ -s "$AGENT_OUTPUT_FILE" ]]; then
+    tail_output=$(tail -c 2000 "$AGENT_OUTPUT_FILE")
+  elif [[ -s "$AGENT_LOG_FILE" ]]; then
+    tail_output=$(tail -c 2000 "$AGENT_LOG_FILE")
+  fi
+  # Keep the agent's own fenced output from breaking out of our code fence.
+  tail_output=${tail_output//\`\`\`/\'\'\'}
+
+  python3 "$HELPER" post-comment-text "**Agent run failed** — exit code \`${exit_code}\` while ${STAGE}.
+
+No pull request was created and this issue is left open. Full server log: \`.agent-issue-${ISSUE_NUM}.log\`
+
+<details><summary>Last output</summary>
+
+\`\`\`
+${tail_output:-(no output captured)}
+\`\`\`
+
+</details>" "$ISSUE_NUM" "$GITHUB_REPO" "$GITHUB_TOKEN" \
+    || echo "WARNING: could not post failure comment for issue #${ISSUE_NUM}"
+
+  exit "$exit_code"
+}
+trap report_failure EXIT
 
 echo "=== Agent starting for issue #${ISSUE_NUM} at $(date) ==="
 
@@ -29,6 +69,7 @@ git -C "$SCRIPT_DIR" add -u
 git -C "$SCRIPT_DIR" commit -m "Auto-commit local changes before merge" --quiet || true
 
 # Pull latest main before creating worktree so agent works on fresh code
+STAGE="pulling latest main"
 echo "Pulling latest main..."
 git -C "$SCRIPT_DIR" fetch "$AUTH_REMOTE" main 2>&1
 git -C "$SCRIPT_DIR" diff --name-only FETCH_HEAD 2>/dev/null | while read -r f; do
@@ -43,6 +84,7 @@ git -C "$SCRIPT_DIR" worktree remove "$WORKTREE_DIR" --force 2>/dev/null || true
 git -C "$SCRIPT_DIR" branch -D "$BRANCH_NAME" 2>/dev/null || true
 
 # Create an isolated worktree for this issue
+STAGE="creating the git worktree"
 mkdir -p "$SCRIPT_DIR/.worktrees"
 git -C "$SCRIPT_DIR" worktree add -b "$BRANCH_NAME" "$WORKTREE_DIR" main 2>&1 || {
   echo "ERROR: Could not create worktree for issue #${ISSUE_NUM}"
@@ -55,6 +97,7 @@ echo "Worktree created at $WORKTREE_DIR"
 python3 "$HELPER" post-comment-text "Agent is starting work on this issue..." "$ISSUE_NUM" "$GITHUB_REPO" "$GITHUB_TOKEN"
 
 # Run Claude with the system prompt, working inside the worktree
+STAGE="running the Claude agent"
 cd "$WORKTREE_DIR"
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
 unset CLAUDECODE
@@ -75,6 +118,7 @@ fi
 
 # Push branch and create PR
 cd "$SCRIPT_DIR"
+STAGE="pushing the branch and creating the PR"
 echo "=== Pushing branch and creating PR ==="
 
 git -C "$WORKTREE_DIR" push -u "$AUTH_REMOTE" "$BRANCH_NAME" 2>&1 || echo "WARNING: Failed to push branch"

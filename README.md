@@ -15,6 +15,9 @@ Running on [`ai.memention.net`](https://ai.memention.net)
 5. When done, a PR is created for review
 6. The agent posts a summary comment on the issue and closes it
 
+If any step fails, a comment reporting the exit code, the stage that failed, and
+the last output is posted instead. The issue stays open and no PR is created.
+
 ## Architecture
 
 ```
