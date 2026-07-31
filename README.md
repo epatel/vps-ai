@@ -175,6 +175,7 @@ Agent-created projects live under `projects/`. Services are managed via systemd 
 | [badge](projects/badge/) | E-paper badge designer/writer over BLE |
 | [bellman](projects/bellman/) | Self-guided pub-walk mystery game through five taverns in Gamla stan (mobile-first single-page web app) |
 | [breakout](projects/breakout/) | Classic Breakout brick-breaker game (single-page HTML) |
+| [calender](projects/calender/) | Printable A4 month calendar generator with per-day notes and Swedish red days (single-page HTML) |
 | [drop](projects/drop/) | Instant cross-device sharing (text, links, images, files) via paired PWA |
 | [emoji-mixer](projects/emoji-mixer/) | Browser-based emoji collage tool — arrange and transform emojis, export a transparent PNG |
 | [flutter_demo](projects/flutter_demo/) | Flutter web demo app |

@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalender &mdash; print-friendly month planner</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --ink: #111;
+        --muted: #6b6b6b;
+        --rule: #d8d8d8;
+        --rule-strong: #9a9a9a;
+        --red: #c0202a;
+        --sheet-w: 190mm;
+        --sheet-h: 277mm;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #1a1a2e;
+        color: #e0e0e0;
+        padding: 18px;
+    }
+
+    /* ---------- controls ---------- */
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    header h1 { font-size: 1.35em; }
+    header .sub { color: #888; font-size: .82em; margin: 4px 0 18px; }
+    header .sub a { color: #8ab4f8; text-decoration: none; }
+
+    .panel {
+        background: #16213e;
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-bottom: 18px;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+    .row + .row { margin-top: 12px; padding-top: 12px; border-top: 1px solid #24345c; }
+    label { font-size: .82em; color: #b9c3d8; display: inline-flex; align-items: center; gap: 6px; }
+    select, input[type=text] {
+        background: #0f172f; color: #e0e0e0;
+        border: 1px solid #2c3f6d; border-radius: 6px;
+        padding: 6px 8px; font: inherit; font-size: .85em;
+    }
+    input[type=text] { min-width: 220px; }
+    input[type=checkbox] { accent-color: #64b5f6; width: 15px; height: 15px; }
+    button {
+        background: #24345c; color: #e0e0e0; border: 1px solid #35508a;
+        border-radius: 6px; padding: 6px 12px; font: inherit; font-size: .85em;
+        cursor: pointer; transition: background .15s;
+    }
+    button:hover { background: #2f4677; }
+    button.primary { background: #0d47a1; border-color: #1565c0; font-weight: 600; }
+    button.primary:hover { background: #1565c0; }
+    .hint { color: #6f7a92; font-size: .75em; margin-top: 10px; line-height: 1.5; }
+
+    /* ---------- sheet (screen preview) ---------- */
+    .stage { display: flex; justify-content: center; }
+    .scaler { transform-origin: top center; }
+
+    .sheet {
+        width: var(--sheet-w);
+        height: var(--sheet-h);
+        background: #fff;
+        color: var(--ink);
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 6px 30px rgba(0,0,0,.55);
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    .sheet-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        border-bottom: 1.6pt solid var(--ink);
+        padding-bottom: 2.5mm;
+        margin-bottom: 2mm;
+        flex: none;
+    }
+    .sheet-head .month { font-size: 22pt; font-weight: 700; letter-spacing: -.5px; }
+    .sheet-head .month .yr { font-weight: 300; color: var(--muted); margin-left: 6px; }
+    .sheet-head .title { font-size: 10pt; color: var(--muted); text-align: right; max-width: 80mm; }
+
+    .days { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+
+    .day {
+        flex: 1 1 0;
+        display: flex;
+        align-items: stretch;
+        border-bottom: .4pt solid var(--rule);
+        min-height: 0;
+    }
+    .day.newweek { border-top: .8pt solid var(--rule-strong); }
+    .day:first-child { border-top: none; }
+    .day.weekend { background: #f4f4f4; }
+    @media screen {
+        /* "today" marker is a screen-only aid — it must not end up on paper */
+        .day.today { box-shadow: inset 3px 0 0 #0d47a1; }
+    }
+    .day.red .dnum, .day.red .dwd, .day.red .hol { color: var(--red); }
+
+    .day .wk {
+        flex: none; width: 8mm;
+        font-size: 6.5pt; color: var(--muted);
+        display: flex; align-items: center; justify-content: center;
+        border-right: .4pt solid var(--rule);
+    }
+    .day .dnum {
+        flex: none; width: 10mm; text-align: right; padding-right: 2mm;
+        font-size: 12pt; font-weight: 600;
+        display: flex; align-items: center; justify-content: flex-end;
+    }
+    .day .dwd {
+        flex: none; width: 12mm;
+        font-size: 8pt; color: var(--muted); text-transform: uppercase; letter-spacing: .5px;
+        display: flex; align-items: center;
+    }
+    .day .cell {
+        flex: 1 1 auto; min-width: 0;
+        display: flex; align-items: center; gap: 2mm;
+        padding-left: 1mm;
+    }
+    .day .hol {
+        flex: none; max-width: 62mm;
+        font-size: 7.5pt; color: var(--muted); font-style: italic;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .day .hol.eve { font-style: normal; opacity: .8; }
+    .day .note {
+        flex: 1 1 auto; min-width: 0;
+        border: none; background: transparent;
+        font: inherit; font-size: 9pt; color: var(--ink);
+        padding: 0 1mm; height: 100%;
+        font-family: inherit;
+    }
+    .day .note:focus { outline: none; background: #fffbe6; }
+    .day .note::placeholder { color: transparent; }
+
+    .foot {
+        flex: none;
+        margin-top: 2.5mm; padding-top: 1.5mm;
+        border-top: 1pt solid var(--ink);
+        display: flex; flex-direction: column;
+    }
+    .foot .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 1mm; }
+    .foot textarea {
+        border: none; resize: none; width: 100%; height: 26mm;
+        font: inherit; font-size: 9pt; line-height: 1.55; color: var(--ink);
+        background:
+            repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.55em - 1px), var(--rule) calc(1.55em - 1px), var(--rule) 1.55em);
+    }
+    .foot textarea:focus { outline: none; }
+
+    .legend {
+        flex: none; font-size: 6.5pt; color: var(--muted);
+        margin-top: 1.5mm; display: flex; justify-content: space-between;
+    }
+    .legend .red { color: var(--red); }
+
+    /* ---------- print ---------- */
+    @media print {
+        @page { size: A4 portrait; margin: 10mm; }
+        html, body { background: #fff; padding: 0; margin: 0; }
+        .noprint { display: none !important; }
+        .stage { display: block; }
+        .scaler { transform: none !important; width: auto !important; height: auto !important; }
+        .sheet {
+            width: var(--sheet-w);
+            height: 275mm;          /* a hair under the 277mm content box, avoids a stray 2nd page */
+            box-shadow: none;
+            page-break-after: avoid;
+            page-break-inside: avoid;
+        }
+        .day.weekend { background: #f2f2f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .day .note { background: transparent !important; }
+        .foot textarea { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+</style>
+</head>
+<body>
+
+<div class="wrap noprint">
+    <header>
+        <h1>Kalender</h1>
+        <div class="sub">
+            Print-friendly month planner &mdash; one line per day, sized for A4 portrait.
+            Swedish red days included. <a href="/">&larr; ai.memention.net</a>
+        </div>
+    </header>
+
+    <div class="panel">
+        <div class="row">
+            <button id="prev" title="Previous month">&#8592;</button>
+            <label>År
+                <select id="year"></select>
+            </label>
+            <label>Månad
+                <select id="month"></select>
+            </label>
+            <button id="next" title="Next month">&#8594;</button>
+            <button id="today">Idag</button>
+            <label>Språk
+                <select id="lang">
+                    <option value="sv">Svenska</option>
+                    <option value="en">English</option>
+                </select>
+            </label>
+            <button class="primary" id="print">🖨 Skriv ut / PDF</button>
+        </div>
+        <div class="row">
+            <label><input type="checkbox" id="optRed" checked> Röda dagar (svenska helgdagar)</label>
+            <label><input type="checkbox" id="optEves" checked> Helgdagsaftnar</label>
+            <label><input type="checkbox" id="optWeeks" checked> Veckonummer</label>
+            <label><input type="checkbox" id="optShade" checked> Markera helger</label>
+            <label><input type="checkbox" id="optFoot" checked> Anteckningsfält nederst</label>
+        </div>
+        <div class="row">
+            <label>Rubrik <input type="text" id="title" placeholder="t.ex. Familjen Anderssons kalender"></label>
+            <button id="export">⬇ Exportera anteckningar</button>
+            <button id="import">⬆ Importera</button>
+            <button id="clear">🗑 Rensa månad</button>
+            <input type="file" id="file" accept="application/json" hidden>
+        </div>
+        <div class="hint">
+            Klicka på en rad för att skriva en anteckning &mdash; den sparas lokalt i webbläsaren
+            (localStorage) och följer med till utskriften. Skriv ut med bakgrundsgrafik påslagen om du
+            vill ha helgmarkeringen med.
+        </div>
+    </div>
+</div>
+
+<div class="stage">
+    <div class="scaler" id="scaler">
+        <div class="sheet" id="sheet">
+            <div class="sheet-head">
+                <div class="month"><span id="hMonth">Januari</span> <span class="yr" id="hYear">2026</span></div>
+                <div class="title" id="hTitle"></div>
+            </div>
+            <div class="days" id="days"></div>
+            <div class="foot" id="foot">
+                <div class="lbl" id="footLbl">Anteckningar</div>
+                <textarea id="footNote" spellcheck="false"></textarea>
+            </div>
+            <div class="legend" id="legend"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * i18n
+ * ------------------------------------------------------------------ */
+const I18N = {
+    sv: {
+        months: ["Januari","Februari","Mars","April","Maj","Juni","Juli","Augusti","September","Oktober","November","December"],
+        wd: ["sön","mån","tis","ons","tor","fre","lör"],
+        notes: "Anteckningar",
+        wk: "v",
+        legend: "Röda dagar enligt svensk almanacka",
+    },
+    en: {
+        months: ["January","February","March","April","May","June","July","August","September","October","November","December"],
+        wd: ["sun","mon","tue","wed","thu","fri","sat"],
+        notes: "Notes",
+        wk: "w",
+        legend: "Public holidays per the Swedish almanac",
+    },
+};
+
+/* ------------------------------------------------------------------ *
+ * Swedish holidays ("röda dagar") + holiday eves
+ * ------------------------------------------------------------------ */
+
+/** Gregorian Easter Sunday (anonymous computus). Returns a local Date. */
+function easterSunday(y) {
+    const a = y % 19,
+          b = Math.floor(y / 100), c = y % 100,
+          d = Math.floor(b / 4), e = b % 4,
+          f = Math.floor((b + 8) / 25),
+          g = Math.floor((b - f + 1) / 3),
+          h = (19 * a + b - d - g + 15) % 30,
+          i = Math.floor(c / 4), k = c % 4,
+          l = (32 + 2 * e + 2 * i - h - k) % 7,
+          m = Math.floor((a + 11 * h + 22 * l) / 451),
+          month = Math.floor((h + l - 7 * m + 114) / 31),
+          day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(y, month - 1, day);
+}
+
+const key = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
+/** First Saturday within [from, to] (inclusive), both in the same year. */
+function saturdayBetween(y, m1, d1, m2, d2) {
+    let d = new Date(y, m1, d1);
+    const end = new Date(y, m2, d2);
+    while (d <= end) {
+        if (d.getDay() === 6) return d;
+        d = addDays(d, 1);
+    }
+    return null;
+}
+
+/**
+ * Build the holiday table for a year.
+ * Returns { "YYYY-MM-DD": {sv, en, red} }  (red = official public holiday)
+ */
+function swedishHolidays(y) {
+    const out = {};
+    const put = (date, sv, en, red) => {
+        const k = key(date);
+        if (!out[k]) out[k] = { sv, en, red };
+    };
+
+    const easter = easterSunday(y);
+    const midsummerDay = saturdayBetween(y, 5, 20, 5, 26);        // Sat 20–26 June
+    const allSaints = saturdayBetween(y, 9, 31, 10, 6);           // Sat 31 Oct – 6 Nov
+
+    /* --- official red days --- */
+    put(new Date(y, 0, 1),  "Nyårsdagen", "New Year's Day", true);
+    put(new Date(y, 0, 6),  "Trettondedag jul", "Epiphany", true);
+    put(addDays(easter, -2), "Långfredagen", "Good Friday", true);
+    put(easter,              "Påskdagen", "Easter Sunday", true);
+    put(addDays(easter, 1),  "Annandag påsk", "Easter Monday", true);
+    put(new Date(y, 4, 1),  "Första maj", "May Day", true);
+    put(addDays(easter, 39), "Kristi himmelsfärdsdag", "Ascension Day", true);
+    put(addDays(easter, 49), "Pingstdagen", "Whit Sunday", true);
+    put(new Date(y, 5, 6),  "Sveriges nationaldag", "National Day of Sweden", true);
+    if (midsummerDay) put(midsummerDay, "Midsommardagen", "Midsummer Day", true);
+    if (allSaints)    put(allSaints, "Alla helgons dag", "All Saints' Day", true);
+    put(new Date(y, 11, 25), "Juldagen", "Christmas Day", true);
+    put(new Date(y, 11, 26), "Annandag jul", "Boxing Day", true);
+
+    /* --- holiday eves / de-facto days off (not red) --- */
+    put(new Date(y, 0, 5),  "Trettondagsafton", "Twelfth Night", false);
+    put(addDays(easter, -3), "Skärtorsdagen", "Maundy Thursday", false);
+    put(addDays(easter, -1), "Påskafton", "Easter Eve", false);
+    put(new Date(y, 3, 30), "Valborgsmässoafton", "Walpurgis Night", false);
+    put(addDays(easter, 48), "Pingstafton", "Whitsun Eve", false);
+    if (midsummerDay) put(addDays(midsummerDay, -1), "Midsommarafton", "Midsummer Eve", false);
+    if (allSaints)    put(addDays(allSaints, -1), "Allhelgonaafton", "All Hallows' Eve", false);
+    put(new Date(y, 11, 24), "Julafton", "Christmas Eve", false);
+    put(new Date(y, 11, 31), "Nyårsafton", "New Year's Eve", false);
+
+    return out;
+}
+
+/** ISO-8601 week number. */
+function isoWeek(d) {
+    const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7));         // Thursday of this week
+    const first = new Date(t.getFullYear(), 0, 4);
+    first.setDate(first.getDate() + 3 - ((first.getDay() + 6) % 7));
+    return 1 + Math.round((t - first) / 604800000);
+}
+
+/* ------------------------------------------------------------------ *
+ * Storage
+ * ------------------------------------------------------------------ */
+const NS = "calender.v1";
+const store = {
+    read(k, fallback) {
+        try { const v = localStorage.getItem(`${NS}.${k}`); return v === null ? fallback : JSON.parse(v); }
+        catch (e) { return fallback; }
+    },
+    write(k, v) {
+        try { localStorage.setItem(`${NS}.${k}`, JSON.stringify(v)); } catch (e) { /* private mode */ }
+    },
+};
+
+let notes = store.read("notes", {});          // "YYYY-MM-DD" -> text
+let footNotes = store.read("footNotes", {});  // "YYYY-MM"    -> text
+let opts = Object.assign(
+    { red: true, eves: true, weeks: true, shade: true, foot: true, lang: "sv", title: "" },
+    store.read("opts", {})
+);
+
+const saveNotes = () => store.write("notes", notes);
+const saveFoot = () => store.write("footNotes", footNotes);
+const saveOpts = () => store.write("opts", opts);
+
+/* ------------------------------------------------------------------ *
+ * DOM
+ * ------------------------------------------------------------------ */
+const $ = id => document.getElementById(id);
+const elYear = $("year"), elMonth = $("month"), elLang = $("lang"), elTitle = $("title");
+const cbRed = $("optRed"), cbEves = $("optEves"), cbWeeks = $("optWeeks"),
+      cbShade = $("optShade"), cbFoot = $("optFoot");
+
+const now = new Date();
+let year = now.getFullYear();
+let month = now.getMonth();
+
+/* year picker: current year -5 .. +10 */
+for (let y = now.getFullYear() - 5; y <= now.getFullYear() + 10; y++) {
+    elYear.insertAdjacentHTML("beforeend", `<option value="${y}">${y}</option>`);
+}
+
+function fillMonthNames() {
+    const names = I18N[opts.lang].months;
+    const cur = elMonth.value;
+    elMonth.innerHTML = names.map((n, i) => `<option value="${i}">${n}</option>`).join("");
+    elMonth.value = cur === "" ? month : cur;
+}
+
+/* ------------------------------------------------------------------ *
+ * Render
+ * ------------------------------------------------------------------ */
+function render() {
+    const t = I18N[opts.lang];
+    const hol = swedishHolidays(year);
+    const ndays = new Date(year, month + 1, 0).getDate();
+    const mk = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const todayKey = key(new Date());
+
+    $("hMonth").textContent = t.months[month];
+    $("hYear").textContent = year;
+    $("hTitle").textContent = opts.title || "";
+
+    const days = $("days");
+    days.innerHTML = "";
+
+    let anyRed = false;
+    for (let d = 1; d <= ndays; d++) {
+        const date = new Date(year, month, d);
+        const k = key(date);
+        const dow = date.getDay();
+        const h = hol[k];
+        const isRed = opts.red && (dow === 0 || (h && h.red));
+        if (isRed && h && h.red) anyRed = true;
+
+        const showHol = h && (h.red ? opts.red : opts.eves);
+
+        const row = document.createElement("div");
+        row.className = "day"
+            + (isRed ? " red" : "")
+            + (opts.shade && (dow === 0 || dow === 6) ? " weekend" : "")
+            + (dow === 1 && d !== 1 ? " newweek" : "")
+            + (k === todayKey ? " today" : "");
+
+        const wk = opts.weeks
+            ? `<div class="wk">${dow === 1 || d === 1 ? t.wk + isoWeek(date) : ""}</div>`
+            : "";
+
+        row.innerHTML =
+            wk +
+            `<div class="dnum">${d}</div>` +
+            `<div class="dwd">${t.wd[dow]}</div>` +
+            `<div class="cell">` +
+                (showHol ? `<div class="hol${h.red ? "" : " eve"}">${h[opts.lang]}</div>` : "") +
+                `<input class="note" type="text" data-date="${k}" value="${(notes[k] || "").replace(/"/g, "&quot;")}" spellcheck="false">` +
+            `</div>`;
+        days.appendChild(row);
+    }
+
+    /* footer notes area */
+    $("foot").style.display = opts.foot ? "" : "none";
+    $("footLbl").textContent = t.notes;
+    $("footNote").value = footNotes[mk] || "";
+
+    $("legend").innerHTML = anyRed && opts.red
+        ? `<span><span class="red">■</span> ${t.legend}</span><span>${mk}</span>`
+        : `<span></span><span>${mk}</span>`;
+
+    fitSheet();
+}
+
+/* Scale the A4 sheet down so it fits the browser window on screen. */
+function fitSheet() {
+    const scaler = $("scaler"), sheet = $("sheet");
+    scaler.style.transform = "none";
+    const w = sheet.offsetWidth, h = sheet.offsetHeight;
+    if (!w) return;
+    const avail = document.querySelector(".stage").clientWidth - 8;
+    const scale = Math.min(1, avail / w);
+    scaler.style.transform = `scale(${scale})`;
+    scaler.style.height = `${h * scale}px`;
+    scaler.style.width = `${w}px`;
+}
+
+/* ------------------------------------------------------------------ *
+ * Events
+ * ------------------------------------------------------------------ */
+$("days").addEventListener("input", e => {
+    const inp = e.target.closest(".note");
+    if (!inp) return;
+    const k = inp.dataset.date;
+    if (inp.value.trim()) notes[k] = inp.value; else delete notes[k];
+    saveNotes();
+});
+
+/* Enter / arrows move between day rows */
+$("days").addEventListener("keydown", e => {
+    if (!e.target.classList.contains("note")) return;
+    let delta = 0;
+    if (e.key === "Enter" || e.key === "ArrowDown") delta = 1;
+    else if (e.key === "ArrowUp") delta = -1;
+    else return;
+    e.preventDefault();
+    const all = [...document.querySelectorAll(".note")];
+    const i = all.indexOf(e.target);
+    const next = all[i + delta];
+    if (next) { next.focus(); next.setSelectionRange(next.value.length, next.value.length); }
+});
+
+$("footNote").addEventListener("input", e => {
+    const mk = `${year}-${String(month + 1).padStart(2, "0")}`;
+    if (e.target.value.trim()) footNotes[mk] = e.target.value; else delete footNotes[mk];
+    saveFoot();
+});
+
+function setMonth(y, m) {
+    year = y; month = m;
+    elYear.value = year; elMonth.value = month;
+    render();
+}
+
+elYear.addEventListener("change", () => setMonth(+elYear.value, month));
+elMonth.addEventListener("change", () => setMonth(year, +elMonth.value));
+$("prev").addEventListener("click", () => {
+    const d = new Date(year, month - 1, 1);
+    if (![...elYear.options].some(o => +o.value === d.getFullYear())) return;
+    setMonth(d.getFullYear(), d.getMonth());
+});
+$("next").addEventListener("click", () => {
+    const d = new Date(year, month + 1, 1);
+    if (![...elYear.options].some(o => +o.value === d.getFullYear())) return;
+    setMonth(d.getFullYear(), d.getMonth());
+});
+$("today").addEventListener("click", () => {
+    const d = new Date();
+    setMonth(d.getFullYear(), d.getMonth());
+});
+$("print").addEventListener("click", () => window.print());
+
+elLang.addEventListener("change", () => {
+    opts.lang = elLang.value; saveOpts();
+    document.documentElement.lang = opts.lang;
+    fillMonthNames();
+    elMonth.value = month;
+    render();
+});
+
+elTitle.addEventListener("input", () => { opts.title = elTitle.value; saveOpts(); render(); });
+
+/* checkbox wiring */
+[["red", cbRed], ["eves", cbEves], ["weeks", cbWeeks],
+ ["shade", cbShade], ["foot", cbFoot]].forEach(([k, el]) => {
+    el.addEventListener("change", () => { opts[k] = el.checked; saveOpts(); render(); });
+});
+
+/* export / import / clear */
+$("export").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify({ notes, footNotes, opts }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "kalender-anteckningar.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+});
+
+document.getElementById("import").addEventListener("click", () => document.getElementById("file").click());
+document.getElementById("file").addEventListener("change", e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+        try {
+            const data = JSON.parse(r.result);
+            if (data.notes) { notes = Object.assign(notes, data.notes); saveNotes(); }
+            if (data.footNotes) { footNotes = Object.assign(footNotes, data.footNotes); saveFoot(); }
+            render();
+        } catch (err) { alert("Kunde inte läsa filen: " + err.message); }
+    };
+    r.readAsText(f);
+    e.target.value = "";
+});
+
+document.getElementById("clear").addEventListener("click", () => {
+    const mk = `${year}-${String(month + 1).padStart(2, "0")}`;
+    if (!confirm(`Rensa alla anteckningar för ${mk}?`)) return;
+    Object.keys(notes).forEach(k => { if (k.startsWith(mk)) delete notes[k]; });
+    delete footNotes[mk];
+    saveNotes(); saveFoot(); render();
+});
+
+window.addEventListener("resize", fitSheet);
+
+/* ---------- boot ---------- */
+document.documentElement.lang = opts.lang;
+document.getElementById("lang").value = opts.lang;
+document.getElementById("title").value = opts.title || "";
+document.getElementById("optRed").checked = opts.red;
+document.getElementById("optEves").checked = opts.eves;
+document.getElementById("optWeeks").checked = opts.weeks;
+document.getElementById("optShade").checked = opts.shade;
+document.getElementById("optFoot").checked = opts.foot;
+fillMonthNames();
+setMonth(year, month);
+</script>
+</body>
+</html>
