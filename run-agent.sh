@@ -29,12 +29,23 @@ BRANCH_NAME="issue-${ISSUE_NUM}"
 # STAGE is updated as the run progresses so the comment can say where it died.
 STAGE="starting up"
 
+# monitor-issues.sh decides whether an issue may be retried by reading the
+# Status field back out of this file, so the outcome has to be recorded here.
+ISSUE_FILE="$SCRIPT_DIR/issues/issue-${ISSUE_NUM}.md"
+set_issue_status() {
+  [[ -f "$ISSUE_FILE" ]] || return 0
+  # -i.bak + rm keeps this portable across GNU and BSD sed.
+  sed -i.bak -E "s|^([[:space:]]*-[[:space:]]*\*\*Status:\*\*).*|\1 $1|" "$ISSUE_FILE"
+  rm -f "$ISSUE_FILE.bak"
+}
+
 report_failure() {
   local exit_code=$?
   trap - EXIT
   [[ $exit_code -eq 0 ]] && return 0
 
   echo "=== Agent FAILED for issue #${ISSUE_NUM} (exit ${exit_code}) during: ${STAGE} ==="
+  set_issue_status "failed"
 
   local tail_output=""
   if [[ -s "$AGENT_OUTPUT_FILE" ]]; then
@@ -157,6 +168,8 @@ fi
 # Post comment and close issue
 python3 "$HELPER" post-comment "$AGENT_OUTPUT_FILE" "$ISSUE_NUM" "$GITHUB_REPO" "$GITHUB_TOKEN"
 python3 "$HELPER" close-issue "$ISSUE_NUM" "$GITHUB_REPO" "$GITHUB_TOKEN"
+
+set_issue_status "done"
 
 # Clean up worktree and local branch
 echo "Cleaning up..."

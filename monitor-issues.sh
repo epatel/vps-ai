@@ -50,11 +50,32 @@ git -C "$SCRIPT_DIR" diff --name-only origin/main 2>/dev/null | while read -r f;
 done
 git -C "$SCRIPT_DIR" merge origin/main --ff-only 2>/dev/null || true
 
-# Skip if already processed
+# Skip only if this issue is genuinely finished or actively being worked on.
+# The issue file is written *before* the agent is spawned, so its existence
+# alone does not mean the run succeeded — a crashed run must stay retryable,
+# otherwise the stale file silently blocks every future attempt at the issue.
 ISSUE_FILE="$ISSUES_DIR/issue-${ISSUE_NUM}.md"
+PID_FILE="$ISSUES_DIR/.agent-${ISSUE_NUM}.pid"
 if [[ -f "$ISSUE_FILE" ]]; then
-  log "Issue #${ISSUE_NUM} already processed, skipping."
-  exit 0
+  # POSIX sed rather than `grep -oP`: portable, and it does not need a stderr
+  # redirect that would silently turn a broken match into "status unknown".
+  ISSUE_STATUS=$(sed -n 's|^[[:space:]]*-[[:space:]]*\*\*Status:\*\*[[:space:]]*\([^[:space:]]*\).*|\1|p' "$ISSUE_FILE" | head -1 || true)
+  AGENT_PID=$(cat "$PID_FILE" 2>/dev/null || true)
+
+  if [[ "$ISSUE_STATUS" == "done" ]]; then
+    log "Issue #${ISSUE_NUM} already completed, skipping."
+    exit 0
+  elif [[ -n "$AGENT_PID" ]] && kill -0 "$AGENT_PID" 2>/dev/null; then
+    log "Issue #${ISSUE_NUM} already has a live agent (PID ${AGENT_PID}), skipping."
+    exit 0
+  elif pgrep -f "run-agent\.sh ${ISSUE_NUM} " >/dev/null 2>&1; then
+    # Covers the window between spawning run-agent.sh and writing the pid file.
+    log "Issue #${ISSUE_NUM} already has a running agent wrapper, skipping."
+    exit 0
+  else
+    log "Issue #${ISSUE_NUM} status '${ISSUE_STATUS:-unknown}' with no live agent — retrying."
+    rm -f "$ISSUE_FILE" "$PID_FILE"
+  fi
 fi
 
 log "Fetching issue #${ISSUE_NUM}..."
@@ -130,7 +151,7 @@ cat > "$ISSUE_FILE" <<EOF
 - **Created:** ${ISSUE_DATE}
 - **Labels:** ${ISSUE_LABELS}
 - **URL:** ${ISSUE_URL}
-- **Status:** assigned
+- **Status:** in-progress
 
 ## Description
 
@@ -161,6 +182,6 @@ nohup bash "$SCRIPT_DIR/run-agent.sh" "$ISSUE_NUM" "$AGENT_PROMPT" \
 
 AGENT_PID=$!
 log "Agent wrapper PID: $AGENT_PID for issue #${ISSUE_NUM}"
-echo "$AGENT_PID" > "$ISSUES_DIR/.agent-${ISSUE_NUM}.pid"
+echo "$AGENT_PID" > "$PID_FILE"
 
 log "Done."
