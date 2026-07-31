@@ -1,0 +1,15 @@
+# Kalender — static site.
+# Add to /etc/nginx/sites-available/ai.memention.net, before the catch-all `location /`.
+
+# The project is spelled "calender" (as requested in issue #122); redirect the
+# correctly spelled path so both work.
+location = /calendar { return 301 /calender/; }
+location /calendar/ { return 301 /calender/; }
+
+location = /calender { return 301 /calender/; }
+
+location /calender/ {
+    alias /home/epatel/vps-ai/projects/calender/;
+    index index.html;
+    try_files $uri $uri/ /calender/index.html;
+}

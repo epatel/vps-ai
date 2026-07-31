@@ -92,6 +92,7 @@ SERVICES = [
     ("Todo App", "/todo-app", "file", "todo-app/build/web"),
     ("Trump's 48h", "/trumps48hours", "file", "trumps48hours"),
     ("Emoji Mixer", "/emoji-mixer", "file", "emoji-mixer"),
+    ("Kalender", "/calender", "file", "calender"),
 ]
 
 # History buffers: each entry is [time_label, min, max, avg]
