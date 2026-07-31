@@ -42,7 +42,9 @@ All gitignored:
 ## Manual commands
 
 ```bash
-# Run monitor manually for a specific issue
+# Run monitor manually for a specific issue.
+# Safe to re-run after a failed agent run: the issue is retried unless it
+# completed (Status: done in issues/issue-N.md) or an agent is still live.
 bash monitor-issues.sh <issue_number>
 
 # Watch logs

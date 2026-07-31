@@ -20,6 +20,8 @@ flowchart TD
 
 Steps 6/7: a comment is posted when the agent starts; after it finishes the `issue-N` branch is pushed and a PR opened for review. The agent's summary is posted as a comment and the issue is closed.
 
+`monitor-issues.sh` writes `issues/issue-N.md` *before* spawning the agent, so that file's existence does not mean the run succeeded. The retry guard therefore keys off the `**Status:**` field in it — `in-progress` when the agent is spawned, then `done` or `failed` written back by `run-agent.sh`. A run is skipped only when the status is `done`, when the recorded pid is still alive, or when a `run-agent.sh` wrapper for that issue is still running; anything else (notably a crashed run) is cleaned up and retried. Without this a crashed run left a stale marker that silently blocked every future attempt at the issue. Only `action=opened` spawns the monitor from the webhook, so this matters for manual retries: `bash monitor-issues.sh N`.
+
 `run-agent.sh` runs under `set -euo pipefail`, so any failed step aborts it. An `EXIT` trap (`report_failure`) catches a non-zero exit and posts a failure comment naming the stage that died (tracked in `$STAGE`), the exit code, and the last 2 KB of `.agent-issue-N.output` — falling back to `.agent-issue-N.log` when the agent produced no output. On failure the issue is left open and the worktree is left in place for debugging; the next run for that issue removes it.
 
 ## Components
