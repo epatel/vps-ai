@@ -20,6 +20,8 @@ flowchart TD
 
 Steps 6/7: a comment is posted when the agent starts; after it finishes the `issue-N` branch is pushed and a PR opened for review. The agent's summary is posted as a comment and the issue is closed.
 
+`run-agent.sh` runs under `set -euo pipefail`, so any failed step aborts it. An `EXIT` trap (`report_failure`) catches a non-zero exit and posts a failure comment naming the stage that died (tracked in `$STAGE`), the exit code, and the last 2 KB of `.agent-issue-N.output` — falling back to `.agent-issue-N.log` when the agent produced no output. On failure the issue is left open and the worktree is left in place for debugging; the next run for that issue removes it.
+
 ## Components
 
 | File | Role |
