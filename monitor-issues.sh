@@ -50,32 +50,20 @@ git -C "$SCRIPT_DIR" diff --name-only origin/main 2>/dev/null | while read -r f;
 done
 git -C "$SCRIPT_DIR" merge origin/main --ff-only 2>/dev/null || true
 
-# Skip only if this issue is genuinely finished or actively being worked on.
-# The issue file is written *before* the agent is spawned, so its existence
-# alone does not mean the run succeeded — a crashed run must stay retryable,
-# otherwise the stale file silently blocks every future attempt at the issue.
 ISSUE_FILE="$ISSUES_DIR/issue-${ISSUE_NUM}.md"
 PID_FILE="$ISSUES_DIR/.agent-${ISSUE_NUM}.pid"
-if [[ -f "$ISSUE_FILE" ]]; then
-  # POSIX sed rather than `grep -oP`: portable, and it does not need a stderr
-  # redirect that would silently turn a broken match into "status unknown".
-  ISSUE_STATUS=$(sed -n 's|^[[:space:]]*-[[:space:]]*\*\*Status:\*\*[[:space:]]*\([^[:space:]]*\).*|\1|p' "$ISSUE_FILE" | head -1 || true)
-  AGENT_PID=$(cat "$PID_FILE" 2>/dev/null || true)
 
-  if [[ "$ISSUE_STATUS" == "done" ]]; then
-    log "Issue #${ISSUE_NUM} already completed, skipping."
-    exit 0
-  elif [[ -n "$AGENT_PID" ]] && kill -0 "$AGENT_PID" 2>/dev/null; then
-    log "Issue #${ISSUE_NUM} already has a live agent (PID ${AGENT_PID}), skipping."
-    exit 0
-  elif pgrep -f "run-agent\.sh ${ISSUE_NUM} " >/dev/null 2>&1; then
-    # Covers the window between spawning run-agent.sh and writing the pid file.
-    log "Issue #${ISSUE_NUM} already has a running agent wrapper, skipping."
-    exit 0
-  else
-    log "Issue #${ISSUE_NUM} status '${ISSUE_STATUS:-unknown}' with no live agent — retrying."
-    rm -f "$ISSUE_FILE" "$PID_FILE"
-  fi
+# A live agent for this issue means a duplicate trigger — bail before doing any
+# network work. (Whether the issue is *finished* is decided after the fetch,
+# from GitHub's issue state.)
+AGENT_PID=$(cat "$PID_FILE" 2>/dev/null || true)
+if [[ -n "$AGENT_PID" ]] && kill -0 "$AGENT_PID" 2>/dev/null; then
+  log "Issue #${ISSUE_NUM} already has a live agent (PID ${AGENT_PID}), skipping."
+  exit 0
+elif pgrep -f "run-agent\.sh ${ISSUE_NUM} " >/dev/null 2>&1; then
+  # Covers the window between spawning run-agent.sh and writing the pid file.
+  log "Issue #${ISSUE_NUM} already has a running agent wrapper, skipping."
+  exit 0
 fi
 
 log "Fetching issue #${ISSUE_NUM}..."
@@ -97,6 +85,20 @@ if echo "$ISSUE_JSON" | python3 -c "import sys,json; sys.exit(0 if 'pull_request
   log "Issue #${ISSUE_NUM} is a pull request, skipping."
   exit 0
 fi
+
+# GitHub's issue state is the authority on whether this issue is finished:
+# run-agent.sh closes the issue only on success, so a closed issue never needs
+# a rerun. issues/issue-N.md cannot serve as that signal — it is written
+# *before* the agent is spawned, so a crashed run used to leave a stale marker
+# that silently blocked every future attempt at the issue.
+ISSUE_STATE=$(echo "$ISSUE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('state',''))")
+if [[ "$ISSUE_STATE" == "closed" ]]; then
+  log "Issue #${ISSUE_NUM} is closed, skipping."
+  exit 0
+fi
+
+# Anything left over from a previous failed run must not block this one.
+rm -f "$ISSUE_FILE" "$PID_FILE"
 
 # Extract fields
 ISSUE_TITLE=$(echo "$ISSUE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])")

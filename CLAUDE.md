@@ -43,8 +43,8 @@ All gitignored:
 
 ```bash
 # Run monitor manually for a specific issue.
-# Safe to re-run after a failed agent run: the issue is retried unless it
-# completed (Status: done in issues/issue-N.md) or an agent is still live.
+# Safe to re-run after a failed agent run: the issue is retried unless it is
+# closed on GitHub (i.e. it succeeded) or an agent for it is still live.
 bash monitor-issues.sh <issue_number>
 
 # Watch logs

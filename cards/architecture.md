@@ -20,7 +20,14 @@ flowchart TD
 
 Steps 6/7: a comment is posted when the agent starts; after it finishes the `issue-N` branch is pushed and a PR opened for review. The agent's summary is posted as a comment and the issue is closed.
 
-`monitor-issues.sh` writes `issues/issue-N.md` *before* spawning the agent, so that file's existence does not mean the run succeeded. The retry guard therefore keys off the `**Status:**` field in it — `in-progress` when the agent is spawned, then `done` or `failed` written back by `run-agent.sh`. A run is skipped only when the status is `done`, when the recorded pid is still alive, or when a `run-agent.sh` wrapper for that issue is still running; anything else (notably a crashed run) is cleaned up and retried. Without this a crashed run left a stale marker that silently blocked every future attempt at the issue. Only `action=opened` spawns the monitor from the webhook, so this matters for manual retries: `bash monitor-issues.sh N`.
+`monitor-issues.sh` writes `issues/issue-N.md` *before* spawning the agent, so that file's existence does not mean the run succeeded — it must never be used as the "already done" signal. It once was, and a crashed run left a stale marker that silently blocked every future attempt at the issue.
+
+The guard is therefore in two parts:
+
+- **Before the fetch** — skip if the recorded pid is alive, or if a `run-agent.sh` wrapper for the issue is still running (that second check covers the window between spawning the wrapper and writing the pid file). This catches duplicate triggers.
+- **After the fetch** — skip if GitHub reports the issue `closed`. `run-agent.sh` closes an issue only on success, so closed means finished, while a crashed run leaves it open and retryable. Otherwise any leftover `issues/issue-N.md` and pid file are removed so they cannot block the run.
+
+`run-agent.sh` also records `**Status:**` (`in-progress` → `done`/`failed`) in the issue file, but that is a debugging record only — the guard does not depend on it. Only `action=opened` spawns the monitor from the webhook, so the retry path matters for manual runs: `bash monitor-issues.sh N`.
 
 `run-agent.sh` runs under `set -euo pipefail`, so any failed step aborts it. An `EXIT` trap (`report_failure`) catches a non-zero exit and posts a failure comment naming the stage that died (tracked in `$STAGE`), the exit code, and the last 2 KB of `.agent-issue-N.output` — falling back to `.agent-issue-N.log` when the agent produced no output. On failure the issue is left open and the worktree is left in place for debugging; the next run for that issue removes it.
 
