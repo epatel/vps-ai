@@ -163,6 +163,7 @@
   .chip.acc{color:var(--flame);border-color:rgba(246,162,74,.3)}
   .stage .bonus{font-family:var(--mono);font-size:11px;color:var(--hold);margin-top:9px;line-height:1.5;
     border-left:2px solid rgba(224,112,95,.4);padding-left:10px}
+  .stage .bonus.dead{color:var(--dim);border-left-color:var(--hair)}
 
   /* ---- financials ---- */
   .fin{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
@@ -243,8 +244,8 @@
       </div>
       <div class="cell">
         <div class="label">Market cap</div>
-        <div class="v">$2.16<small>T</small></div>
-        <div class="delta" style="color:var(--dim)">fully diluted</div>
+        <div class="v">$<span id="mcap">—</span><small>T</small></div>
+        <div class="delta" id="mcapSub" style="color:var(--dim)">—</div>
       </div>
       <div class="cell">
         <div class="label">Block unlocked</div>
@@ -252,7 +253,7 @@
         <div class="delta up" id="telNext">next release —</div>
       </div>
     </div>
-    <p class="asof">Last price is live via TradingView. Market cap as of Jul 1, 2026. Schedule states update live.</p>
+    <p class="asof">Last price is live via TradingView. Market cap is a reference figure computed from the last recorded close shown in that cell &times; 13.08B basic shares — it does not track the live quote. Schedule states update live.</p>
   </div>
 </header>
 
@@ -352,22 +353,23 @@
 
   // Lock-up block events — incremental % of the 180-day locked block (base case).
   var BLOCK = [
-    {d:'2026-08-01', t:'~T+51', when:'Late Jul / early Aug', desc:'Q2 2026 earnings window', pct:20,
-      bonus:'⚡ +10% if SPCX closes ≥ $175.50 (30% over IPO) on ≥5 of the 10 trading days ending on the Q2 release.'},
+    {d:'2026-08-06', t:'T+56',  when:'Aug 6, 2026', desc:'Q2 2026 earnings window — results Aug 4 after close; sales permitted from the 2nd trading day after', pct:20,
+      bonus:'✕ Bonus +10% NOT triggered — required SPCX ≥ $175.50 (30% over IPO) on ≥5 of the 10 trading days ending on the Q2 release; the stock traded near $108. The unfired 10% rolls into the Dec 8 tail.',
+      bonusDead:true},
     {d:'2026-08-20', t:'T+70',  when:'Aug 20, 2026', desc:'Automatic tranche', pct:7},
-    {d:'2026-09-10', t:'T+90',  when:'Sep 10, 2026', desc:'Automatic tranche', pct:7},
+    {d:'2026-09-09', t:'T+90',  when:'Sep 9, 2026',  desc:'Automatic tranche · Rule 144 / 701 eligibility generally begins', pct:7},
     {d:'2026-09-24', t:'T+105', when:'Sep 24, 2026', desc:'Automatic tranche', pct:7},
     {d:'2026-10-09', t:'T+120', when:'Oct 9, 2026',  desc:'Automatic tranche', pct:7},
     {d:'2026-10-24', t:'T+135', when:'Oct 24, 2026', desc:'Automatic tranche', pct:7},
     {d:'2026-11-01', t:'~T+143',when:'Late Oct / early Nov', desc:'Q3 2026 earnings window', pct:28},
-    {d:'2026-12-08', t:'T+180', when:'Dec 8, 2026',  desc:'Full lock-up expiry — remaining shares', pct:17, full:true}
+    {d:'2026-12-08', t:'T+180', when:'Dec 8, 2026',  desc:'Full lock-up expiry — remaining shares (17%: the 7% tail plus the 10% price-trigger tranche that never fired)', pct:17, full:true}
   ];
   var EXTENDED = {d:'2027-06-12', t:'T+366', when:'Jun 12, 2027', desc:'Musk ~6.4B shares (Class B + options) — extended 366-day lock-up expires. No early-release provisions.'};
 
   var INDEX = [
-    {name:'MSCI indexes', date:'2026-06-25', label:'Jun 25, 2026',
-      desc:"Earliest effective date under MSCI's large-IPO early-inclusion rule (close of the 10th trading day).",
-      fine:'Subject to MSCI eligibility determination after listing.'},
+    {name:'MSCI indexes', date:'2026-06-29', label:'Jun 29, 2026',
+      desc:"Added to MSCI's standard and large-cap indexes under the large-IPO early-inclusion rule, 17 days after listing.",
+      fine:'Russell 1000 / Top 200 inclusion took effect separately at the Jun 26 reconstitution.'},
     {name:'Nasdaq-100', date:'2026-07-07', label:'Jul 7, 2026',
       desc:'Fast-track entry for a top-market-cap new listing.',
       fine:'Eligibility tied to trading-day seasoning; effective date set by Nasdaq.'},
@@ -381,6 +383,11 @@
   var FLOAT  = 638.9e6;   // public float incl. fully-exercised 83.3M greenshoe (base offering 555.6M)
   var FD     = 13.08e9;   // basic share count (13.0759B)
   var LOCKED = 4.56e9;    // 180-day locked block ONLY — excludes Musk's 366-day 6.4B block
+
+  // Last recorded close. Update these two together; market cap is derived, never hardcoded.
+  var LAST_CLOSE = 108.37;          // Jul 31, 2026 close
+  var LAST_CLOSE_AS_OF = 'Jul 31, 2026 close';
+
   function d(s){return new Date(s+'T00:00:00');}
   function fmtDays(n){return String(n).padStart(5,'0');}
   function pad(n){return String(n).padStart(2,'0');}
@@ -402,6 +409,16 @@
     chipT.textContent='T+ '+days+'d';
   }
   tick(); setInterval(tick,1000);
+
+  // ---- market cap, derived from the last recorded close ----
+  (function(){
+    var vsIpo = (LAST_CLOSE/135 - 1) * 100;
+    document.getElementById('mcap').textContent = (LAST_CLOSE*FD/1e12).toFixed(2);
+    var sub = document.getElementById('mcapSub');
+    sub.textContent = '$'+LAST_CLOSE.toFixed(2)+' · '+(vsIpo>=0?'+':'−')
+      +Math.abs(vsIpo).toFixed(1)+'% vs IPO · '+LAST_CLOSE_AS_OF;
+    sub.style.color = vsIpo>=0 ? 'var(--go)' : 'var(--hold)';
+  })();
 
   // ---- state from real date ----
   var now=new Date();
@@ -436,7 +453,7 @@
       +'<div class="row1"><span class="tmark">'+e.t+'</span><span class="when">'+e.when+'</span></div>'
       +'<div class="desc">'+e.desc+'</div>'
       +'<div class="tags">'+pctChip+'</div>'
-      +(e.bonus?'<div class="bonus">'+e.bonus+'</div>':'')
+      +(e.bonus?'<div class="bonus'+(e.bonusDead?' dead':'')+'">'+e.bonus+'</div>':'')
       +'</div>';
   }
   stagesEl.innerHTML=html;
