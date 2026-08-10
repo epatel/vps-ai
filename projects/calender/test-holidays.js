@@ -28,8 +28,8 @@ const logic = script.slice(from, script.lastIndexOf("/*", to));
 
 const ctx = { module: {}, console };
 vm.createContext(ctx);
-vm.runInContext(logic + "\n;this.api = { easterSunday, swedishHolidays, isoWeek, key };", ctx);
-const { swedishHolidays, isoWeek } = ctx.api;
+vm.runInContext(logic + "\n;this.api = { easterSunday, swedishHolidays, swedishFlagDays, electionDay, isoWeek, key };", ctx);
+const { swedishHolidays, swedishFlagDays, electionDay, isoWeek } = ctx.api;
 
 let failures = 0;
 const check = (label, got, want) => {
@@ -67,6 +67,39 @@ for (const year of Object.keys(EXPECTED)) {
         const h = new Date(...dateOf(day).split("-").map((n, i) => i === 1 ? n - 1 : +n));
         check(`${year} ${eve} is the day before ${day}`, (h - e) / 86400000, 1);
     }
+}
+
+console.log("Swedish flag days");
+/* The fixed-date "allmänna flaggdagar" (SFS 1982:270). */
+const FIXED_FLAG_DAYS = ["01-01", "01-28", "03-12", "04-30", "05-01", "05-29",
+                         "06-06", "07-14", "08-08", "10-24", "11-06", "12-10", "12-23", "12-25"];
+for (const year of [2023, 2024, 2025, 2026, 2027, 2030]) {
+    const table = swedishFlagDays(year);
+    const dateOf = name => Object.entries(table).find(([, v]) => v.sv === name)?.[0];
+    for (const md of FIXED_FLAG_DAYS) {
+        check(`${year} flag day ${md}`, `${year}-${md}` in table, true);
+    }
+    // The movable ones must line up with the holiday table.
+    const hol = swedishHolidays(year);
+    const holDateOf = name => Object.entries(hol).find(([, v]) => v.sv === name)?.[0];
+    for (const name of ["Påskdagen", "Pingstdagen", "Midsommardagen"]) {
+        check(`${year} flag day ${name}`, dateOf(name), holDateOf(name));
+    }
+    // Kristi himmelsfärdsdag is a red day but never a flag day in its own right
+    // (some years it lands on 29 May, which is a flag day as Veterandagen).
+    check(`${year} Kristi himmelsfärdsdag is not a flag day`,
+          dateOf("Kristi himmelsfärdsdag"), undefined);
+}
+
+/* Election day: second Sunday in September, every 4th year from 2018. */
+const ELECTIONS = { 2018: "2018-09-09", 2022: "2022-09-11", 2026: "2026-09-13", 2030: "2030-09-08" };
+const fmt = d => d && `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+for (const [year, want] of Object.entries(ELECTIONS)) {
+    check(`election day ${year}`, fmt(electionDay(+year)), want);
+    check(`${year} election day is a flag day`, want in swedishFlagDays(+year), true);
+}
+for (const year of [2023, 2024, 2025, 2027]) {
+    check(`no election day in ${year}`, electionDay(year), null);
 }
 
 console.log("ISO week numbers");

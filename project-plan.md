@@ -27,6 +27,13 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
 
 ## Current state / handoff
 
+- 2026-08-10 — `projects/calender/`: added Swedish flag days (*allmänna
+  flaggdagar*, SFS 1982:270) as a separate toggle from the red days. Marked with
+  a blue ⚑; the flag day's own name is printed only when the row is not already
+  labelled by a holiday or eve. Riksdag election day is derived (2nd Sunday in
+  September, every 4th year from 2018); EU parliament elections are left out.
+  Covered by `test-holidays.js`.
+
 - 2026-07-31 (#122) — Added `projects/calender/`, a static single-page printable
   A4 month calendar (year/month picker, one line per day, per-day + page notes
   in localStorage, Swedish red days computed client-side from Easter, no
