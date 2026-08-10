@@ -13,6 +13,7 @@
         --rule: #d8d8d8;
         --rule-strong: #9a9a9a;
         --red: #c0202a;
+        --blue: #005293;
         --sheet-w: 190mm;
         --sheet-h: 277mm;
     }
@@ -130,6 +131,12 @@
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .day .hol.eve { font-style: normal; opacity: .8; }
+    .day .hol.flagday { font-style: normal; opacity: .75; }
+    .day .flagmark {
+        flex: none;
+        font-size: 8pt; line-height: 1; color: var(--blue);
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
     .day .note {
         flex: 1 1 auto; min-width: 0;
         border: none; background: transparent;
@@ -160,6 +167,8 @@
         margin-top: 1.5mm; display: flex; justify-content: space-between;
     }
     .legend .red { color: var(--red); }
+    .legend .flag { color: var(--blue); }
+    .legend .left { display: flex; gap: 4mm; }
 
     /* ---------- print ---------- */
     @media print {
@@ -188,7 +197,7 @@
         <h1>Kalender</h1>
         <div class="sub">
             Print-friendly month planner &mdash; one line per day, sized for A4 portrait.
-            Swedish red days included. <a href="/">&larr; ai.memention.net</a>
+            Swedish red days and flag days included. <a href="/">&larr; ai.memention.net</a>
         </div>
     </header>
 
@@ -214,6 +223,7 @@
         <div class="row">
             <label><input type="checkbox" id="optRed" checked> Röda dagar (svenska helgdagar)</label>
             <label><input type="checkbox" id="optEves" checked> Helgdagsaftnar</label>
+            <label><input type="checkbox" id="optFlags" checked> Flaggdagar</label>
             <label><input type="checkbox" id="optWeeks" checked> Veckonummer</label>
             <label><input type="checkbox" id="optShade" checked> Markera helger</label>
             <label><input type="checkbox" id="optFoot" checked> Anteckningsfält nederst</label>
@@ -263,6 +273,8 @@ const I18N = {
         notes: "Anteckningar",
         wk: "v",
         legend: "Röda dagar enligt svensk almanacka",
+        legendFlag: "Allmän flaggdag",
+        flagTitle: "Allmän flaggdag",
     },
     en: {
         months: ["January","February","March","April","May","June","July","August","September","October","November","December"],
@@ -270,6 +282,8 @@ const I18N = {
         notes: "Notes",
         wk: "w",
         legend: "Public holidays per the Swedish almanac",
+        legendFlag: "Official flag-flying day",
+        flagTitle: "Official Swedish flag day",
     },
 };
 
@@ -351,6 +365,57 @@ function swedishHolidays(y) {
     return out;
 }
 
+/**
+ * Swedish general election day: the second Sunday in September, in years that
+ * are an election year (every 4th year from 2018 — 2018, 2022, 2026, …).
+ * Returns null for non-election years.
+ */
+function electionDay(y) {
+    if (y < 2018 || (y - 2018) % 4 !== 0) return null;
+    let d = new Date(y, 8, 1);
+    let sundays = 0;
+    while (d.getMonth() === 8) {
+        if (d.getDay() === 0 && ++sundays === 2) return d;
+        d = addDays(d, 1);
+    }
+    return null;
+}
+
+/**
+ * Official Swedish flag days ("allmänna flaggdagar", SFS 1982:270).
+ * Returns { "YYYY-MM-DD": {sv, en} }.
+ *
+ * European Parliament election days are also flag days but their date is set
+ * per election by the EU, so they are deliberately left out.
+ */
+function swedishFlagDays(y) {
+    const out = {};
+    const put = (date, sv, en) => { if (date) out[key(date)] = { sv, en }; };
+
+    const easter = easterSunday(y);
+
+    put(new Date(y, 0, 1),   "Nyårsdagen", "New Year's Day");
+    put(new Date(y, 0, 28),  "Konungens namnsdag", "The King's name day");
+    put(new Date(y, 2, 12),  "Kronprinsessans namnsdag", "The Crown Princess's name day");
+    put(easter,              "Påskdagen", "Easter Sunday");
+    put(new Date(y, 3, 30),  "Konungens födelsedag", "The King's birthday");
+    put(new Date(y, 4, 1),   "Första maj", "May Day");
+    put(addDays(easter, 49), "Pingstdagen", "Whit Sunday");
+    put(new Date(y, 4, 29),  "Veterandagen", "Veterans' Day");
+    put(new Date(y, 5, 6),   "Sveriges nationaldag och svenska flaggans dag", "National Day of Sweden and the Swedish flag");
+    put(saturdayBetween(y, 5, 20, 5, 26), "Midsommardagen", "Midsummer Day");
+    put(new Date(y, 6, 14),  "Kronprinsessans födelsedag", "The Crown Princess's birthday");
+    put(new Date(y, 7, 8),   "Drottningens namnsdag", "The Queen's name day");
+    put(electionDay(y),      "Dag för val till riksdagen", "General election day");
+    put(new Date(y, 9, 24),  "FN-dagen", "United Nations Day");
+    put(new Date(y, 10, 6),  "Gustav Adolfsdagen", "Gustavus Adolphus Day");
+    put(new Date(y, 11, 10), "Nobeldagen", "Nobel Day");
+    put(new Date(y, 11, 23), "Drottningens födelsedag", "The Queen's birthday");
+    put(new Date(y, 11, 25), "Juldagen", "Christmas Day");
+
+    return out;
+}
+
 /** ISO-8601 week number. */
 function isoWeek(d) {
     const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -377,7 +442,7 @@ const store = {
 let notes = store.read("notes", {});          // "YYYY-MM-DD" -> text
 let footNotes = store.read("footNotes", {});  // "YYYY-MM"    -> text
 let opts = Object.assign(
-    { red: true, eves: true, weeks: true, shade: true, foot: true, lang: "sv", title: "" },
+    { red: true, eves: true, flags: true, weeks: true, shade: true, foot: true, lang: "sv", title: "" },
     store.read("opts", {})
 );
 
@@ -390,8 +455,8 @@ const saveOpts = () => store.write("opts", opts);
  * ------------------------------------------------------------------ */
 const $ = id => document.getElementById(id);
 const elYear = $("year"), elMonth = $("month"), elLang = $("lang"), elTitle = $("title");
-const cbRed = $("optRed"), cbEves = $("optEves"), cbWeeks = $("optWeeks"),
-      cbShade = $("optShade"), cbFoot = $("optFoot");
+const cbRed = $("optRed"), cbEves = $("optEves"), cbFlags = $("optFlags"),
+      cbWeeks = $("optWeeks"), cbShade = $("optShade"), cbFoot = $("optFoot");
 
 const now = new Date();
 let year = now.getFullYear();
@@ -415,6 +480,7 @@ function fillMonthNames() {
 function render() {
     const t = I18N[opts.lang];
     const hol = swedishHolidays(year);
+    const flags = swedishFlagDays(year);
     const ndays = new Date(year, month + 1, 0).getDate();
     const mk = `${year}-${String(month + 1).padStart(2, "0")}`;
     const todayKey = key(new Date());
@@ -426,7 +492,7 @@ function render() {
     const days = $("days");
     days.innerHTML = "";
 
-    let anyRed = false;
+    let anyRed = false, anyFlag = false;
     for (let d = 1; d <= ndays; d++) {
         const date = new Date(year, month, d);
         const k = key(date);
@@ -436,6 +502,14 @@ function render() {
         if (isRed && h && h.red) anyRed = true;
 
         const showHol = h && (h.red ? opts.red : opts.eves);
+
+        /* A flag day usually shares its name with the holiday on the same date;
+           only label it separately when nothing else is labelling that row. */
+        const fd = opts.flags ? flags[k] : null;
+        if (fd) anyFlag = true;
+        const label = showHol ? { text: h[opts.lang], cls: h.red ? "" : " eve" }
+                    : fd     ? { text: fd[opts.lang], cls: " flagday" }
+                    : null;
 
         const row = document.createElement("div");
         row.className = "day"
@@ -453,7 +527,8 @@ function render() {
             `<div class="dnum">${d}</div>` +
             `<div class="dwd">${t.wd[dow]}</div>` +
             `<div class="cell">` +
-                (showHol ? `<div class="hol${h.red ? "" : " eve"}">${h[opts.lang]}</div>` : "") +
+                (fd ? `<span class="flagmark" title="${t.flagTitle}">&#9873;</span>` : "") +
+                (label ? `<div class="hol${label.cls}">${label.text}</div>` : "") +
                 `<input class="note" type="text" data-date="${k}" value="${(notes[k] || "").replace(/"/g, "&quot;")}" spellcheck="false">` +
             `</div>`;
         days.appendChild(row);
@@ -464,9 +539,10 @@ function render() {
     $("footLbl").textContent = t.notes;
     $("footNote").value = footNotes[mk] || "";
 
-    $("legend").innerHTML = anyRed && opts.red
-        ? `<span><span class="red">■</span> ${t.legend}</span><span>${mk}</span>`
-        : `<span></span><span>${mk}</span>`;
+    const legendItems = [];
+    if (anyRed && opts.red) legendItems.push(`<span><span class="red">■</span> ${t.legend}</span>`);
+    if (anyFlag) legendItems.push(`<span><span class="flag">&#9873;</span> ${t.legendFlag}</span>`);
+    $("legend").innerHTML = `<span class="left">${legendItems.join("")}</span><span>${mk}</span>`;
 
     fitSheet();
 }
@@ -550,7 +626,7 @@ elLang.addEventListener("change", () => {
 elTitle.addEventListener("input", () => { opts.title = elTitle.value; saveOpts(); render(); });
 
 /* checkbox wiring */
-[["red", cbRed], ["eves", cbEves], ["weeks", cbWeeks],
+[["red", cbRed], ["eves", cbEves], ["flags", cbFlags], ["weeks", cbWeeks],
  ["shade", cbShade], ["foot", cbFoot]].forEach(([k, el]) => {
     el.addEventListener("change", () => { opts[k] = el.checked; saveOpts(); render(); });
 });
@@ -598,6 +674,7 @@ document.getElementById("lang").value = opts.lang;
 document.getElementById("title").value = opts.title || "";
 document.getElementById("optRed").checked = opts.red;
 document.getElementById("optEves").checked = opts.eves;
+document.getElementById("optFlags").checked = opts.flags;
 document.getElementById("optWeeks").checked = opts.weeks;
 document.getElementById("optShade").checked = opts.shade;
 document.getElementById("optFoot").checked = opts.foot;

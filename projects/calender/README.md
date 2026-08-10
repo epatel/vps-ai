@@ -6,7 +6,7 @@ A print-friendly month calendar generator, served at
 Pick a year and a month; the page renders that month as **one line per day**,
 laid out to fill exactly one **A4 portrait** page. Notes typed into the day
 lines are saved in the browser and come along on the printout. Swedish red days
-(*röda dagar*) can be switched on and off.
+(*röda dagar*) and flag days (*allmänna flaggdagar*) can be switched on and off.
 
 ## Features
 
@@ -17,6 +17,7 @@ lines are saved in the browser and come along on the printout. Swedish red days
 | Day notes | Click a line and type; `Enter`/`↑`/`↓` moves between days |
 | Notes block | Ruled free-text area at the bottom of the page (toggleable) |
 | Swedish red days | Public holidays in red, holiday eves (*helgdagsaftnar*) in grey |
+| Swedish flag days | Official *allmänna flaggdagar* marked with a ⚑ and named |
 | ISO week numbers | Shown on Mondays and on the first day of the month |
 | Weekend shading | Light grey background for Saturdays and Sundays |
 | Header title | Free-text heading, e.g. *Familjen Anderssons kalender* |
@@ -43,6 +44,25 @@ Midsommardagen · Alla helgons dag · Juldagen · Annandag jul
 Holiday eves shown (not red days, but usually short days): Trettondagsafton ·
 Skärtorsdagen · Påskafton · Valborgsmässoafton · Pingstafton · Midsommarafton ·
 Allhelgonaafton · Julafton · Nyårsafton.
+
+### Flaggdagar
+
+The official flag days (*allmänna flaggdagar*, SFS 1982:270) are marked with a
+blue ⚑ in front of the day's text. Most of them share a date with a red day or
+an eve — then the existing name is kept and only the flag is added; otherwise
+the flag day's own name is printed:
+
+Nyårsdagen · Konungens namnsdag (28/1) · Kronprinsessans namnsdag (12/3) ·
+Påskdagen · Konungens födelsedag (30/4) · Första maj · Pingstdagen ·
+Veterandagen (29/5) · Sveriges nationaldag (6/6) · Midsommardagen ·
+Kronprinsessans födelsedag (14/7) · Drottningens namnsdag (8/8) · dag för val
+till riksdagen · FN-dagen (24/10) · Gustav Adolfsdagen (6/11) · Nobeldagen
+(10/12) · Drottningens födelsedag (23/12) · Juldagen
+
+Election day is computed as the second Sunday in September of an election year
+(every fourth year from 2018). European Parliament election days are flag days
+too, but their date is set per election by the EU, so they are left out rather
+than guessed.
 
 ## Printing
 
