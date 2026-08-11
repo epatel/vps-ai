@@ -27,6 +27,16 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
 
 ## Current state / handoff
 
+- 2026-08-11 — Added `projects/landing/test-hdr/index.html`, served at
+  `/test-hdr/` by the existing landing catch-all (no nginx change, no status
+  entry). Drag-and-drop/paste an image; it renders with
+  `dynamic-range-limit: no-limit` next to an SDR-clamped copy, probes the
+  browser/display (`dynamic-range`, `color-gamut`, float16 canvas, canvas tone
+  mapping) and parses HDR metadata client-side: JPEG segments + ICC + XMP
+  `hdrgm` gain map + MPF, PNG `cICP`/`mDCv`/`cLLi`, ISOBMFF (AVIF/HEIC) `colr`
+  nclx/ICC + `clli`/`mdcv` + `tmap` gain-map item, WebP. Linked from the
+  landing page (no status dot).
+
 - 2026-08-10 — `projects/calender/`: added Swedish flag days (*allmänna
   flaggdagar*, SFS 1982:270) as a separate toggle from the red days. Marked with
   a blue ⚑; the flag day's own name is printed only when the row is not already

@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HDR Test &mdash; ai.memention.net</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #1a1a2e;
+        color: #e0e0e0;
+        padding: 20px;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+    a { color: #64b5f6; }
+    header { margin-bottom: 6px; }
+    h1 { font-size: 1.5em; }
+    .subtitle { color: #777; font-size: .85em; margin-bottom: 22px; }
+    .section-title {
+        color: #aaa; font-size: .72em; text-transform: uppercase;
+        letter-spacing: 2px; margin: 26px 0 10px;
+    }
+    .panel {
+        background: #16213e; border-radius: 10px; padding: 16px;
+    }
+    /* --- drop zone --- */
+    #drop {
+        border: 2px dashed #35406b; border-radius: 12px;
+        padding: 34px 20px; text-align: center; color: #8a93b8;
+        transition: background .15s, border-color .15s;
+        cursor: pointer;
+    }
+    #drop.over { border-color: #64b5f6; background: #1a2a50; color: #e0e0e0; }
+    #drop .big { font-size: 2em; margin-bottom: 8px; }
+    #drop .hint { font-size: .78em; color: #6b7398; margin-top: 8px; }
+    input[type=file] { display: none; }
+
+    /* --- viewer --- */
+    #viewer { display: none; }
+    .stage {
+        background: #000; border-radius: 10px; padding: 0;
+        display: grid; gap: 2px; grid-template-columns: 1fr;
+        overflow: hidden;
+    }
+    .stage.split { grid-template-columns: 1fr 1fr; }
+    .pane { position: relative; background: #000; min-height: 120px;
+            display: flex; align-items: center; justify-content: center; }
+    .pane img { display: block; max-width: 100%; max-height: 70vh; }
+    .pane .tag {
+        position: absolute; top: 8px; left: 8px; z-index: 2;
+        font-size: .65em; letter-spacing: 1px; text-transform: uppercase;
+        background: rgba(0,0,0,.65); color: #ccc; padding: 3px 8px; border-radius: 4px;
+    }
+    /* The whole point: let the image exceed SDR white where the display allows it. */
+    img.hdr { dynamic-range-limit: no-limit; }
+    img.sdr { dynamic-range-limit: standard; }
+    .pane.hidden { display: none; }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+    button {
+        background: #22305c; color: #e0e0e0; border: 1px solid #35406b;
+        border-radius: 7px; padding: 7px 13px; font-size: .8em; cursor: pointer;
+        font-family: inherit; transition: background .15s, border-color .15s;
+    }
+    button:hover { background: #2c3d73; border-color: #5a6bb0; }
+    button.on { background: #0d47a1; border-color: #64b5f6; color: #fff; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* --- metadata --- */
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+    .group { margin-bottom: 14px; }
+    .group:last-child { margin-bottom: 0; }
+    .group h3 {
+        font-size: .72em; text-transform: uppercase; letter-spacing: 1.5px;
+        color: #8a93b8; margin-bottom: 7px; font-weight: 600;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: .8em; }
+    td { padding: 3px 0; vertical-align: top; }
+    td.k { color: #8a93b8; width: 46%; padding-right: 10px; word-break: break-word; }
+    td.v { color: #e0e0e0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+           font-size: .95em; word-break: break-word; }
+    .verdict {
+        border-radius: 9px; padding: 14px 16px; margin-bottom: 12px;
+        border: 1px solid #35406b;
+    }
+    .verdict .label { font-size: .7em; letter-spacing: 2px; text-transform: uppercase; color: #8a93b8; }
+    .verdict .value { font-size: 1.25em; font-weight: 700; margin: 4px 0 6px; }
+    .verdict .why { font-size: .8em; color: #a6adcc; line-height: 1.5; }
+    .verdict.yes { background: #10331b; border-color: #2e7d32; }
+    .verdict.yes .value { color: #81c784; }
+    .verdict.no { background: #2a1f10; border-color: #7a5c1e; }
+    .verdict.no .value { color: #ffb74d; }
+    .ok { color: #81c784; }
+    .bad { color: #ef9a9a; }
+    .warn { color: #ffb74d; }
+    pre {
+        background: #0f1730; border-radius: 8px; padding: 10px; overflow: auto;
+        max-height: 340px; font-size: .72em; line-height: 1.45; color: #b9c2e2;
+        white-space: pre-wrap; word-break: break-word;
+    }
+    details { margin-top: 10px; }
+    summary { cursor: pointer; font-size: .78em; color: #8a93b8; }
+    summary:hover { color: #e0e0e0; }
+
+    /* --- HDR self test --- */
+    #selftest { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+    #selftest canvas { border-radius: 8px; image-rendering: pixelated; dynamic-range-limit: no-limit; }
+    .caption { font-size: .75em; color: #8a93b8; line-height: 1.5; margin-top: 8px; }
+    .footer {
+        margin-top: 36px; padding-top: 14px; border-top: 1px solid #2a2a4a;
+        color: #444; font-size: .75em; text-align: center;
+    }
+    .footer a { color: #666; text-decoration: none; }
+    .footer a:hover { color: #e0e0e0; }
+</style>
+</head>
+<body>
+<header><h1>HDR Test</h1></header>
+<div class="subtitle">
+    Drop an image to view it in high dynamic range and inspect its HDR metadata &mdash;
+    everything runs locally in your browser, nothing is uploaded.
+</div>
+
+<div class="section-title">Your browser &amp; display</div>
+<div class="panel" id="env"></div>
+
+<div class="section-title">Image</div>
+<div class="panel">
+    <div id="drop">
+        <div class="big">&#x1F5BC;</div>
+        <div>Drop an image here, click to choose, or paste from the clipboard</div>
+        <div class="hint">AVIF / JPEG (Ultra HDR gain map) / PNG / JPEG&nbsp;XL / WebP &mdash; HDR shows only on an HDR display</div>
+        <input type="file" id="file" accept="image/*">
+    </div>
+
+    <div id="viewer">
+        <div class="controls">
+            <button id="btnHdr" class="on">HDR: on</button>
+            <button id="btnSplit">Compare with SDR</button>
+            <button id="btnClear">Load another</button>
+        </div>
+        <div class="stage" id="stage">
+            <div class="pane" id="paneHdr"><span class="tag">HDR (no limit)</span><img id="imgHdr" class="hdr" alt="HDR render"></div>
+            <div class="pane hidden" id="paneSdr"><span class="tag">SDR (clamped)</span><img id="imgSdr" class="sdr" alt="SDR render"></div>
+        </div>
+        <div class="caption" id="stageNote"></div>
+    </div>
+</div>
+
+<div id="results" style="display:none">
+    <div class="section-title">HDR details</div>
+    <div id="verdict"></div>
+    <div class="grid" id="meta"></div>
+</div>
+
+<div class="section-title">Display self-test</div>
+<div class="panel">
+    <div id="selftest"></div>
+    <div class="caption" id="selftestNote"></div>
+</div>
+
+<div class="footer">
+    <a href="/">&larr; ai.memention.net</a> &middot;
+    <a href="https://github.com/epatel/vps-ai">Source</a>
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Small helpers
+ * ------------------------------------------------------------------ */
+
+function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+}
+
+function table(rows) {
+    var t = el('table');
+    rows.forEach(function (r) {
+        var tr = el('tr');
+        var k = el('td', 'k', r[0]);
+        var v = el('td', 'v');
+        if (r[2]) v.className = 'v ' + r[2];
+        v.textContent = r[1];
+        tr.appendChild(k); tr.appendChild(v); t.appendChild(tr);
+    });
+    return t;
+}
+
+function group(title, rows) {
+    var g = el('div', 'group');
+    g.appendChild(el('h3', null, title));
+    g.appendChild(table(rows));
+    return g;
+}
+
+function bytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1048576).toFixed(2) + ' MB';
+}
+
+function hex(n, w) {
+    var s = n.toString(16).toUpperCase();
+    while (s.length < (w || 2)) s = '0' + s;
+    return '0x' + s;
+}
+
+function ascii(dv, off, len) {
+    var s = '';
+    for (var i = 0; i < len && off + i < dv.byteLength; i++) {
+        var c = dv.getUint8(off + i);
+        s += (c >= 32 && c < 127) ? String.fromCharCode(c) : '.';
+    }
+    return s;
+}
+
+/* ------------------------------------------------------------------ *
+ * CICP code point names (ITU-T H.273) — the vocabulary every modern
+ * container uses to say "this is PQ / HLG / BT.2020".
+ * ------------------------------------------------------------------ */
+
+var CP = {1:'BT.709 / sRGB', 4:'BT.470M', 5:'BT.601 625', 6:'BT.601 525', 7:'SMPTE 240M',
+          8:'Generic film', 9:'BT.2020 / BT.2100', 10:'XYZ', 11:'DCI-P3', 12:'Display P3'};
+var TRC = {1:'BT.709', 4:'gamma 2.2', 5:'gamma 2.8', 6:'BT.601', 7:'SMPTE 240M', 8:'linear',
+           11:'IEC 61966-2-4', 13:'sRGB', 14:'BT.2020 10-bit', 15:'BT.2020 12-bit',
+           16:'PQ (SMPTE ST 2084)', 17:'SMPTE ST 428', 18:'HLG (ARIB STD-B67)'};
+var MTX = {0:'identity / RGB', 1:'BT.709', 5:'BT.601 625', 6:'BT.601 525', 9:'BT.2020 non-const',
+           10:'BT.2020 const', 12:'chroma-derived non-const', 14:'ICtCp'};
+
+function cpName(v) { return CP[v] ? v + ' (' + CP[v] + ')' : String(v); }
+function trcName(v) { return TRC[v] ? v + ' (' + TRC[v] + ')' : String(v); }
+function mtxName(v) { return MTX[v] ? v + ' (' + MTX[v] + ')' : String(v); }
+function isHdrTrc(v) { return v === 16 || v === 18; }
+
+/* ------------------------------------------------------------------ *
+ * ICC profile header — enough to name the profile and spot wide-gamut
+ * / HDR transfer curves.
+ * ------------------------------------------------------------------ */
+
+function parseICC(dv, base, len) {
+    var out = { rows: [], hdrHint: false, desc: '' };
+    if (len < 132) return out;
+    var size = dv.getUint32(base);
+    var cls = ascii(dv, base + 12, 4);
+    var space = ascii(dv, base + 16, 4).trim();
+    var pcs = ascii(dv, base + 20, 4).trim();
+    var ver = dv.getUint8(base + 8) + '.' + (dv.getUint8(base + 9) >> 4);
+    var intent = ['perceptual', 'media-relative', 'saturation', 'ICC-absolute'][dv.getUint32(base + 64)] || '?';
+
+    // Tag table: pull the profile description, and note the presence of the
+    // v4 parametric curves / CICP tag that HDR profiles carry.
+    var count = dv.getUint32(base + 128);
+    var tags = [];
+    for (var i = 0; i < count && base + 132 + i * 12 + 12 <= base + len; i++) {
+        var to = base + 132 + i * 12;
+        var sig = ascii(dv, to, 4);
+        var off = dv.getUint32(to + 4), sz = dv.getUint32(to + 8);
+        tags.push(sig);
+        if (sig === 'desc' && base + off + 12 < dv.byteLength) {
+            var type = ascii(dv, base + off, 4);
+            if (type === 'desc') {
+                out.desc = ascii(dv, base + off + 12, Math.min(dv.getUint32(base + off + 8) - 1, 120));
+            } else if (type === 'mluc') {
+                var n = dv.getUint32(base + off + 8);
+                if (n > 0) {
+                    var recLen = dv.getUint32(base + off + 20);
+                    var recOff = dv.getUint32(base + off + 24);
+                    var s = '';
+                    for (var j = 0; j + 1 < Math.min(recLen, 240); j += 2) {
+                        s += String.fromCharCode(dv.getUint16(base + off + recOff + j));
+                    }
+                    out.desc = s;
+                }
+            }
+        }
+        if (sig === 'cicp' && base + off + 12 <= dv.byteLength) {
+            var p = dv.getUint8(base + off + 8), t = dv.getUint8(base + off + 9), m = dv.getUint8(base + off + 10);
+            out.rows.push(['ICC cicp primaries', cpName(p)]);
+            out.rows.push(['ICC cicp transfer', trcName(t), isHdrTrc(t) ? 'ok' : '']);
+            out.rows.push(['ICC cicp matrix', mtxName(m)]);
+            if (isHdrTrc(t)) out.hdrHint = true;
+        }
+    }
+
+    out.rows.unshift(['ICC size', bytes(size)]);
+    out.rows.unshift(['ICC rendering intent', intent]);
+    out.rows.unshift(['ICC PCS', pcs]);
+    out.rows.unshift(['ICC data colour space', space]);
+    out.rows.unshift(['ICC class', cls]);
+    out.rows.unshift(['ICC version', ver]);
+    if (out.desc) out.rows.unshift(['ICC profile', out.desc]);
+
+    var d = (out.desc || '').toLowerCase();
+    if (/pq|2100|hlg|2084|hdr/.test(d)) out.hdrHint = true;
+    if (tags.length) out.rows.push(['ICC tags', tags.join(' ')]);
+    return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * XMP — where Ultra HDR (hdrgm:) and Apple gain-map metadata live.
+ * ------------------------------------------------------------------ */
+
+var XMP_KEYS = /(hdrgm:[A-Za-z]+|HDRGainMap[A-Za-z]*|apple_desktop:[A-Za-z]+|Container:[A-Za-z]+|Item:[A-Za-z]+|GContainer[A-Za-z:]*|GainMap[A-Za-z]*)\s*=\s*"([^"]*)"/g;
+
+function parseXMP(text) {
+    var out = { rows: [], hdrHint: false, raw: text };
+    var seen = {}, m;
+    XMP_KEYS.lastIndex = 0;
+    while ((m = XMP_KEYS.exec(text)) !== null) {
+        var k = m[1], v = m[2];
+        if (seen[k + v]) continue;
+        seen[k + v] = 1;
+        out.rows.push([k, v]);
+        if (/^hdrgm:/i.test(k) || /GainMap/i.test(k)) out.hdrHint = true;
+    }
+    // Element form: <hdrgm:GainMapMax>1.5</hdrgm:GainMapMax>
+    var re = /<((?:hdrgm|Item|Container|GainMap)[^\s>\/]*)[^>]*>([^<]{0,80})<\//g;
+    while ((m = re.exec(text)) !== null) {
+        var kk = m[1], vv = m[2].trim();
+        if (!vv || seen[kk + vv]) continue;
+        seen[kk + vv] = 1;
+        out.rows.push([kk, vv]);
+        if (/hdrgm|GainMap/i.test(kk)) out.hdrHint = true;
+    }
+    if (/hdrgm|GainMap|hdr_gain_map/i.test(text)) out.hdrHint = true;
+    return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * JPEG — walk the marker segments. HDR JPEGs carry their extra range in
+ * an Ultra HDR / ISO 21496-1 gain map: a second image appended via MPF
+ * and described in XMP.
+ * ------------------------------------------------------------------ */
+
+function parseJPEG(buf) {
+    var dv = new DataView(buf);
+    var res = { format: 'JPEG', rows: [], sections: [], hdr: false, why: [], xmp: '' };
+    var off = 2, segs = [], icc = [], xmp = '', xmpExt = '', mpImages = 0, jumbf = [];
+
+    while (off + 3 < dv.byteLength) {
+        if (dv.getUint8(off) !== 0xFF) { off++; continue; }
+        var marker = dv.getUint8(off + 1);
+        if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) { off += 2; continue; }
+        if (marker === 0xD9) break;
+        if (off + 4 > dv.byteLength) break;
+        var len = dv.getUint16(off + 2);
+        var payload = off + 4, plen = len - 2;
+
+        if (marker >= 0xC0 && marker <= 0xCF && marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
+            res.rows.push(['Sample precision', dv.getUint8(payload) + ' bit']);
+            res.rows.push(['Dimensions', dv.getUint16(payload + 3) + ' × ' + dv.getUint16(payload + 1)]);
+            res.rows.push(['Components', String(dv.getUint8(payload + 5))]);
+            res.rows.push(['Coding', marker === 0xC2 ? 'progressive DCT' : 'baseline / sequential DCT']);
+        } else if (marker >= 0xE0 && marker <= 0xEF) {
+            var id = ascii(dv, payload, Math.min(plen, 32));
+            segs.push('APP' + (marker - 0xE0) + ' ' + id.split('.')[0].replace(/\.+$/, '').slice(0, 24) + ' (' + bytes(len) + ')');
+            if (id.indexOf('ICC_PROFILE') === 0) icc.push([payload + 14, plen - 14]);
+            else if (id.indexOf('http://ns.adobe.com/xap/1.0/') === 0) {
+                xmp += new TextDecoder().decode(new Uint8Array(buf, payload + 29, plen - 29));
+            } else if (id.indexOf('http://ns.adobe.com/xmp/extension/') === 0) {
+                xmpExt += new TextDecoder().decode(new Uint8Array(buf, payload + 75, Math.max(0, plen - 75)));
+            } else if (id.indexOf('MPF') === 0) {
+                mpImages = parseMPF(dv, payload + 4, plen - 4);
+            } else if (id.indexOf('JP') === 0 && marker === 0xEB) {
+                jumbf.push(ascii(dv, payload + 8, 24));
+            }
+        } else if (marker === 0xDA) {
+            segs.push('SOS (entropy-coded data follows)');
+            break;
+        }
+        off += 2 + len;
+    }
+
+    res.rows.push(['File markers', String(segs.length) + ' metadata segments']);
+    res.sections.push(['JPEG segments', segs.map(function (s, i) { return ['#' + (i + 1), s]; })]);
+
+    if (icc.length) {
+        var p = parseICC(dv, icc[0][0], icc[0][1]);
+        res.sections.push(['ICC colour profile', p.rows]);
+        if (p.hdrHint) { res.hdr = true; res.why.push('ICC profile describes an HDR transfer function'); }
+    } else {
+        res.rows.push(['ICC profile', 'none (assumed sRGB)', 'warn']);
+    }
+
+    var allXmp = xmp + xmpExt;
+    if (allXmp) {
+        res.xmp = allXmp;
+        var x = parseXMP(allXmp);
+        if (x.rows.length) res.sections.push(['XMP / gain map metadata', x.rows]);
+        else res.sections.push(['XMP', [['present', bytes(allXmp.length) + ' of XMP, no HDR keys']]]);
+        if (x.hdrHint) { res.hdr = true; res.why.push('XMP carries Ultra HDR / ISO 21496-1 gain-map metadata (hdrgm)'); }
+    }
+
+    if (mpImages > 1) {
+        res.rows.push(['MPF images', String(mpImages) + ' (base + gain map)']);
+        res.hdr = true;
+        res.why.push('MPF multi-picture container holds ' + mpImages + ' images — the second is the gain map');
+    }
+    if (jumbf.length) res.rows.push(['JUMBF boxes', jumbf.join(', ')]);
+
+    return res;
+}
+
+// MPF index IFD: tag 0xB001 is the number of images in the multi-picture file.
+function parseMPF(dv, base, len) {
+    try {
+        var little = ascii(dv, base, 2) === 'II';
+        var ifdOff = little ? dv.getUint32(base + 4, true) : dv.getUint32(base + 4);
+        var p = base + ifdOff;
+        var n = little ? dv.getUint16(p, true) : dv.getUint16(p);
+        for (var i = 0; i < n; i++) {
+            var e = p + 2 + i * 12;
+            var tag = little ? dv.getUint16(e, true) : dv.getUint16(e);
+            if (tag === 0xB001) return little ? dv.getUint32(e + 8, true) : dv.getUint32(e + 8);
+        }
+    } catch (err) { /* malformed MPF — just report nothing */ }
+    return 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * PNG — cICP / mDCv / cLLi are the HDR chunks (PNG 3rd edition).
+ * ------------------------------------------------------------------ */
+
+function parsePNG(buf) {
+    var dv = new DataView(buf);
+    var res = { format: 'PNG', rows: [], sections: [], hdr: false, why: [], xmp: '' };
+    var off = 8, chunks = [];
+    while (off + 8 <= dv.byteLength) {
+        var len = dv.getUint32(off);
+        var type = ascii(dv, off + 4, 4);
+        var d = off + 8;
+        chunks.push(type);
+        if (type === 'IHDR') {
+            res.rows.push(['Dimensions', dv.getUint32(d) + ' × ' + dv.getUint32(d + 4)]);
+            res.rows.push(['Bit depth', dv.getUint8(d + 8) + ' bit/channel']);
+            res.rows.push(['Colour type', String(dv.getUint8(d + 9))]);
+        } else if (type === 'cICP') {
+            var pr = dv.getUint8(d), tr = dv.getUint8(d + 1), mx = dv.getUint8(d + 2), fr = dv.getUint8(d + 3);
+            res.sections.push(['cICP coding-independent code points', [
+                ['Colour primaries', cpName(pr)],
+                ['Transfer characteristics', trcName(tr), isHdrTrc(tr) ? 'ok' : ''],
+                ['Matrix coefficients', mtxName(mx)],
+                ['Range', fr ? 'full' : 'limited']
+            ]]);
+            if (isHdrTrc(tr)) { res.hdr = true; res.why.push('PNG cICP chunk declares ' + TRC[tr]); }
+        } else if (type === 'mDCv') {
+            var c = [];
+            for (var i = 0; i < 4; i++) {
+                c.push([['Red', 'Green', 'Blue', 'White point'][i],
+                        (dv.getUint16(d + i * 4) * 0.00002).toFixed(4) + ', ' + (dv.getUint16(d + i * 4 + 2) * 0.00002).toFixed(4)]);
+            }
+            c.push(['Max display luminance', (dv.getUint32(d + 16) / 10000).toFixed(1) + ' cd/m²']);
+            c.push(['Min display luminance', (dv.getUint32(d + 20) / 10000).toFixed(4) + ' cd/m²']);
+            res.sections.push(['mDCv mastering display volume', c]);
+            res.hdr = true;
+            res.why.push('PNG carries mastering-display metadata (mDCv)');
+        } else if (type === 'cLLi') {
+            res.sections.push(['cLLi content light level', [
+                ['MaxCLL', (dv.getUint32(d) / 10000).toFixed(1) + ' cd/m²'],
+                ['MaxFALL', (dv.getUint32(d + 4) / 10000).toFixed(1) + ' cd/m²']
+            ]]);
+        } else if (type === 'iCCP') {
+            res.rows.push(['Embedded ICC', 'yes (compressed)']);
+        } else if (type === 'sRGB') {
+            res.rows.push(['sRGB chunk', 'present, intent ' + dv.getUint8(d)]);
+        } else if (type === 'gAMA') {
+            res.rows.push(['Gamma', (100000 / dv.getUint32(d)).toFixed(2)]);
+        } else if (type === 'iTXt' || type === 'tEXt') {
+            var txt = new TextDecoder().decode(new Uint8Array(buf, d, Math.min(len, 65536)));
+            if (/hdrgm|GainMap|xmpmeta/i.test(txt)) res.xmp += txt;
+        }
+        if (type === 'IEND') break;
+        off += 12 + len;
+    }
+    res.rows.push(['Chunks', chunks.join(' ')]);
+    if (res.xmp) {
+        var x = parseXMP(res.xmp);
+        if (x.rows.length) res.sections.push(['XMP / gain map metadata', x.rows]);
+        if (x.hdrHint) { res.hdr = true; res.why.push('XMP carries gain-map metadata'); }
+    }
+    return res;
+}
+
+/* ------------------------------------------------------------------ *
+ * ISOBMFF (AVIF / HEIC / JXL container) — colr, pixi, clli, mdcv boxes
+ * plus a 'tmap' item, which is how an AVIF stores an ISO 21496-1 gain
+ * map.
+ * ------------------------------------------------------------------ */
+
+function parseISOBMFF(buf) {
+    var dv = new DataView(buf);
+    var res = { format: 'ISOBMFF', rows: [], sections: [], hdr: false, why: [], xmp: '' };
+    var brands = [], itemTypes = {}, boxNames = {}, largest = 0, largestDim = '';
+    var CONTAINERS = { meta: 1, iprp: 1, ipco: 1, iinf: 1, moov: 1, trak: 1, mdia: 1, minf: 1, stbl: 1 };
+
+    function walk(start, end, depth) {
+        var off = start;
+        while (off + 8 <= end && depth < 8) {
+            var size = dv.getUint32(off);
+            var type = ascii(dv, off + 4, 4);
+            var hdrLen = 8;
+            if (size === 1) { size = dv.getUint32(off + 8) * 4294967296 + dv.getUint32(off + 12); hdrLen = 16; }
+            else if (size === 0) size = end - off;
+            if (size < hdrLen || off + size > end) break;
+            boxNames[type] = (boxNames[type] || 0) + 1;
+            var d = off + hdrLen;
+
+            if (type === 'ftyp') {
+                // major_brand, minor_version (skipped), then compatible_brands.
+                brands.push(ascii(dv, d, 4).trim());
+                for (var i = 8; d + i + 4 <= off + size; i += 4) brands.push(ascii(dv, d + i, 4).trim());
+            } else if (type === 'colr') {
+                var kind = ascii(dv, d, 4);
+                if (kind === 'nclx') {
+                    var pr = dv.getUint16(d + 4), tr = dv.getUint16(d + 6), mx = dv.getUint16(d + 8);
+                    res.sections.push(['colr / nclx colour information', [
+                        ['Colour primaries', cpName(pr)],
+                        ['Transfer characteristics', trcName(tr), isHdrTrc(tr) ? 'ok' : ''],
+                        ['Matrix coefficients', mtxName(mx)],
+                        ['Range', (dv.getUint8(d + 10) & 0x80) ? 'full' : 'limited']
+                    ]]);
+                    if (isHdrTrc(tr)) { res.hdr = true; res.why.push('nclx colour box declares ' + TRC[tr]); }
+                    if (pr === 9 || pr === 12) res.why.push('Wide-gamut primaries: ' + CP[pr]);
+                } else if (kind === 'prof' || kind === 'rICC') {
+                    var p = parseICC(dv, d + 4, size - hdrLen - 4);
+                    res.sections.push(['Embedded ICC profile', p.rows]);
+                    if (p.hdrHint) { res.hdr = true; res.why.push('ICC profile describes an HDR transfer function'); }
+                }
+            } else if (type === 'pixi') {
+                var n = dv.getUint8(d + 4), depths = [];
+                for (var j = 0; j < n; j++) depths.push(dv.getUint8(d + 5 + j));
+                res.rows.push(['Bit depth', depths.join('/') + ' bit']);
+                if (depths[0] >= 10) res.why.push('High bit depth (' + depths[0] + ' bit) — room for HDR precision');
+            } else if (type === 'ispe') {
+                // A file may hold several (thumbnail, tiles) — keep the largest.
+                var iw = dv.getUint32(d + 4), ih = dv.getUint32(d + 8);
+                if (iw * ih > largest) { largest = iw * ih; largestDim = iw + ' × ' + ih; }
+            } else if (type === 'clli') {
+                res.sections.push(['clli content light level', [
+                    ['MaxCLL', dv.getUint16(d) + ' cd/m²'],
+                    ['MaxFALL', dv.getUint16(d + 2) + ' cd/m²']
+                ]]);
+            } else if (type === 'mdcv') {
+                var rows = [];
+                for (var k = 0; k < 4; k++) {
+                    rows.push([['Red', 'Green', 'Blue', 'White point'][k],
+                               (dv.getUint16(d + k * 4) * 0.00002).toFixed(4) + ', ' + (dv.getUint16(d + k * 4 + 2) * 0.00002).toFixed(4)]);
+                }
+                rows.push(['Max display luminance', (dv.getUint32(d + 16) / 10000).toFixed(1) + ' cd/m²']);
+                rows.push(['Min display luminance', (dv.getUint32(d + 20) / 10000).toFixed(4) + ' cd/m²']);
+                res.sections.push(['mdcv mastering display volume', rows]);
+                res.hdr = true;
+                res.why.push('Mastering-display metadata (mdcv) present');
+            } else if (type === 'infe') {
+                // v2: item_ID(2) protection(2) item_type(4); v3 widens item_ID to 4 bytes.
+                var ver = dv.getUint8(d);
+                if (ver >= 2) {
+                    var it = ascii(dv, d + 4 + (ver === 2 ? 4 : 6), 4);
+                    itemTypes[it] = (itemTypes[it] || 0) + 1;
+                }
+            } else if (type === 'av1C') {
+                // byte0 marker+version, byte1 seq_profile+level, byte2 tier/bit-depth flags.
+                var b2 = dv.getUint8(d + 2);
+                res.rows.push(['AV1 profile', String(dv.getUint8(d + 1) >> 5)]);
+                res.rows.push(['AV1 bit depth', (b2 & 0x20) ? '12 bit' : ((b2 & 0x40) ? '10 bit' : '8 bit')]);
+            } else if (type === 'xml ' || type === 'mime') {
+                var t = new TextDecoder().decode(new Uint8Array(buf, d, Math.min(size - hdrLen, 65536)));
+                if (/xmpmeta|hdrgm/i.test(t)) res.xmp += t;
+            }
+
+            if (CONTAINERS[type]) {
+                // iinf/meta are FullBoxes: skip version+flags (+count) before recursing.
+                var inner = d;
+                if (type === 'meta') inner = d + 4;
+                else if (type === 'iinf') inner = d + 4 + ((dv.getUint8(d) === 0) ? 2 : 4);
+                walk(inner, off + size, depth + 1);
+            }
+            off += size;
+        }
+    }
+
+    walk(0, dv.byteLength, 0);
+
+    res.format = brands.length ? (brands[0] === 'ftyp' ? 'ISOBMFF' : brands[0].toUpperCase()) : 'ISOBMFF';
+    res.rows.unshift(['Brands', brands.join(' ')]);
+    if (largestDim) res.rows.splice(1, 0, ['Dimensions', largestDim]);
+    var its = Object.keys(itemTypes);
+    if (its.length) res.rows.push(['Items', its.map(function (t) { return t + '×' + itemTypes[t]; }).join(' ')]);
+    if (itemTypes['tmap']) {
+        res.hdr = true;
+        res.why.push("'tmap' tone-map item present — this AVIF carries an ISO 21496-1 gain map");
+    }
+    res.rows.push(['Boxes', Object.keys(boxNames).join(' ')]);
+    if (res.xmp) {
+        var x = parseXMP(res.xmp);
+        if (x.rows.length) res.sections.push(['XMP / gain map metadata', x.rows]);
+        if (x.hdrHint) { res.hdr = true; res.why.push('XMP carries gain-map metadata'); }
+    }
+    return res;
+}
+
+function parseWebP(buf) {
+    var dv = new DataView(buf);
+    var res = { format: 'WebP', rows: [], sections: [], hdr: false, why: [], xmp: '' };
+    var off = 12, chunks = [];
+    while (off + 8 <= dv.byteLength) {
+        var type = ascii(dv, off, 4);
+        var len = dv.getUint32(off + 4, true);
+        chunks.push(type.trim());
+        var d = off + 8;
+        if (type === 'VP8X') {
+            res.rows.push(['Dimensions', ((dv.getUint8(d + 4) | dv.getUint8(d + 5) << 8 | dv.getUint8(d + 6) << 16) + 1) +
+                                          ' × ' + ((dv.getUint8(d + 7) | dv.getUint8(d + 8) << 8 | dv.getUint8(d + 9) << 16) + 1)]);
+            res.rows.push(['Alpha', (dv.getUint8(d) & 0x10) ? 'yes' : 'no']);
+        } else if (type === 'ICCP') {
+            var p = parseICC(dv, d, len);
+            res.sections.push(['Embedded ICC profile', p.rows]);
+            if (p.hdrHint) { res.hdr = true; res.why.push('ICC profile describes an HDR transfer function'); }
+        } else if (type === 'XMP ') {
+            res.xmp += new TextDecoder().decode(new Uint8Array(buf, d, Math.min(len, 65536)));
+        }
+        off += 8 + len + (len & 1);
+    }
+    res.rows.push(['Chunks', chunks.join(' ')]);
+    res.why.push('WebP is 8-bit only — it cannot carry true HDR');
+    return res;
+}
+
+/* ------------------------------------------------------------------ *
+ * Format dispatch
+ * ------------------------------------------------------------------ */
+
+function sniff(buf) {
+    var dv = new DataView(buf);
+    if (dv.byteLength < 12) return null;
+    var b0 = dv.getUint8(0), b1 = dv.getUint8(1);
+    if (b0 === 0xFF && b1 === 0xD8) return 'jpeg';
+    if (b0 === 0x89 && ascii(dv, 1, 3) === 'PNG') return 'png';
+    if (ascii(dv, 4, 4) === 'ftyp') return 'isobmff';
+    if (ascii(dv, 0, 4) === 'RIFF' && ascii(dv, 8, 4) === 'WEBP') return 'webp';
+    if (b0 === 0xFF && b1 === 0x0A) return 'jxl';
+    if (dv.getUint32(0) === 0x0000000C && ascii(dv, 4, 4) === 'JXL ') return 'isobmff';
+    if (ascii(dv, 0, 2) === 'BM') return 'bmp';
+    return null;
+}
+
+function analyse(buf) {
+    var kind = sniff(buf);
+    if (kind === 'jpeg') return parseJPEG(buf);
+    if (kind === 'png') return parsePNG(buf);
+    if (kind === 'isobmff') return parseISOBMFF(buf);
+    if (kind === 'webp') return parseWebP(buf);
+    if (kind === 'jxl') {
+        return { format: 'JPEG XL (raw codestream)', rows: [['Note', 'Container-less JXL — HDR metadata lives inside the codestream and is not parsed here']],
+                 sections: [], hdr: false, why: [], xmp: '' };
+    }
+    return { format: kind ? kind.toUpperCase() : 'unknown', rows: [['Note', 'No HDR-capable metadata containers in this format']],
+             sections: [], hdr: false, why: [], xmp: '' };
+}
+
+/* ------------------------------------------------------------------ *
+ * Float16 canvas — the only way to hold pixel values above SDR white.
+ * The attribute names moved during standardisation (pixelFormat →
+ * colorType, float16 → rgba-float16 for ImageData), so try both.
+ * ------------------------------------------------------------------ */
+
+function makeFloat16Canvas(w, h) {
+    var attrSets = [
+        { colorSpace: 'display-p3', colorType: 'float16', toneMapping: { mode: 'extended' } },
+        { colorSpace: 'display-p3', pixelFormat: 'float16' },
+        { colorSpace: 'srgb', colorType: 'float16' }
+    ];
+    for (var i = 0; i < attrSets.length; i++) {
+        try {
+            var c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            var ctx = c.getContext('2d', attrSets[i]);
+            if (!ctx || !ctx.getContextAttributes) continue;
+            var a = ctx.getContextAttributes();
+            if (a.colorType !== 'float16' && a.pixelFormat !== 'float16') continue;
+
+            var pf = null;
+            ['rgba-float16', 'float16'].forEach(function (cand) {
+                if (pf) return;
+                try {
+                    var id = ctx.createImageData(1, 1, { colorSpace: a.colorSpace, pixelFormat: cand });
+                    if (id && id.data && id.data.constructor !== Uint8ClampedArray) pf = cand;
+                } catch (e) { /* try the next spelling */ }
+            });
+            if (!pf) continue;
+
+            var extended = !!(a.toneMapping && a.toneMapping.mode && a.toneMapping.mode !== 'standard');
+            if (!extended && typeof c.configureHighDynamicRange === 'function') {
+                try { c.configureHighDynamicRange({ mode: 'extended' }); extended = true; } catch (e) { /* ignore */ }
+            }
+            return { canvas: c, ctx: ctx, pf: pf, colorSpace: a.colorSpace, extended: extended };
+        } catch (e) { /* try the next attribute spelling */ }
+    }
+    return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Environment / capability probe
+ * ------------------------------------------------------------------ */
+
+function probeEnv() {
+    var mq = function (q) { return window.matchMedia(q).matches; };
+    var dyn = mq('(dynamic-range: high)');
+    var vdyn = mq('(video-dynamic-range: high)');
+    var p3 = mq('(color-gamut: p3)');
+    var rec2020 = mq('(color-gamut: rec2020)');
+    var cssLimit = window.CSS && CSS.supports && CSS.supports('dynamic-range-limit', 'no-limit');
+
+    var f16 = makeFloat16Canvas(1, 1);
+    var float16 = !!f16;
+    var hdrCanvas = !!(f16 && f16.extended);
+
+    var rows = [
+        ['Display dynamic range', dyn ? 'high — HDR capable' : 'standard (SDR)', dyn ? 'ok' : 'warn'],
+        ['Video dynamic range', vdyn ? 'high' : 'standard', vdyn ? 'ok' : ''],
+        ['Colour gamut', rec2020 ? 'rec2020' : (p3 ? 'display-p3' : 'sRGB'), (p3 || rec2020) ? 'ok' : ''],
+        ['CSS dynamic-range-limit', cssLimit ? 'supported' : 'not supported', cssLimit ? 'ok' : 'warn'],
+        ['float16 canvas', float16 ? 'supported (' + f16.colorSpace + ', ' + f16.pf + ')' : 'not supported', float16 ? 'ok' : ''],
+        ['Canvas tone mapping', !float16 ? 'n/a' : (hdrCanvas ? 'extended — canvas can exceed SDR white' : 'standard — canvas output is clamped'),
+            hdrCanvas ? 'ok' : (float16 ? 'warn' : '')],
+        ['Colour depth', screen.colorDepth + ' bit'],
+        ['Device pixel ratio', String(window.devicePixelRatio)]
+    ];
+
+    var env = document.getElementById('env');
+    env.innerHTML = '';
+    env.appendChild(group('Capabilities', rows));
+
+    var note = el('div', 'caption');
+    if (!dyn) {
+        note.innerHTML = 'Your display reports <b>standard</b> dynamic range, so HDR images will be tone-mapped down to SDR. ' +
+            'The metadata below is still parsed and shown in full. On macOS, HDR needs an EDR-capable screen; on Windows, HDR must be enabled in Display settings.';
+    } else if (!cssLimit) {
+        note.innerHTML = 'Your display is HDR-capable, but this browser has no <code>dynamic-range-limit</code>, so it may clamp images to SDR white. Chrome 133+ supports it.';
+    } else {
+        note.textContent = 'HDR display and HDR CSS both available — HDR images should render with highlights above SDR white.';
+    }
+    env.appendChild(note);
+
+    return { dyn: dyn, cssLimit: cssLimit, float16: float16, hdrCanvas: hdrCanvas };
+}
+
+var ENV = probeEnv();
+
+/* ------------------------------------------------------------------ *
+ * Decoded-pixel probe — how far past SDR white the decoded pixels go.
+ * Requires a float16 canvas; otherwise everything is clamped at 1.0.
+ * ------------------------------------------------------------------ */
+
+function probePixels(bitmap) {
+    if (!ENV.float16) return null;
+    try {
+        var w = Math.min(bitmap.width, 512), h = Math.max(1, Math.round(bitmap.height * w / bitmap.width));
+        var f = makeFloat16Canvas(w, h);
+        if (!f) return null;
+        var ctx = f.ctx;
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        var data = ctx.getImageData(0, 0, w, h, { colorSpace: f.colorSpace, pixelFormat: f.pf }).data;
+        var max = 0, sum = 0, over = 0, n = 0;
+        for (var i = 0; i < data.length; i += 4) {
+            var m = Math.max(data[i], data[i + 1], data[i + 2]);
+            if (m > max) max = m;
+            sum += m; n++;
+            if (m > 1.0001) over++;
+        }
+        return {
+            max: max,
+            avg: sum / Math.max(n, 1),
+            overPct: 100 * over / Math.max(n, 1),
+            sampled: w + '×' + h
+        };
+    } catch (e) { return null; }
+}
+
+/* ------------------------------------------------------------------ *
+ * Rendering the report
+ * ------------------------------------------------------------------ */
+
+function render(file, buf, bitmap) {
+    var res = analyse(buf);
+    var results = document.getElementById('results');
+    var meta = document.getElementById('meta');
+    var verdictBox = document.getElementById('verdict');
+    meta.innerHTML = '';
+    verdictBox.innerHTML = '';
+
+    var pix = bitmap ? probePixels(bitmap) : null;
+    if (pix && pix.max > 1.0001) {
+        res.hdr = true;
+        res.why.push('Decoded pixels reach ' + pix.max.toFixed(2) + '× SDR white — the browser produced extended-range values');
+    }
+
+    var v = el('div', 'verdict ' + (res.hdr ? 'yes' : 'no'));
+    v.appendChild(el('div', 'label', 'HDR verdict'));
+    v.appendChild(el('div', 'value', res.hdr ? 'HDR content detected' : 'No HDR signalling found'));
+    var why = el('div', 'why');
+    why.innerHTML = res.why.length
+        ? '&bull; ' + res.why.join('<br>&bull; ')
+        : 'Nothing in this file declares a PQ/HLG transfer function, a gain map, or mastering-display metadata. It is most likely a plain SDR image.';
+    v.appendChild(why);
+    verdictBox.appendChild(v);
+
+    // File panel
+    var fileRows = [
+        ['File name', file.name],
+        ['Detected format', res.format],
+        ['MIME type', file.type || 'unknown'],
+        ['Size', bytes(file.size)]
+    ];
+    if (bitmap) fileRows.push(['Decoded size', bitmap.width + ' × ' + bitmap.height]);
+    res.rows.forEach(function (r) { fileRows.push(r); });
+
+    var left = el('div', 'panel');
+    left.appendChild(group('File', fileRows));
+    if (pix) {
+        left.appendChild(group('Decoded pixels (float16 probe)', [
+            ['Sample resolution', pix.sampled],
+            ['Peak channel value', pix.max.toFixed(3) + ' × SDR white', pix.max > 1.0001 ? 'ok' : ''],
+            ['Mean channel value', pix.avg.toFixed(3)],
+            ['Pixels above SDR white', pix.overPct.toFixed(2) + ' %']
+        ]));
+    } else if (bitmap) {
+        left.appendChild(group('Decoded pixels', [
+            ['Probe', 'unavailable — this browser has no float16 canvas, so decoded values are clamped at 1.0', 'warn']
+        ]));
+    }
+    meta.appendChild(left);
+
+    // Format-specific sections
+    if (res.sections.length) {
+        var right = el('div', 'panel');
+        res.sections.forEach(function (s) { right.appendChild(group(s[0], s[1])); });
+        meta.appendChild(right);
+    }
+
+    if (res.xmp) {
+        var xp = el('div', 'panel');
+        var det = el('details');
+        det.appendChild(el('summary', null, 'Raw XMP (' + bytes(res.xmp.length) + ')'));
+        var pre = el('pre', null, res.xmp.replace(/>\s*</g, '>\n<'));
+        det.appendChild(pre);
+        xp.appendChild(det);
+        meta.appendChild(xp);
+    }
+
+    results.style.display = 'block';
+}
+
+/* ------------------------------------------------------------------ *
+ * Loading an image
+ * ------------------------------------------------------------------ */
+
+var currentURL = null;
+
+function load(file) {
+    if (!file) return;
+    if (!/^image\//.test(file.type) && !/\.(avif|jxl|heic|heif|jpe?g|png|webp)$/i.test(file.name)) {
+        alert('That does not look like an image file.');
+        return;
+    }
+
+    if (currentURL) URL.revokeObjectURL(currentURL);
+    currentURL = URL.createObjectURL(file);
+    document.getElementById('imgHdr').src = currentURL;
+    document.getElementById('imgSdr').src = currentURL;
+    document.getElementById('viewer').style.display = 'block';
+    document.getElementById('drop').style.display = 'none';
+
+    var note = document.getElementById('stageNote');
+    var stage = document.getElementById('stage');
+    stage.style.display = '';
+    // Chrome cannot decode HEIC/HEIF, and JXL support varies — say so instead of
+    // leaving a broken-image icon, and still show the parsed metadata below.
+    document.getElementById('imgHdr').onerror = function () {
+        stage.style.display = 'none';
+        note.textContent = 'This browser cannot decode ' + (file.type || 'this format') +
+            ' — the HDR details below are parsed from the file itself.';
+    };
+
+    note.textContent = ENV.dyn
+        ? 'The left/only pane is rendered with dynamic-range-limit: no-limit — highlights may exceed SDR white.'
+        : 'This display is SDR, so the image is tone-mapped. The comparison below will look identical here.';
+
+    var reader = new FileReader();
+    reader.onload = function () {
+        var buf = reader.result;
+        // createImageBitmap without colour conversion keeps the source range where supported.
+        createImageBitmap(file, { colorSpaceConversion: 'none' })
+            .then(function (bm) { render(file, buf, bm); })
+            .catch(function () {
+                return createImageBitmap(file)
+                    .then(function (bm) { render(file, buf, bm); })
+                    .catch(function () { render(file, buf, null); });
+            });
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+var drop = document.getElementById('drop');
+var fileInput = document.getElementById('file');
+
+drop.addEventListener('click', function () { fileInput.click(); });
+fileInput.addEventListener('change', function () { load(fileInput.files[0]); });
+
+['dragenter', 'dragover'].forEach(function (evt) {
+    document.addEventListener(evt, function (e) { e.preventDefault(); drop.classList.add('over'); });
+});
+['dragleave', 'drop'].forEach(function (evt) {
+    document.addEventListener(evt, function (e) {
+        e.preventDefault();
+        if (evt === 'dragleave' && e.relatedTarget) return;
+        drop.classList.remove('over');
+    });
+});
+document.addEventListener('drop', function (e) {
+    e.preventDefault();
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) load(f);
+});
+document.addEventListener('paste', function (e) {
+    var items = e.clipboardData && e.clipboardData.files;
+    if (items && items.length) load(items[0]);
+});
+
+document.getElementById('btnClear').addEventListener('click', function () {
+    document.getElementById('viewer').style.display = 'none';
+    document.getElementById('results').style.display = 'none';
+    drop.style.display = 'block';
+    fileInput.value = '';
+});
+
+var hdrOn = true;
+document.getElementById('btnHdr').addEventListener('click', function () {
+    hdrOn = !hdrOn;
+    var img = document.getElementById('imgHdr');
+    img.className = hdrOn ? 'hdr' : 'sdr';
+    this.classList.toggle('on', hdrOn);
+    this.textContent = 'HDR: ' + (hdrOn ? 'on' : 'off');
+});
+
+document.getElementById('btnSplit').addEventListener('click', function () {
+    var stage = document.getElementById('stage');
+    var split = stage.classList.toggle('split');
+    document.getElementById('paneSdr').classList.toggle('hidden', !split);
+    this.classList.toggle('on', split);
+    this.textContent = split ? 'Hide SDR comparison' : 'Compare with SDR';
+});
+
+/* ------------------------------------------------------------------ *
+ * Display self-test: patches at 1×, 2×, 4× and 8× SDR white drawn into
+ * a float16 canvas. On a working HDR pipeline the right-hand patches
+ * are visibly brighter than the leftmost one.
+ * ------------------------------------------------------------------ */
+
+(function selfTest() {
+    var host = document.getElementById('selftest');
+    var note = document.getElementById('selftestNote');
+    var levels = [1, 2, 4, 8];
+
+    var f = makeFloat16Canvas(4, 1);
+    if (!f) {
+        note.textContent = 'This browser has no float16 canvas, so an extended-range test pattern cannot be drawn. ' +
+            'Chrome 129+ on an HDR display supports it.';
+        return;
+    }
+
+    var c = f.canvas, ctx = f.ctx;
+    c.style.width = '360px';
+    c.style.height = '90px';
+
+    var img = ctx.createImageData(4, 1, { colorSpace: f.colorSpace, pixelFormat: f.pf });
+    levels.forEach(function (lv, i) {
+        img.data[i * 4] = lv; img.data[i * 4 + 1] = lv; img.data[i * 4 + 2] = lv; img.data[i * 4 + 3] = 1;
+    });
+    ctx.putImageData(img, 0, 0);
+    host.appendChild(c);
+
+    var legend = el('div');
+    legend.appendChild(group('Patch levels', levels.map(function (lv) {
+        return [lv + '× SDR white', lv === 1 ? 'reference white' : 'HDR highlight'];
+    })));
+    host.appendChild(legend);
+
+    note.textContent = !ENV.dyn
+        ? 'Four patches at 1×, 2×, 4× and 8× SDR white. This display is SDR, so they will all look the same white.'
+        : (ENV.hdrCanvas
+            ? 'Four patches at 1×, 2×, 4× and 8× SDR white. On a working HDR pipeline they get visibly brighter left to right; if they all look the same, HDR is being clamped.'
+            : 'Four patches at 1×, 2×, 4× and 8× SDR white. This browser reports standard canvas tone mapping, so they will most likely be clamped to the same white even on an HDR display — the image viewer above is the reliable HDR test.');
+})();
+</script>
+</body>
+</html>
