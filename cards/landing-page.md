@@ -13,5 +13,23 @@ When adding a new project:
 3. For projects not served through nginx (e.g. Poem), link to the GitHub source and omit the status dot
 4. Pick a badge type: `game`, `app`, `tool`, or `api`
 
+## Extra pages under the landing site
+
+Because `location /` is an `alias` for `projects/landing/`, anything inside that
+directory is already served — a small standalone page needs **no nginx block and
+no status-page entry**. Put it at `projects/landing/<name>/index.html` and it is
+reachable at `/<name>/`; link it from the landing page with a card that omits
+the status dot (there is no service to probe).
+
+Use this for single-page tools that belong to the site rather than being
+projects in their own right. Current examples:
+
+- `projects/landing/test-hdr/` → `/test-hdr/` — drop an image to view it in HDR
+  and inspect its HDR metadata (parsed client-side)
+- `projects/landing/spcx.html` → `/spcx.html`
+
+Anything that needs its own backend, build step, or health check is a real
+project under `projects/` with its own nginx block instead.
+
 `projects/landing/setup` holds the structured-docs onboarding instructions
 (the pattern menu fetched via `https://ai.memention.net/setup`).

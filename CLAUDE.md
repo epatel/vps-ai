@@ -22,7 +22,7 @@ Lazy-loaded reference cards under `cards/`. Open one when its trigger matches:
 - [deploy-pipeline](cards/deploy-pipeline.md) — post-merge hook + Flutter-web GitHub Actions build and restricted-key rsync deploy
 - [nginx-conventions](cards/nginx-conventions.md) — serving a project through nginx, location-block rules
 - [status-page](cards/status-page.md) — registering a project with the status monitor and the `/status/log` event endpoint
-- [landing-page](cards/landing-page.md) — the root landing page and adding a project card
+- [landing-page](cards/landing-page.md) — the root landing page, adding a project card, and standalone pages served from `projects/landing/<name>/`
 
 ## Agent execution environment
 
