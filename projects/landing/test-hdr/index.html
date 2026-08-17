@@ -88,6 +88,13 @@
     .verdict .label { font-size: .7em; letter-spacing: 2px; text-transform: uppercase; color: #8a93b8; }
     .verdict .value { font-size: 1.25em; font-weight: 700; margin: 4px 0 6px; }
     .verdict .why { font-size: .8em; color: #a6adcc; line-height: 1.5; }
+    .headroom {
+        border-radius: 9px; padding: 14px 16px; margin-bottom: 12px;
+        background: #0f2b33; border: 1px solid #1f7a8c;
+    }
+    .headroom .label { font-size: .7em; letter-spacing: 2px; text-transform: uppercase; color: #7fc7d9; }
+    .headroom .value { font-size: 1.6em; font-weight: 700; margin: 2px 0 6px; color: #7fe0f5; }
+    .headroom .why { font-size: .8em; color: #a6c9d4; line-height: 1.5; }
     .verdict.yes { background: #10331b; border-color: #2e7d32; }
     .verdict.yes .value { color: #81c784; }
     .verdict.no { background: #2a1f10; border-color: #7a5c1e; }
@@ -341,7 +348,7 @@ function parseXMP(text) {
 
 function parseJPEG(buf) {
     var dv = new DataView(buf);
-    var res = { format: 'JPEG', rows: [], sections: [], hdr: false, why: [], xmp: '' };
+    var res = { format: 'JPEG', rows: [], sections: [], hdr: false, why: [], xmp: '', mpEntries: [] };
     var off = 2, segs = [], icc = [], xmp = '', xmpExt = '', mpImages = 0, jumbf = [];
 
     while (off + 3 < dv.byteLength) {
@@ -368,6 +375,7 @@ function parseJPEG(buf) {
                 xmpExt += new TextDecoder().decode(new Uint8Array(buf, payload + 75, Math.max(0, plen - 75)));
             } else if (id.indexOf('MPF') === 0) {
                 mpImages = parseMPF(dv, payload + 4, plen - 4);
+                res.mpEntries = parseMPFEntries(dv, payload + 4, plen - 4);
             } else if (id.indexOf('JP') === 0 && marker === 0xEB) {
                 jumbf.push(ascii(dv, payload + 8, 24));
             }
@@ -423,6 +431,176 @@ function parseMPF(dv, base, len) {
     } catch (err) { /* malformed MPF — just report nothing */ }
     return 0;
 }
+
+// MPEntry (tag 0xB002): 16 bytes per image — attributes, size, offset, two
+// dependency fields. Offsets are relative to the MP Endian field, except the
+// first image, whose offset field is 0 and which starts at the file head.
+function parseMPFEntries(dv, base, len) {
+    var out = [];
+    try {
+        var little = ascii(dv, base, 2) === 'II';
+        var u16 = function (o) { return little ? dv.getUint16(o, true) : dv.getUint16(o); };
+        var u32 = function (o) { return little ? dv.getUint32(o, true) : dv.getUint32(o); };
+        var p = base + u32(base + 4);
+        var n = u16(p);
+        for (var i = 0; i < n; i++) {
+            var e = p + 2 + i * 12;
+            if (u16(e) !== 0xB002) continue;
+            var count = u32(e + 4);
+            var q = base + u32(e + 8);
+            for (var k = 0; k + 16 <= count; k += 16) {
+                var size = u32(q + k + 4), off = u32(q + k + 8);
+                out.push({ size: size, offset: off === 0 ? 0 : base + off });
+            }
+        }
+    } catch (err) { /* malformed MPF */ }
+    return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * Ultra HDR / ISO 21496-1 gain map.
+ *
+ * The extra range of an Ultra HDR JPEG is NOT in the picture the browser
+ * hands back from createImageBitmap — that is the SDR base rendition. The
+ * headroom lives in a second, appended JPEG (the gain map) plus its own
+ * XMP block. Recovering the real HDR pixels means applying it ourselves:
+ *
+ *   HDR = (SDR + OffsetSDR) * 2^(GainMapMin + (Max-Min) * g^(1/Gamma)) - OffsetHDR
+ *
+ * with SDR/HDR linear and g the normalised gain-map sample.
+ * ------------------------------------------------------------------ */
+
+function extractGainMap(buf, res) {
+    var e = res.mpEntries || [];
+    if (e.length > 1 && e[1].offset > 0 && e[1].offset + e[1].size <= buf.byteLength) {
+        return buf.slice(e[1].offset, e[1].offset + e[1].size);
+    }
+    // Fallback: the GContainer directory lists the gain map last, and an
+    // Ultra HDR file always ends with it — so its Length counts back from EOF.
+    var lens = (res.xmp || '').match(/Item:Length\s*=\s*"(\d+)"/g);
+    if (lens && lens.length) {
+        var n = parseInt(/(\d+)/.exec(lens[lens.length - 1])[1], 10);
+        if (n > 0 && n < buf.byteLength) {
+            var tail = buf.slice(buf.byteLength - n);
+            var t = new DataView(tail);
+            if (t.getUint8(0) === 0xFF && t.getUint8(1) === 0xD8) return tail;
+        }
+    }
+    return null;
+}
+
+// hdrgm defaults per the Ultra HDR spec, all per-channel triples.
+var GM_DEFAULTS = {
+    GainMapMin: 0, GainMapMax: 1, Gamma: 1,
+    OffsetSDR: 1 / 64, OffsetHDR: 1 / 64,
+    HDRCapacityMin: 0, HDRCapacityMax: 1
+};
+
+function triple(text, key, dflt) {
+    var m = new RegExp('hdrgm:' + key + '\\s*=\\s*"([^"]*)"').exec(text);
+    if (!m) {
+        // Element form, optionally an rdf:Seq of three per-channel values.
+        var em = new RegExp('<hdrgm:' + key + '[^>]*>([\\s\\S]{0,200}?)</hdrgm:' + key + '>').exec(text);
+        if (!em) return { v: [dflt, dflt, dflt], present: false };
+        var items = em[1].match(/<rdf:li[^>]*>([^<]*)</g);
+        if (items) {
+            var vals = items.map(function (s) { return parseFloat(/>([^<]*)</.exec(s)[1]); });
+            while (vals.length < 3) vals.push(vals[0]);
+            return { v: vals, present: true };
+        }
+        m = [null, em[1].trim()];
+    }
+    var parts = m[1].trim().split(/\s+/).map(parseFloat).filter(function (x) { return !isNaN(x); });
+    if (!parts.length) return { v: [dflt, dflt, dflt], present: false };
+    while (parts.length < 3) parts.push(parts[0]);
+    return { v: parts, present: true };
+}
+
+function gainMapParams(gmBuf) {
+    var text = '';
+    try {
+        var dv = new DataView(gmBuf), off = 2;
+        while (off + 3 < dv.byteLength) {
+            if (dv.getUint8(off) !== 0xFF) { off++; continue; }
+            var marker = dv.getUint8(off + 1);
+            if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) { off += 2; continue; }
+            if (marker === 0xDA || marker === 0xD9 || off + 4 > dv.byteLength) break;
+            var len = dv.getUint16(off + 2), payload = off + 4, plen = len - 2;
+            if (marker === 0xE1 && ascii(dv, payload, 28).indexOf('http://ns.adobe.com/xap/1.0/') === 0) {
+                text += new TextDecoder().decode(new Uint8Array(gmBuf, payload + 29, plen - 29));
+            }
+            off += 2 + len;
+        }
+    } catch (e) { /* fall through with whatever was read */ }
+
+    var P = { raw: text, present: {} };
+    Object.keys(GM_DEFAULTS).forEach(function (k) {
+        var t = triple(text, k, GM_DEFAULTS[k]);
+        P[k] = t.v;
+        P.present[k] = t.present;
+    });
+    var v = /hdrgm:Version\s*=\s*"([^"]*)"/.exec(text);
+    P.version = v ? v[1] : (/hdrgm/.test(text) ? '(unstated)' : null);
+    P.baseIsHdr = /hdrgm:BaseRenditionIsHDR\s*=\s*"True"/i.test(text);
+    // Headroom the file claims, in stops and as a multiple of SDR white.
+    P.stops = Math.max.apply(null, P.HDRCapacityMax);
+    P.headroom = Math.pow(2, P.stops);
+    return P;
+}
+
+function srgbToLinear(v) {
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+}
+
+// Apply the gain map at full strength and measure how far the result goes
+// past SDR white. This is what an HDR display with unlimited headroom shows.
+function reconstructHDR(baseBitmap, gmBitmap, P) {
+    var w = Math.min(baseBitmap.width, 512);
+    var h = Math.max(1, Math.round(baseBitmap.height * w / baseBitmap.width));
+
+    function draw(bm) {
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        var x = c.getContext('2d', { colorSpace: 'srgb', willReadFrequently: true });
+        x.drawImage(bm, 0, 0, w, h);
+        return x.getImageData(0, 0, w, h).data;
+    }
+
+    var base = draw(baseBitmap), gm = draw(gmBitmap);
+    var min = P.GainMapMin, max = P.GainMapMax, gamma = P.Gamma;
+    var oSdr = P.OffsetSDR, oHdr = P.OffsetHDR;
+    // A single-channel gain map decodes to r=g=b; a three-channel one does not.
+    var perChannel = false;
+    for (var t = 0; t < gm.length && !perChannel; t += 4) {
+        if (gm[t] !== gm[t + 1] || gm[t] !== gm[t + 2]) perChannel = true;
+    }
+
+    var peak = 0, sum = 0, over = 0, n = 0, gmax = 0;
+    for (var i = 0; i < base.length; i += 4) {
+        var pmax = 0;
+        for (var c = 0; c < 3; c++) {
+            var g = gm[i + (perChannel ? c : 0)] / 255;
+            if (g > gmax) gmax = g;
+            var lr = gamma[c] === 1 ? g : Math.pow(g, 1 / gamma[c]);
+            var boost = min[c] + (max[c] - min[c]) * lr;
+            var v = (srgbToLinear(base[i + c] / 255) + oSdr[c]) * Math.pow(2, boost) - oHdr[c];
+            if (v > pmax) pmax = v;
+        }
+        if (pmax > peak) peak = pmax;
+        sum += pmax; n++;
+        if (pmax > 1.0001) over++;
+    }
+
+    return {
+        peak: peak, mean: sum / Math.max(n, 1),
+        overPct: 100 * over / Math.max(n, 1),
+        sampled: w + '×' + h,
+        perChannel: perChannel,
+        gainMax: gmax
+    };
+}
+
+function stopsOf(x) { return (Math.log(x) / Math.LN2); }
 
 /* ------------------------------------------------------------------ *
  * PNG — cICP / mDCv / cLLi are the HDR chunks (PNG 3rd edition).
@@ -788,6 +966,70 @@ function probePixels(bitmap) {
  * Rendering the report
  * ------------------------------------------------------------------ */
 
+// The headline answer: how far above the display's SDR white this image asks
+// to go. Shown as a multiple, in stops, and as a percentage of SDR white.
+function headroomBanner(x, source) {
+    var b = el('div', 'headroom');
+    b.appendChild(el('div', 'label', 'HDR headroom'));
+    b.appendChild(el('div', 'value', x.toFixed(2) + '× SDR white'));
+    b.appendChild(el('div', 'why',
+        '+' + stopsOf(x).toFixed(2) + ' stops · ' + Math.round(x * 100) + ' % of SDR white · ' + source +
+        '. On a display whose own headroom is smaller, the browser tone-maps down to what the screen can do.'));
+    return b;
+}
+
+function showGainMap(buf, res, bitmap, panel, verdictBox) {
+    var gmBuf = null;
+    try { gmBuf = extractGainMap(buf, res); } catch (e) { gmBuf = null; }
+    if (!gmBuf) return;
+
+    var P = gainMapParams(gmBuf);
+    panel.style.display = '';
+
+    var rows = [
+        ['Gain map payload', bytes(gmBuf.byteLength)],
+        ['hdrgm version', P.version || 'not found', P.version ? 'ok' : 'warn']
+    ];
+    var fmt = function (k) {
+        var v = P[k], s = v[0] === v[1] && v[0] === v[2] ? v[0].toFixed(6) : v.map(function (x) { return x.toFixed(4); }).join(' ');
+        return s + (P.present[k] ? '' : '  (default)');
+    };
+    ['GainMapMin', 'GainMapMax', 'Gamma', 'OffsetSDR', 'OffsetHDR', 'HDRCapacityMin', 'HDRCapacityMax']
+        .forEach(function (k) { rows.push(['hdrgm:' + k, fmt(k)]); });
+    rows.push(['Base rendition', P.baseIsHdr ? 'HDR (gain map darkens to SDR)' : 'SDR (gain map brightens to HDR)']);
+    rows.push(['Claimed headroom', P.headroom.toFixed(2) + '× SDR white (+' + P.stops.toFixed(2) + ' stops)',
+               P.headroom > 1.0001 ? 'ok' : 'warn']);
+    panel.appendChild(group('Gain map metadata (Ultra HDR / ISO 21496-1)', rows));
+
+    if (P.headroom > 1.0001) {
+        verdictBox.appendChild(headroomBanner(P.headroom, 'from hdrgm:HDRCapacityMax'));
+        res.hdr = true;
+    }
+
+    // Decode the gain map and apply it, so the numbers come from real pixels
+    // rather than from the file's declared maximum.
+    if (!bitmap) return;
+    createImageBitmap(new Blob([gmBuf], { type: 'image/jpeg' })).then(function (gm) {
+        var r = reconstructHDR(bitmap, gm, P);
+        panel.appendChild(group('Reconstructed HDR (gain map applied)', [
+            ['Gain map size', gm.width + ' × ' + gm.height +
+                ' (' + (bitmap.width / gm.width).toFixed(1) + '× smaller)'],
+            ['Gain map channels', r.perChannel ? '3 (per-channel gain)' : '1 (luminance gain)'],
+            ['Sample resolution', r.sampled],
+            ['Peak pixel', r.peak.toFixed(2) + '× SDR white (+' + stopsOf(Math.max(r.peak, 1)).toFixed(2) + ' stops)',
+                r.peak > 1.0001 ? 'ok' : ''],
+            ['Mean pixel', r.mean.toFixed(3) + '× SDR white'],
+            ['Pixels above SDR white', r.overPct.toFixed(2) + ' %', r.overPct > 0 ? 'ok' : '']
+        ]));
+        panel.appendChild(el('div', 'caption',
+            'Computed here in JavaScript from the SDR base and the gain map, at full strength ' +
+            '(weight 1.0): HDR = (SDR + OffsetSDR) · 2^(GainMapMin + (Max−Min)·g^(1/Gamma)) − OffsetHDR. ' +
+            'The peak is what the image asks for; what you actually see is capped by your display’s headroom.'));
+    }).catch(function () {
+        panel.appendChild(el('div', 'caption', 'The gain map image itself could not be decoded by this browser.'));
+    });
+}
+
 function render(file, buf, bitmap) {
     var res = analyse(buf);
     var results = document.getElementById('results');
@@ -831,12 +1073,25 @@ function render(file, buf, bitmap) {
             ['Mean channel value', pix.avg.toFixed(3)],
             ['Pixels above SDR white', pix.overPct.toFixed(2) + ' %']
         ]));
+        if (pix.max <= 1.0001) {
+            var pn = el('div', 'caption',
+                'A flat 1.000 peak here is expected for a gain-map image: the browser decodes the SDR ' +
+                'base rendition, and the headroom lives in the gain map — see below, where it is applied.');
+            left.appendChild(pn);
+        }
     } else if (bitmap) {
         left.appendChild(group('Decoded pixels', [
             ['Probe', 'unavailable — this browser has no float16 canvas, so decoded values are clamped at 1.0', 'warn']
         ]));
     }
     meta.appendChild(left);
+
+    // Gain map: parsed from the appended image, then actually applied so the
+    // report can state how far above SDR white this file really goes.
+    var gmPanel = el('div', 'panel');
+    gmPanel.style.display = 'none';
+    meta.appendChild(gmPanel);
+    showGainMap(buf, res, bitmap, gmPanel, verdictBox);
 
     // Format-specific sections
     if (res.sections.length) {
