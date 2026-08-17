@@ -24,8 +24,9 @@ the status dot (there is no service to probe).
 Use this for single-page tools that belong to the site rather than being
 projects in their own right. Current examples:
 
-- `projects/landing/test-hdr/` → `/test-hdr/` — drop an image to view it in HDR
-  and inspect its HDR metadata (parsed client-side)
+- `projects/landing/test-hdr/` → `/test-hdr/` — drop an image to view it in HDR,
+  inspect its HDR metadata (parsed client-side) and see its headroom above SDR
+  white, measured by applying an Ultra HDR gain map when the file carries one
 - `projects/landing/spcx.html` → `/spcx.html`
 
 Anything that needs its own backend, build step, or health check is a real

@@ -179,7 +179,7 @@ Agent-created projects live under `projects/`. Services are managed via systemd 
 | [drop](projects/drop/) | Instant cross-device sharing (text, links, images, files) via paired PWA |
 | [emoji-mixer](projects/emoji-mixer/) | Browser-based emoji collage tool — arrange and transform emojis, export a transparent PNG |
 | [flutter_demo](projects/flutter_demo/) | Flutter web demo app |
-| [landing](projects/landing/) | The root landing page served at `/`, plus standalone pages served from its subdirectories — e.g. [test-hdr](projects/landing/test-hdr/) at `/test-hdr/`, which views a dropped image in HDR and parses its HDR metadata in the browser |
+| [landing](projects/landing/) | The root landing page served at `/`, plus standalone pages served from its subdirectories — e.g. [test-hdr](projects/landing/test-hdr/) at `/test-hdr/`, which views a dropped image in HDR, parses its HDR metadata in the browser, and reports how far above SDR white it goes (applying an Ultra HDR gain map where present) |
 | [poem](projects/poem/) | A poem about working with AI |
 | [quiz](projects/quiz/) | Realtime multiplayer trivia game (Kahoot-style) with room codes and a live leaderboard (Python aiohttp + WebSocket) |
 | [scramble](projects/scramble/) | Vectrex-style arcade flight shooter with terrain and enemies |
