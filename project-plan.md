@@ -27,6 +27,14 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
 
 ## Current state / handoff
 
+- 2026-08-17 — `projects/landing/test-hdr/`: the page now reports actual HDR
+  headroom for gain-map JPEGs. It extracts the appended gain-map image (MPF
+  MPEntry offsets, falling back to the GContainer `Item:Length` tail), parses
+  that image's own `hdrgm` XMP (which the primary image does not carry), and
+  applies the gain map in JS to measure the real peak — the float16 probe alone
+  always reads 1.000, because `createImageBitmap` returns the SDR base
+  rendition. Shows a headline "HDR headroom N× SDR white (+n stops)" banner.
+
 - 2026-08-11 — Added `projects/landing/test-hdr/index.html`, served at
   `/test-hdr/` by the existing landing catch-all (no nginx change, no status
   entry). Drag-and-drop/paste an image; it renders with
