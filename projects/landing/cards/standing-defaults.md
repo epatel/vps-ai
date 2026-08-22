@@ -1,4 +1,4 @@
-# Common Sense Defaults
+# Standing Defaults
 
 ## Problem
 
