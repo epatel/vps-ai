@@ -25,6 +25,7 @@ Based on what you found, present the user with a scoping summary and ask which p
 | **Feature-First Advanced** ⚗️ | Adds bidirectional peer features, runtime-bound hooks, full middleware model | Feature-first projects where features hook into each other or middleware varies per request | `https://ai.memention.net/cards/feature-first-advanced.md` |
 | **Two-Tier CLAUDE.md** | Splits per-feature CLAUDE.md into a slim always-loaded overview + on-demand full contract | Projects using feature-first architecture with 3+ node features | `https://ai.memention.net/cards/two-tier-claude-md.md` |
 | **Shared Project Plan** | A single `project-plan.md` holding the goal + live state that every spawned agent reads first and updates, so independent agents share one objective | Work fanned out across subagents, worktrees, or issue-driven autonomous runs | `https://ai.memention.net/cards/project-plan.md` |
+| **Common Sense Defaults** | A card of standing engineering defaults: always use a Python venv, always ship a dependency-free database migration path | Any project that runs Python or persists data | `https://ai.memention.net/cards/common-sense.md` |
 | **Agent Skills** | Installs reusable Claude Code skills into the project's `.claude/skills/` directory so agents can invoke them locally | Any project that benefits from shared, reusable skills (refactoring, planning, discovery, etc.) | `https://github.com/epatel/agent-skills/` |
 
 Your scoping message to the user should include:
@@ -57,6 +58,11 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 **Two-Tier CLAUDE.md** (`two-tier-claude-md.md`):
 - For each feature CLAUDE.md that exceeds ~40 lines, split into `CLAUDE.md` + `CLAUDE_full.md`
 - Only applies after feature-first docs exist
+
+**Common Sense Defaults** (`common-sense.md`):
+- Copy the card into the project's `cards/` directory and add an index entry to `CLAUDE.md`
+- Check the project against it: no dependency installs outside a venv, and a schema-version + ordered-migrations path wherever data is persisted
+- Report any gaps found; do not change code unless the user asks
 
 **Shared Project Plan** (`project-plan.md`):
 - Create `project-plan.md` at the repo root with Goal, Non-goals, Milestones, Decisions, Current state, and Open questions sections
