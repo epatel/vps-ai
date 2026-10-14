@@ -63,6 +63,8 @@ A blocking hook writes its reason to stderr and exits `2`; Claude sees the messa
 - **Fast hooks only.** A hook runs on every matching call; keep `PostToolUse` under a second or two. Put slow checks (full test suite) in a `Stop` hook or CI.
 - **Fail open on missing tools.** A formatter hook that errors when the formatter isn't installed blocks every edit on a fresh machine; exit `0` in that case.
 - **Project hooks in `.claude/settings.json`, personal ones in `.claude/settings.local.json`** (gitignored). Never put machine-specific paths in the committed file.
+- **Path rules: use `Edit(...)`, and no `../`.** `Edit(...)` rules cover every file-editing tool (a `Write(...)` path rule is accepted but never checked). Path anchors are `//abs`, `~/home`, `/` (relative to the project) and plain/`./` (relative to the current directory); `../` is not a documented form. To protect a sibling directory portably, use a `PreToolUse` hook that resolves the path against `$CLAUDE_PROJECT_DIR` and exits `2`.
+- **Settings reload live.** Most permission and hook edits apply to the running session, so you can test a new rule immediately.
 - **Verify by triggering it.** After adding a rule, make the agent attempt the forbidden action once and confirm it is blocked with the expected message.
 
 ## When to apply

@@ -12,7 +12,7 @@ Before asking the user anything, orient yourself:
 3. Note: language/framework, approximate size (files, modules), whether it already has a `cards/` directory or per-feature `CLAUDE.md` files.
 4. Decide the mode: **setup** (little or no agentic structure exists) or **update** (the project already has CLAUDE.md + cards, skills under `.claude/skills/`, a project plan, or similar).
 
-**If this is an update, be careful:** the existing setup encodes decisions and project knowledge. Do not re-apply patterns over it or replace files wholesale — extend and refresh instead. In update mode, install the `review-agentic-setup` skill now (the install commands are under Agent Skills in Step 3) and follow its `SKILL.md` directly (no restart needed) to audit and modernize what exists *before* presenting scope, so the scoping summary reflects its findings. Treat every existing file as intentional until shown otherwise.
+**If this is an update, be careful:** the existing setup encodes decisions and project knowledge. Do not re-apply patterns over it or replace files wholesale — extend and refresh instead. In update mode, install the `review-agentic-setup` skill now (the install commands are under Agent Skills in Step 3) and run it (skills live-reload; if `.claude/skills/` did not exist when the session started, run `/reload-skills` first, or simply follow its `SKILL.md` directly) to audit and modernize what exists *before* presenting scope, so the scoping summary reflects its findings. Treat every existing file as intentional until shown otherwise.
 
 ## Step 2 — Present scope
 
@@ -83,7 +83,7 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 - `review-agentic-setup` reviews and modernizes an existing agentic setup (CLAUDE.md, cards, skills, hooks) against the current model — install it whenever the project already has structure, and run it as the first step in **update** mode
 - Install only the skills relevant to the project — ask the user which ones if unsure
 - These are **project-scoped** — copied, not symlinked, and committed under `.claude/skills/` — so every agent, worktree, and collaborator for this project can invoke them. (The repo README also describes symlinking into `~/.claude/skills/`; that is a per-user global install, not what this step does.)
-- Skills are discovered at session start: tell the user to start a new session to invoke them by name; within this session, read a skill's `SKILL.md` and follow it directly
+- Skills live-reload: an installed skill is available in the current session. If `.claude/skills/` did not exist when the session started, run `/reload-skills` (or tell the user to)
 - Example:
   ```bash
   SRC=$(mktemp -d)
@@ -111,6 +111,6 @@ After applying all selected patterns:
 ## Notes
 
 - These patterns document existing code — they do not restructure or refactor it
-- If the project also serves other coding agents that read `AGENTS.md`, keep the shared content (overview, commands, card index) in `AGENTS.md` and make `CLAUDE.md` a thin file that imports it with `@AGENTS.md`, plus any Claude-specific lines. One source, no drift.
+- If the project also serves other coding agents that read `AGENTS.md`, keep the shared content (overview, commands, card index) in `AGENTS.md`. Claude Code reads `AGENTS.md` natively when no `CLAUDE.md` exists; if you need Claude-specific lines too, add a thin `CLAUDE.md` that imports it with `@AGENTS.md`. One source, no drift.
 - If the project already has partial setup (e.g., some cards exist), extend rather than replace — never overwrite an existing card, feature doc, or skill without showing the user what would be lost
 - When in doubt about a pattern's applicability, ask the user — do not guess

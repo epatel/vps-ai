@@ -2,7 +2,7 @@
 
 ## Problem
 
-Claude Code loads `CLAUDE.md` files automatically: the ones in the working directory and its ancestors at session start, and the ones in subdirectories (such as `features/<name>/CLAUDE.md`) the first time the agent reads a file in that subtree. Once loaded, a file stays in context for the rest of the session. A session that touches five features carries all five full contracts, even when it only needed one of them in detail. As features grow, this waste compounds.
+Claude Code loads `CLAUDE.md` files automatically: the ones in the working directory and its ancestors at session start, and the ones in subdirectories (such as `features/<name>/CLAUDE.md`) the first time the agent reads, writes or edits a file in that subtree. Once loaded, a file stays in context for the rest of the session. A session that touches five features carries all five full contracts, even when it only needed one of them in detail. As features grow, this waste compounds.
 
 ## Solution
 
