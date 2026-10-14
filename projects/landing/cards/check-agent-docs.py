@@ -105,7 +105,7 @@ def check_feature_docs(root):
 
 
 VERSION_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(\.\d+)?$")
-PATTERN_RE = re.compile(r"^(skill:)?[a-z0-9][a-z0-9-]*$")
+PATTERN_RE = re.compile(r"^((skill:)?[a-z0-9][a-z0-9-]*|plugin:[a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*)$")
 
 
 def check_record(root):
@@ -129,7 +129,7 @@ def check_record(root):
     for key in ("applied", "declined"):
         ids = rec.get(key, [])
         if not isinstance(ids, list) or not all(isinstance(i, str) and PATTERN_RE.match(i) for i in ids):
-            report("ERROR", rel, f"{key!r} must be a list of pattern IDs like 'context-cards' or 'skill:name'")
+            report("ERROR", rel, f"{key!r} must be a list of pattern IDs like 'context-cards', 'skill:name' or 'plugin:name@marketplace'")
             continue
         for i in ids:
             if i in seen:

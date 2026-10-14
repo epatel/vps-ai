@@ -4,6 +4,12 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-10-14.2
+
+### Anthropic's skills marketplace as a second skill source
+- Affects: all
+- Action: if the project's work matches a plugin from `anthropics/skills` (web frontend → `example-skills`; office documents → `document-skills`; Claude API code → `claude-api`) and the user does not already have it at user scope, offer to enable it in `.claude/settings.json` (setup Step 3, Agent Skills). Otherwise skip without asking. Record the answer as `plugin:<name>@anthropic-agent-skills` in `applied` or `declined`.
+
 ## 2026-10-14
 
 First versioned release; the setup now writes `.claude/agent-setup.json` and supports refresh mode.

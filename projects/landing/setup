@@ -1,6 +1,6 @@
 # Project Setup — ai.memention.net
 
-Version: 2026-10-14 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
+Version: 2026-10-14.2 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
 
 You are setting up a project with structured AI-agent documentation patterns.
 Follow the steps below in order. Reading this file again in a project that already
@@ -46,7 +46,7 @@ Based on what you found, present the user with a scoping summary and ask which p
 | **Shared Project Plan** (`project-plan`) | A single `project-plan.md` holding the goal + live state that every spawned agent reads first and updates, so independent agents share one objective | Work fanned out across subagents, worktrees, or issue-driven autonomous runs | `https://ai.memention.net/cards/project-plan.md` |
 | **Standing Defaults** (`standing-defaults`) | Decisions made once and not re-litigated per project: always use a Python venv, always ship a dependency-free database migration path | Any project that runs Python or persists data | `https://ai.memention.net/cards/standing-defaults.md` |
 | **Hooks Over Prose** (`hooks-over-prose`) | Moves mechanical "always/never" rules out of CLAUDE.md into `.claude/settings.json` permissions and hooks, so the harness enforces them | Projects whose instruction files contain rules a script could check (protected paths, formatting, forbidden commands) | `https://ai.memention.net/cards/hooks-over-prose.md` |
-| **Agent Skills** (`skill:<name>`, one per installed skill) | Installs reusable Claude Code skills into the project's `.claude/skills/` directory so agents can invoke them locally | Any project that benefits from shared, reusable skills (refactoring, planning, discovery, etc.) | `https://github.com/epatel/agent-skills/` |
+| **Agent Skills** (`skill:<name>` per copied skill, `plugin:<name>@anthropic-agent-skills` per plugin) | Installs reusable Claude Code skills for the project: copied into `.claude/skills/`, or enabled as plugins from Anthropic's official skills marketplace | Any project that benefits from shared, reusable skills (refactoring, planning, discovery, document creation, frontend design, MCP servers, etc.) | `https://github.com/epatel/agent-skills/` and `https://github.com/anthropics/skills` |
 
 Your scoping message to the user should include:
 
@@ -112,6 +112,22 @@ For each pattern the user selected, fetch its URL and follow the instructions in
   cp -r "$SRC/focused-refactor" .claude/skills/
   ```
 
+**Anthropic's skills** (`https://github.com/anthropics/skills`) — the official example and document skills, published as a plugin marketplace named `anthropic-agent-skills`:
+- Plugins: `document-skills` (docx, pdf, pptx, xlsx), `example-skills` (frontend-design, mcp-builder, webapp-testing, skill-creator, doc-coauthoring, canvas-design and more), `claude-api`. Read the repo's `.claude-plugin/marketplace.json` for the current list rather than relying on this one
+- Recommend one only when the project's work matches it (a web frontend → `example-skills` for `frontend-design` and `webapp-testing`; generating office documents → `document-skills`; building on the Claude API → `claude-api`). Many users already have these installed at user scope — check `/plugin` before proposing
+- Enable for the whole project by committing to `.claude/settings.json` (merge with existing keys):
+  ```json
+  {
+    "extraKnownMarketplaces": {
+      "anthropic-agent-skills": { "source": { "source": "github", "repo": "anthropics/skills" } }
+    },
+    "enabledPlugins": { "example-skills@anthropic-agent-skills": true }
+  }
+  ```
+  Collaborators get the marketplace after accepting the workspace trust dialog. If `/plugin` reports the plugin "is enabled in project settings but isn't installed", run `claude plugin install <plugin>@anthropic-agent-skills --scope project`
+- Plugin skills are namespaced by plugin (`/example-skills:frontend-design`) and otherwise used like any other skill. Record each enabled plugin as `plugin:<name>@anthropic-agent-skills`
+- Each skill carries its own `LICENSE.txt`: most are Apache 2.0, but the document skills are "All rights reserved" — use them, do not copy their files into the project
+
 ## Step 4 — Verify
 
 After applying all selected patterns:
@@ -154,5 +170,5 @@ Every run ends by writing `.claude/agent-setup.json`, committed with the project
 
 - `version` — the `Version:` at the top of this file when it was last applied. Versions are `YYYY-MM-DD`, with `.2`, `.3`… for later releases the same day; compare them as strings. Refresh mode takes the changelog entries with a greater version.
 - `updated` — the date of the last run (any mode).
-- `applied` / `declined` — pattern IDs from the Step 2 table. A pattern the user was not asked about is in neither.
+- `applied` / `declined` — pattern IDs from the Step 2 table (`skill:<name>` and `plugin:<name>@<marketplace>` for Agent Skills). A pattern the user was not asked about is in neither.
 - `copied` — files copied from a pattern into the project verbatim (today only the Standing Defaults card), keyed by project path, with the pattern ID and the SHA-256 of the file as it was copied (`shasum -a 256`). In refresh mode, if the file's current hash still matches, it is unedited: show the diff to the new source and replace it. If the hash differs, the project edited it: propose a merge instead. Record the new hash after either.
