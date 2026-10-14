@@ -2,21 +2,21 @@
 
 ## Problem
 
-Claude Code auto-loads every `CLAUDE.md` it finds in the directory hierarchy. A detailed CLAUDE.md burns context tokens on every turn — even when the agent only needs a quick orientation. As features grow, this waste compounds.
+Claude Code loads `CLAUDE.md` files automatically: the ones in the working directory and its ancestors at session start, and the ones in subdirectories (such as `features/<name>/CLAUDE.md`) the first time the agent reads a file in that subtree. Once loaded, a file stays in context for the rest of the session. A session that touches five features carries all five full contracts, even when it only needed one of them in detail. As features grow, this waste compounds.
 
 ## Solution
 
-Split each CLAUDE.md into two tiers:
+Split each feature CLAUDE.md into two tiers:
 
-**`CLAUDE.md`** (always loaded) — slim overview, enough for the agent to orient and decide if it needs more. Should stay under ~50 lines.
+**`CLAUDE.md`** (auto-loaded) — slim overview, enough for the agent to orient and decide if it needs more. Stays under ~15 lines.
 
 Contains:
 - One-line purpose
 - Node/component list (names only, no details)
 - Key constraints and gotchas (the things that cause mistakes)
-- `@CLAUDE_full.md` reference for details
+- A plain-path pointer to `CLAUDE_full.md` saying *when* to read it
 
-**`CLAUDE_full.md`** (loaded on demand) — the full contract. Only read when the agent is actually working on this feature.
+**`CLAUDE_full.md`** (read on demand) — the full contract. Only read when the agent is actually changing this feature.
 
 Contains:
 - Full node documentation (expects, produces, hook guidance)
@@ -25,16 +25,18 @@ Contains:
 - Code examples and constraints
 - Everything that was in the original single CLAUDE.md
 
+**Do not use `@CLAUDE_full.md`.** An `@path` reference inside a CLAUDE.md is an import: Claude Code expands it the moment the CLAUDE.md loads, so the "on demand" file is loaded every time and the split saves nothing. Name the file as plain text or a markdown link, and the agent reads it with its file tools when the pointer's condition applies.
+
 ## Example
 
 ```
 features/place_order/
-  CLAUDE.md            ← ~30 lines, auto-loaded
+  CLAUDE.md            ← ~10 lines, auto-loaded
   CLAUDE_full.md       ← ~60 lines, read when needed
   place_order.dart
 ```
 
-### CLAUDE.md (always loaded)
+### CLAUDE.md (auto-loaded)
 
 ```markdown
 # Feature: place-order
@@ -45,7 +47,8 @@ Key constraints:
 - Do NOT set `ctx['total']` directly — add to `ctx['discounts']` instead
 - inventory hooks into validate_cart.before (can abort for out-of-stock)
 
-For full node docs, context keys, and code examples see @CLAUDE_full.md
+Before adding a hook or changing a node, read `CLAUDE_full.md` in this directory
+(node docs, context keys, code examples).
 ```
 
 ### CLAUDE_full.md (on demand)
@@ -54,14 +57,14 @@ Contains the full node documentation, context keys table, existing hooks list, a
 
 ## When to split
 
-- **Single CLAUDE.md** — full contract fits in ≤40 lines. Typically features with ≤2 nodes or simple contracts. The file IS the full documentation; no `@CLAUDE_full.md` reference needed.
-- **Split** — contract exceeds ~40 lines, or feature has 3+ nodes with detailed hook guidance. The slim CLAUDE.md stays under ~15 lines: purpose + node list + key constraints + reference.
-
-The threshold is about agent cost: a 40-line file loaded every turn is ~2000 lines across a 50-turn session — acceptable. Beyond that, the savings from splitting justify the extra file.
+- **Single CLAUDE.md** — full contract fits in ≤40 lines. Typically features with ≤2 nodes or simple contracts. The file IS the full documentation; no `CLAUDE_full.md` needed.
+- **Split** — contract exceeds ~40 lines, or feature has 3+ nodes with detailed hook guidance. The slim CLAUDE.md: purpose + node list + key constraints + pointer.
 
 ## Token savings
 
-A 60-line CLAUDE.md loaded on every turn across a 50-turn conversation costs ~3000 lines of context. Split into a 20-line overview + 40-line detail file, the overview costs ~1000 lines. The detail file is loaded maybe 3-5 times → ~120-200 lines. Total: ~1200 lines vs ~3000 lines — roughly 60% savings on that file's context cost.
+The saving comes from sessions that pass through a feature without changing it — reading a file to trace a call, or editing a neighbouring feature. Those sessions load the feature's CLAUDE.md but have no need for its full contract.
+
+Example: a 60-line contract, in a project with 8 features where a typical session touches 4 and changes 1. Unsplit, the session carries 4 × 60 = 240 lines. Split into 10 + 50, it carries 4 × 10 + 1 × 50 = 90 lines — under 40% of the original, and the gap widens as features and contracts grow. A session that only ever works on one feature saves little; that is the case where a single file is fine.
 
 ## Relationship to cards
 

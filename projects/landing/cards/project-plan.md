@@ -52,7 +52,7 @@ rather than guessing.
 
 Make every agent load it automatically:
 
-- **Reference it from `CLAUDE.md`** so Claude Code auto-discovers it: a line like `Always read @project-plan.md before starting — it holds the shared goal and current state.`
+- **Import it from `CLAUDE.md`** so Claude Code loads it into every session (an `@path` reference is expanded when CLAUDE.md loads): a line like `Always read @project-plan.md before starting — it holds the shared goal and current state.`
 - **Name it in the spawn prompt / system prompt** for subagents and worktree agents: "Read `project-plan.md` first; update its Current state and Decisions sections before you finish."
 - **Treat the handoff note as the contract between agents.** The last thing an agent writes is what the next one reads.
 

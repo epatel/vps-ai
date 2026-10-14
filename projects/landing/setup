@@ -12,7 +12,7 @@ Before asking the user anything, orient yourself:
 3. Note: language/framework, approximate size (files, modules), whether it already has a `cards/` directory or per-feature `CLAUDE.md` files.
 4. Decide the mode: **setup** (little or no agentic structure exists) or **update** (the project already has CLAUDE.md + cards, skills under `.claude/skills/`, a project plan, or similar).
 
-**If this is an update, be careful:** the existing setup encodes decisions and project knowledge. Do not re-apply patterns over it or replace files wholesale — extend and refresh instead. In update mode, prefer running the `review-agentic-setup` skill (see the Agent Skills pattern below) to audit and modernize what exists before adding anything new, and treat every existing file as intentional until shown otherwise.
+**If this is an update, be careful:** the existing setup encodes decisions and project knowledge. Do not re-apply patterns over it or replace files wholesale — extend and refresh instead. In update mode, install the `review-agentic-setup` skill now (the install commands are under Agent Skills in Step 3) and follow its `SKILL.md` directly (no restart needed) to audit and modernize what exists *before* presenting scope, so the scoping summary reflects its findings. Treat every existing file as intentional until shown otherwise.
 
 ## Step 2 — Present scope
 
@@ -26,6 +26,7 @@ Based on what you found, present the user with a scoping summary and ask which p
 | **Two-Tier CLAUDE.md** | Splits per-feature CLAUDE.md into a slim always-loaded overview + on-demand full contract | Projects using feature-first architecture with 3+ node features | `https://ai.memention.net/cards/two-tier-claude-md.md` |
 | **Shared Project Plan** | A single `project-plan.md` holding the goal + live state that every spawned agent reads first and updates, so independent agents share one objective | Work fanned out across subagents, worktrees, or issue-driven autonomous runs | `https://ai.memention.net/cards/project-plan.md` |
 | **Standing Defaults** | Decisions made once and not re-litigated per project: always use a Python venv, always ship a dependency-free database migration path | Any project that runs Python or persists data | `https://ai.memention.net/cards/standing-defaults.md` |
+| **Hooks Over Prose** | Moves mechanical "always/never" rules out of CLAUDE.md into `.claude/settings.json` permissions and hooks, so the harness enforces them | Projects whose instruction files contain rules a script could check (protected paths, formatting, forbidden commands) | `https://ai.memention.net/cards/hooks-over-prose.md` |
 | **Agent Skills** | Installs reusable Claude Code skills into the project's `.claude/skills/` directory so agents can invoke them locally | Any project that benefits from shared, reusable skills (refactoring, planning, discovery, etc.) | `https://github.com/epatel/agent-skills/` |
 
 Your scoping message to the user should include:
@@ -57,6 +58,7 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 
 **Two-Tier CLAUDE.md** (`two-tier-claude-md.md`):
 - For each feature CLAUDE.md that exceeds ~40 lines, split into `CLAUDE.md` + `CLAUDE_full.md`
+- Point to `CLAUDE_full.md` by plain path with a "read when…" condition — never `@CLAUDE_full.md`, which is an import and loads it every time
 - Only applies after feature-first docs exist
 
 **Standing Defaults** (`standing-defaults.md`):
@@ -67,31 +69,48 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 **Shared Project Plan** (`project-plan.md`):
 - Create `project-plan.md` at the repo root with Goal, Non-goals, Milestones, Decisions, Current state, and Open questions sections
 - Reference it from `CLAUDE.md` (`@project-plan.md`) and from any subagent/worktree spawn prompt so every agent reads it first and updates it before finishing
+- Unlike cards, this one *is* imported with `@`: every session needs the current goal
+
+**Hooks Over Prose** (`hooks-over-prose.md`):
+- Scan every CLAUDE.md (and imports) for rules phrased "always / never / before every / don't forget"
+- Present the mechanical ones to the user with the proposed permission rule or hook for each; apply only the ones they approve
+- Put shared rules in `.claude/settings.json`, hook scripts under `.claude/hooks/` (executable), and replace each moved rule's prose with a one-line note
+- Trigger each new rule once to confirm it fires with the expected message
 
 **Agent Skills** (`https://github.com/epatel/agent-skills/`):
-- Clone or sparse-checkout the repo and copy the desired skill directories into the project's `.claude/skills/` directory (one directory per skill, each containing its `SKILL.md`)
-- Available skills include: `adt-types`, `backward-planning`, `clean-modules`, `design-system`, `focused-refactor`, `makefile-actions`, `project-discovery`, `review-agentic-setup`, `state-machines`
+- Clone the repo and copy the desired skill directories into the project's `.claude/skills/` directory (one directory per skill, each containing its `SKILL.md` and any `references/` or `scripts/`)
+- The repo's `README.md` lists every available skill with a one-line purpose — read it after cloning and recommend from that list rather than from memory
 - `review-agentic-setup` reviews and modernizes an existing agentic setup (CLAUDE.md, cards, skills, hooks) against the current model — install it whenever the project already has structure, and run it as the first step in **update** mode
 - Install only the skills relevant to the project — ask the user which ones if unsure
-- These are **project-scoped** (committed under `.claude/skills/`), so every agent and worktree for this project can invoke them
+- These are **project-scoped** — copied, not symlinked, and committed under `.claude/skills/` — so every agent, worktree, and collaborator for this project can invoke them. (The repo README also describes symlinking into `~/.claude/skills/`; that is a per-user global install, not what this step does.)
+- Skills are discovered at session start: tell the user to start a new session to invoke them by name; within this session, read a skill's `SKILL.md` and follow it directly
 - Example:
   ```bash
-  git clone --depth 1 https://github.com/epatel/agent-skills.git /tmp/agent-skills
+  SRC=$(mktemp -d)
+  git clone --depth 1 https://github.com/epatel/agent-skills.git "$SRC"
+  cat "$SRC/README.md"
   mkdir -p .claude/skills
-  cp -r /tmp/agent-skills/focused-refactor .claude/skills/
+  cp -r "$SRC/focused-refactor" .claude/skills/
   ```
 
 ## Step 4 — Verify
 
 After applying all selected patterns:
 
-1. Confirm every new file is readable in isolation
-2. Confirm `CLAUDE.md` index entries use trigger phrases, not topic names
-3. Confirm no card or feature doc references another by name (self-containment rule)
-4. Present a summary to the user: files created, patterns applied, any recommendations for next steps
+1. Run the mechanical checks — read the script first; it is short, read-only, and standard-library only:
+   ```bash
+   CHECK=$(mktemp -d)/check-agent-docs.py
+   curl -fsSL https://ai.memention.net/cards/check-agent-docs.py -o "$CHECK"
+   python3 -I "$CHECK" .
+   ```
+   It flags unresolved `@` imports, eager imports of cards or `CLAUDE_full.md`, dead or missing index entries, card-to-card references, and files over the size limits. Fix every ERROR; judge each WARN.
+2. Confirm every new file is readable in isolation (open it cold — the script cannot judge this)
+3. Confirm `CLAUDE.md` index entries name the situation that should trigger the card, not just its topic
+4. Present a summary to the user: files created, patterns applied, checker output, any recommendations for next steps
 
 ## Notes
 
 - These patterns document existing code — they do not restructure or refactor it
+- If the project also serves other coding agents that read `AGENTS.md`, keep the shared content (overview, commands, card index) in `AGENTS.md` and make `CLAUDE.md` a thin file that imports it with `@AGENTS.md`, plus any Claude-specific lines. One source, no drift.
 - If the project already has partial setup (e.g., some cards exist), extend rather than replace — never overwrite an existing card, feature doc, or skill without showing the user what would be lost
 - When in doubt about a pattern's applicability, ask the user — do not guess

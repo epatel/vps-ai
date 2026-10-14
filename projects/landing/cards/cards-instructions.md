@@ -7,6 +7,7 @@ Reference this file from a project's `CLAUDE.md` to bootstrap a card index for t
 ## The model
 
 - **Overview** — 2-3 sentences in `CLAUDE.md` above the index. Always loaded. What the product does, who it's for, the one or two stack facts that change every answer ("Rails 7 + Postgres", "Flutter + Riverpod"). Too small to lazy-load and too universal to make conditional, so it isn't a card.
+- **Commands** — a short block in `CLAUDE.md` under the overview: the exact commands to set up, run, test (including a single test), lint, and build. Needed in nearly every coding session, so it is always loaded rather than a card. If there is a Makefile or task runner, list its targets instead of the raw commands.
 - **Index** — always loaded. One line per card: `- [name](cards/name.md) — trigger`.
 - **Card** — loaded on demand when its trigger matches the situation.
 
@@ -62,6 +63,7 @@ This is the card most likely to drift into wiki-article territory because it's c
 Before discovering individual domains, produce the always-loaded and cross-cutting context:
 
 1. **Overview** — write 2-3 sentences directly into `CLAUDE.md` above where the index will go. What the product does, who uses it, key stack/runtime facts.
+   Below it, a **Commands** block. Take the commands from the Makefile, `package.json` scripts, CI config, or README — and run each cheap one (`--help`, the test command) to confirm it works before writing it down.
 2. **Architecture card** — one card capturing components, connections, data flow, deployment shape. Content sources: top-level README, `docker-compose.yml` / `k8s/`, deployment configs, the dependency graph between top-level modules.
 
 ### Step 1 — Discover domains
@@ -112,6 +114,13 @@ Append to the project's `CLAUDE.md` (or create `CARDS.md` and import it):
 
 <2-3 sentences: what it is, who it's for, key stack facts>
 
+## Commands
+
+- Setup: `make setup`
+- Run: `make start`
+- Test: `make test` (one test: `pytest tests/test_auth.py::test_login`)
+- Lint: `make lint`
+
 ## Cards
 
 ### Architecture
@@ -132,7 +141,15 @@ Append to the project's `CLAUDE.md` (or create `CARDS.md` and import it):
 
 The trigger phrase after the em-dash is the **only** thing the LLM uses to decide whether to open the card. Phrase it as the situation, not the topic: "anything touching login" beats "auth module".
 
-Add to `CLAUDE.md` to keep it and the cards up to date.
+Use plain markdown links, never `@cards/name.md` — an `@` reference is an import that loads the card into every session, which defeats lazy loading.
+
+Add a maintenance rule below the index so the cards stay current without anyone remembering to ask:
+
+```markdown
+When a change adds non-obvious logic, settles an architectural choice, or makes a
+card above wrong, update or add the card in the same change and keep this index in
+sync. Cards stay self-contained: no card links to another.
+```
 
 ### Step 5 — Verify
 

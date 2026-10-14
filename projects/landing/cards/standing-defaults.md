@@ -59,10 +59,21 @@ MIGRATIONS = [
 def migrate(conn):
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     for i, sql in enumerate(MIGRATIONS[version:], start=version):
-        with conn:
-            conn.executescript(sql)
-            conn.execute(f"PRAGMA user_version = {i + 1}")
+        try:
+            conn.executescript(
+                f"BEGIN; {sql}; PRAGMA user_version = {i + 1}; COMMIT;"
+            )
+        except Exception:
+            if conn.in_transaction:
+                conn.rollback()
+            raise
 ```
+
+The explicit `BEGIN … COMMIT` is load-bearing: Python's `executescript()`
+commits any open transaction before it runs and ignores `with conn:`, so
+without it a migration that fails halfway leaves the schema partly changed and
+the version un-bumped — and every later run fails on the half-applied step.
+Here the schema change and the version bump commit together or not at all.
 
 Reach for a migration framework (Alembic, Flyway, Prisma Migrate) only when the
 project already carries that dependency or the schema genuinely outgrows a
