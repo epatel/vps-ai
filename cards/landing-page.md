@@ -11,7 +11,7 @@ When adding a new project:
 1. Add a card to `projects/landing/index.html` inside the `<div class="cards">` block
 2. Use a `data-path` attribute on the status dot to match the service path in `projects/status-page/server.py`
 3. For projects not served through nginx (e.g. Poem), link to the GitHub source and omit the status dot
-4. Pick a badge type: `game`, `app`, `tool`, or `api`
+4. Pick a badge type: `game`, `app`, `tool`, or `api` (`guide` is reserved for the "Agent setup" section below the projects grid)
 
 ## Extra pages under the landing site
 
@@ -33,4 +33,14 @@ Anything that needs its own backend, build step, or health check is a real
 project under `projects/` with its own nginx block instead.
 
 `projects/landing/setup` holds the structured-docs onboarding instructions
-(the pattern menu fetched via `https://ai.memention.net/setup`).
+(the pattern menu fetched via `https://ai.memention.net/setup`), and
+`projects/landing/cards/` holds the pattern cards it links to plus
+`check-agent-docs.py`, the verifier its Step 4 downloads. All three are linked
+from the "Agent setup" section of the landing page.
+
+**Do not edit `setup` or the files under `cards/` here.** Their source is the
+separate `ai-setup` repo (`~/Development/claude/ai-setup`, `site/`), which syncs
+them in with `make sync` / `make publish`. `projects/landing/ai-setup.manifest`
+lists every file it owns with its hash; a hand edit here is reported as drift
+and blocks the next sync until it is pulled back with `make pull` there. Files
+in `cards/` that are not in the manifest are never touched by the sync.
