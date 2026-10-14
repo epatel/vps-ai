@@ -10,7 +10,10 @@ any ERROR was found. Checks:
   - every card-index link resolves, every card is indexed, entries have a trigger
   - cards do not reference other cards, and stay under ~150 lines
   - per-feature CLAUDE.md files respect the two-tier size limits
+  - .claude/agent-setup.json (the setup record), if present, is well-formed
 """
+import hashlib
+import json
 import re
 import sys
 from pathlib import Path
@@ -101,6 +104,54 @@ def check_feature_docs(root):
             report("WARN", rel, f"{lines} lines with no CLAUDE_full.md; consider the two-tier split")
 
 
+VERSION_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(\.\d+)?$")
+PATTERN_RE = re.compile(r"^(skill:)?[a-z0-9][a-z0-9-]*$")
+
+
+def check_record(root):
+    path = root / ".claude" / "agent-setup.json"
+    rel = path.relative_to(root)
+    if not path.exists():
+        report("WARN", rel, "no setup record; the next setup run cannot refresh, only update")
+        return
+    try:
+        rec = json.loads(path.read_text())
+    except (ValueError, UnicodeDecodeError) as e:
+        report("ERROR", rel, f"not valid JSON ({e})")
+        return
+    if not isinstance(rec, dict):
+        report("ERROR", rel, "must be a JSON object")
+        return
+    for key in ("version", "updated"):
+        if not VERSION_RE.match(str(rec.get(key, ""))):
+            report("ERROR", rel, f"{key!r} must be YYYY-MM-DD (optionally .N), got {rec.get(key)!r}")
+    seen = {}
+    for key in ("applied", "declined"):
+        ids = rec.get(key, [])
+        if not isinstance(ids, list) or not all(isinstance(i, str) and PATTERN_RE.match(i) for i in ids):
+            report("ERROR", rel, f"{key!r} must be a list of pattern IDs like 'context-cards' or 'skill:name'")
+            continue
+        for i in ids:
+            if i in seen:
+                report("ERROR", rel, f"{i!r} is in both {seen[i]!r} and {key!r}")
+            seen[i] = key
+    copied = rec.get("copied", {})
+    if not isinstance(copied, dict):
+        report("ERROR", rel, "'copied' must map project paths to {pattern, sha256}")
+    else:
+        for p, entry in copied.items():
+            if not (isinstance(entry, dict) and isinstance(entry.get("pattern"), str)
+                    and re.fullmatch(r"[0-9a-f]{64}", str(entry.get("sha256", "")))):
+                report("ERROR", rel, f"copied entry for {p} must be {{\"pattern\": ID, \"sha256\": 64 hex chars}}")
+            elif not (root / p).exists():
+                report("ERROR", rel, f"copied file {p} does not exist")
+            elif hashlib.sha256((root / p).read_bytes()).hexdigest() != entry["sha256"]:
+                report("WARN", rel, f"{p} was edited since it was copied; a refresh will propose a merge, not a replace")
+    for i in seen:
+        if i.startswith("skill:") and seen[i] == "applied" and not (root / ".claude" / "skills" / i[6:] / "SKILL.md").exists():
+            report("ERROR", rel, f"{i} is applied but .claude/skills/{i[6:]}/SKILL.md is missing")
+
+
 def main():
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     if not (root / "CLAUDE.md").exists():
@@ -109,6 +160,7 @@ def main():
         check_imports(root, md)
     check_cards(root)
     check_feature_docs(root)
+    check_record(root)
     for level, path, msg in findings:
         print(f"{level:5} {path}: {msg}")
     errors = sum(1 for f in findings if f[0] == "ERROR")

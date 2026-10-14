@@ -1,7 +1,10 @@
 # Project Setup — ai.memention.net
 
+Version: 2026-10-14 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
+
 You are setting up a project with structured AI-agent documentation patterns.
-Follow the steps below in order.
+Follow the steps below in order. Reading this file again in a project that already
+ran it is the way to refresh that project — Step 1 detects it.
 
 ## Step 1 — Assess the project
 
@@ -10,9 +13,25 @@ Before asking the user anything, orient yourself:
 1. Read the project's existing `CLAUDE.md` (if any), `README.md`, `package.json` / `pubspec.yaml` / `Cargo.toml` / `go.mod` or equivalent.
 2. Walk the top-level directory structure.
 3. Note: language/framework, approximate size (files, modules), whether it already has a `cards/` directory or per-feature `CLAUDE.md` files.
-4. Decide the mode: **setup** (little or no agentic structure exists) or **update** (the project already has CLAUDE.md + cards, skills under `.claude/skills/`, a project plan, or similar).
+   If it has any agent docs, run the Step 4 checker now too (it is read-only) so your findings are grounded in its output.
+4. Decide the mode:
+   - **refresh** — `.claude/agent-setup.json` exists: this setup ran here before. Follow *Refresh mode* below instead of Steps 2–3.
+   - **update** — no record, but the project already has CLAUDE.md + cards, skills under `.claude/skills/`, a project plan, or similar (possibly from a run of this setup before records existed).
+   - **setup** — little or no agentic structure exists.
 
-**If this is an update, be careful:** the existing setup encodes decisions and project knowledge. Do not re-apply patterns over it or replace files wholesale — extend and refresh instead. In update mode, install the `review-agentic-setup` skill now (the install commands are under Agent Skills in Step 3) and run it (skills live-reload; if `.claude/skills/` did not exist when the session started, run `/reload-skills` first, or simply follow its `SKILL.md` directly) to audit and modernize what exists *before* presenting scope, so the scoping summary reflects its findings. Treat every existing file as intentional until shown otherwise.
+**If this is an update, be careful:** the existing setup encodes decisions and project knowledge. Do not re-apply patterns over it or replace files wholesale — extend and refresh instead. In update mode, install the `review-agentic-setup` skill now (the install commands are under Agent Skills in Step 3) and run it (skills live-reload; if `.claude/skills/` did not exist when the session started, run `/reload-skills` first, or simply follow its `SKILL.md` directly) to audit and modernize what exists *before* presenting scope, so the scoping summary reflects its findings. Also read the whole changelog: a project set up before records existed may predate any of its entries, so use them as a checklist of known fixes. Treat every existing file as intentional until shown otherwise.
+
+### Refresh mode
+
+The record (see *The setup record* at the end) says which version of this setup was applied and what was chosen. Bring the project up to the current version without re-doing or re-asking what is settled:
+
+1. Read `.claude/agent-setup.json`. Fetch the changelog and take every entry whose version is greater than the record's `version` (a version older than every changelog entry is valid — take them all). If the record's `version` equals the version at the top of this file, there is nothing new: skip to step 5 (and, if `skill:review-agentic-setup` is applied, offer to run it — the project itself may have drifted).
+2. For each item, keep it only if its `Affects:` line names a pattern in the record's `applied` list, a file in `copied`, or `all`; `skill:*` matches any *applied* skill (declined skills do not count). Items with `Affects: new pattern <id>` are not changes — carry them to step 3 as offers, using their `Action:` as the recommendation rule. For each kept entry, check whether the project is actually affected (an entry about `@CLAUDE_full.md` matters only if the project uses it) and draft the concrete change from the entry's `Action:` line.
+3. Collect patterns to offer: any pattern in the Step 2 table that is in neither `applied` nor `declined` (new since the last run, or never asked about), plus any `declined` pattern whose changelog items since then say it changed materially. Do not re-offer other declined patterns. Where a changelog item gives a condition for offering a pattern, use it to form your recommendation, but still list the pattern. For Agent Skills, offer `skill:review-agentic-setup` if it is in neither list; do not clone the skills repo just to list the rest — say the user can ask for the full list.
+4. Present one summary, structured like the Step 2 message: mode and record version → current version; the concrete change for each kept item (and skipped items, one line each with the reason); the patterns to offer, each with a recommendation; and any questions the items raise (such as commands you could not discover). Do NOT apply anything until the user confirms. Then apply the confirmed changes using the same rules as Step 3 — extend, never replace wholesale.
+5. Run Step 4 (verify), which also rewrites the record with the current version.
+
+If the record is malformed or names a version newer than this file, say so and fall back to **update** mode.
 
 ## Step 2 — Present scope
 
@@ -20,18 +39,18 @@ Based on what you found, present the user with a scoping summary and ask which p
 
 | Pattern | What it does | Best for | URL |
 |---------|-------------|----------|-----|
-| **Context Cards** | Compresses project knowledge into small, lazy-loaded reference cards indexed from CLAUDE.md | Any project where CLAUDE.md is growing large or agents need domain context | `https://ai.memention.net/cards/cards-instructions.md` |
-| **Feature-First Architecture** ⚗️ | Organizes code per feature as a hookable pipeline of named nodes | Projects with multiple interacting features, event-driven or plugin architectures | `https://ai.memention.net/cards/feature-first-structured.md` |
-| **Feature-First Advanced** ⚗️ | Adds bidirectional peer features, runtime-bound hooks, full middleware model | Feature-first projects where features hook into each other or middleware varies per request | `https://ai.memention.net/cards/feature-first-advanced.md` |
-| **Two-Tier CLAUDE.md** | Splits per-feature CLAUDE.md into a slim always-loaded overview + on-demand full contract | Projects using feature-first architecture with 3+ node features | `https://ai.memention.net/cards/two-tier-claude-md.md` |
-| **Shared Project Plan** | A single `project-plan.md` holding the goal + live state that every spawned agent reads first and updates, so independent agents share one objective | Work fanned out across subagents, worktrees, or issue-driven autonomous runs | `https://ai.memention.net/cards/project-plan.md` |
-| **Standing Defaults** | Decisions made once and not re-litigated per project: always use a Python venv, always ship a dependency-free database migration path | Any project that runs Python or persists data | `https://ai.memention.net/cards/standing-defaults.md` |
-| **Hooks Over Prose** | Moves mechanical "always/never" rules out of CLAUDE.md into `.claude/settings.json` permissions and hooks, so the harness enforces them | Projects whose instruction files contain rules a script could check (protected paths, formatting, forbidden commands) | `https://ai.memention.net/cards/hooks-over-prose.md` |
-| **Agent Skills** | Installs reusable Claude Code skills into the project's `.claude/skills/` directory so agents can invoke them locally | Any project that benefits from shared, reusable skills (refactoring, planning, discovery, etc.) | `https://github.com/epatel/agent-skills/` |
+| **Context Cards** (`context-cards`) | Compresses project knowledge into small, lazy-loaded reference cards indexed from CLAUDE.md | Any project where CLAUDE.md is growing large or agents need domain context | `https://ai.memention.net/cards/cards-instructions.md` |
+| **Feature-First Architecture** ⚗️ (`feature-first`) | Organizes code per feature as a hookable pipeline of named nodes | Projects with multiple interacting features, event-driven or plugin architectures | `https://ai.memention.net/cards/feature-first-structured.md` |
+| **Feature-First Advanced** ⚗️ (`feature-first-advanced`) | Adds bidirectional peer features, runtime-bound hooks, full middleware model | Feature-first projects where features hook into each other or middleware varies per request | `https://ai.memention.net/cards/feature-first-advanced.md` |
+| **Two-Tier CLAUDE.md** (`two-tier`) | Splits per-feature CLAUDE.md into a slim always-loaded overview + on-demand full contract | Projects using feature-first architecture with 3+ node features | `https://ai.memention.net/cards/two-tier-claude-md.md` |
+| **Shared Project Plan** (`project-plan`) | A single `project-plan.md` holding the goal + live state that every spawned agent reads first and updates, so independent agents share one objective | Work fanned out across subagents, worktrees, or issue-driven autonomous runs | `https://ai.memention.net/cards/project-plan.md` |
+| **Standing Defaults** (`standing-defaults`) | Decisions made once and not re-litigated per project: always use a Python venv, always ship a dependency-free database migration path | Any project that runs Python or persists data | `https://ai.memention.net/cards/standing-defaults.md` |
+| **Hooks Over Prose** (`hooks-over-prose`) | Moves mechanical "always/never" rules out of CLAUDE.md into `.claude/settings.json` permissions and hooks, so the harness enforces them | Projects whose instruction files contain rules a script could check (protected paths, formatting, forbidden commands) | `https://ai.memention.net/cards/hooks-over-prose.md` |
+| **Agent Skills** (`skill:<name>`, one per installed skill) | Installs reusable Claude Code skills into the project's `.claude/skills/` directory so agents can invoke them locally | Any project that benefits from shared, reusable skills (refactoring, planning, discovery, etc.) | `https://github.com/epatel/agent-skills/` |
 
 Your scoping message to the user should include:
 
-- Whether you are in **setup** or **update** mode, and why
+- Whether you are in **setup** or **update** mode, and why (refresh mode has its own summary, above)
 - A 2-3 sentence summary of what you found (stack, size, current state of docs)
 - For each pattern: whether you recommend it and a one-line reason why or why not
 - Ask the user to confirm which patterns to apply
@@ -62,7 +81,7 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 - Only applies after feature-first docs exist
 
 **Standing Defaults** (`standing-defaults.md`):
-- Copy the card into the project's `cards/` directory and add an index entry to `CLAUDE.md`
+- Copy the card into the project's `cards/` directory, add an index entry to `CLAUDE.md`, and list it under `copied` in the setup record with its SHA-256
 - Check the project against it: no dependency installs outside a venv, and a schema-version + ordered-migrations path wherever data is persisted
 - Report any gaps found; do not change code unless the user asks
 
@@ -103,14 +122,37 @@ After applying all selected patterns:
    curl -fsSL https://ai.memention.net/cards/check-agent-docs.py -o "$CHECK"
    python3 -I "$CHECK" .
    ```
-   It flags unresolved `@` imports, eager imports of cards or `CLAUDE_full.md`, dead or missing index entries, card-to-card references, and files over the size limits. Fix every ERROR; judge each WARN.
+   It flags unresolved `@` imports, eager imports of cards or `CLAUDE_full.md`, dead or missing index entries, card-to-card references, files over the size limits, and a malformed setup record. Fix every ERROR the user's confirmed scope covers; report any remaining ones (for example, a fix the user declined) instead of fixing them unasked. Judge each WARN.
 2. Confirm every new file is readable in isolation (open it cold — the script cannot judge this)
 3. Confirm `CLAUDE.md` index entries name the situation that should trigger the card, not just its topic
-4. Present a summary to the user: files created, patterns applied, checker output, any recommendations for next steps
+4. Write `.claude/agent-setup.json` (see *The setup record* below): create it, or in refresh/update mode rewrite it — keep earlier choices, add this run's, set `version` to this file's version
+5. Present a summary to the user: files created, patterns applied, checker output, any recommendations for next steps
 
 ## Notes
 
-- These patterns document existing code — they do not restructure or refactor it
+- These patterns document existing code — they do not restructure or refactor it. The one exception is a changelog item that fixes code copied from a pattern (such as the migration runner): show the change and apply it only with the user's explicit approval
 - If the project also serves other coding agents that read `AGENTS.md`, keep the shared content (overview, commands, card index) in `AGENTS.md`. Claude Code reads `AGENTS.md` natively when no `CLAUDE.md` exists; if you need Claude-specific lines too, add a thin `CLAUDE.md` that imports it with `@AGENTS.md`. One source, no drift.
 - If the project already has partial setup (e.g., some cards exist), extend rather than replace — never overwrite an existing card, feature doc, or skill without showing the user what would be lost
 - When in doubt about a pattern's applicability, ask the user — do not guess
+
+## The setup record
+
+Every run ends by writing `.claude/agent-setup.json`, committed with the project. Nothing imports it, so it costs no context; it is read only when this setup runs again.
+
+```json
+{
+  "source": "https://ai.memention.net/setup",
+  "version": "2026-10-14",
+  "updated": "2026-10-14",
+  "applied": ["context-cards", "hooks-over-prose", "skill:review-agentic-setup"],
+  "declined": ["project-plan", "standing-defaults"],
+  "copied": {
+    "cards/standing-defaults.md": { "pattern": "standing-defaults", "sha256": "<hash of the file as copied>" }
+  }
+}
+```
+
+- `version` — the `Version:` at the top of this file when it was last applied. Versions are `YYYY-MM-DD`, with `.2`, `.3`… for later releases the same day; compare them as strings. Refresh mode takes the changelog entries with a greater version.
+- `updated` — the date of the last run (any mode).
+- `applied` / `declined` — pattern IDs from the Step 2 table. A pattern the user was not asked about is in neither.
+- `copied` — files copied from a pattern into the project verbatim (today only the Standing Defaults card), keyed by project path, with the pattern ID and the SHA-256 of the file as it was copied (`shasum -a 256`). In refresh mode, if the file's current hash still matches, it is unedited: show the diff to the new source and replace it. If the hash differs, the project edited it: propose a merge instead. Record the new hash after either.
