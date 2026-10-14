@@ -1,14 +1,14 @@
 # Files in this directory owned by ai-setup (the source for /setup and /cards/*).
 # Edit them there and run `make sync`; edits made here are reported as drift.
 # Verify: cd projects/landing && grep -v '^#' ai-setup.manifest | shasum -a 256 -c
-# source: ai-setup b3a40c6
-42d19e76b4b55e949996650e5089948c44f57a339bf1bc8a12d448327f3ff188  setup
+# source: ai-setup 6aa7408
+98872cb365fb14634e5f493b8d99c94b1de108b7e08de22e3c7b23d6dad26b63  setup
 bbf5a61af7fba188410d1378c7dda4c79eba19478e83fb5575c248a328e5593b  cards/cards-instructions.md
 9bccf5ff4545742d467c4ab9114df9493e8552ed8a74a213d0df5a00175034ef  cards/check-agent-docs.py
 1c3d90282b2b46348dcfa0b312dbf23dd4ed9b983f144d36d9903ed8ddaf3580  cards/feature-first-advanced.md
 a167e5dd168a04759cbcaf506ff7ffa048f0461c6ad95eb8ff813c38c498c69a  cards/feature-first-structured.md
 72536541bb4028a318861529871372f3644dbfdf09378cd4e9898d075a93ee55  cards/hooks-over-prose.md
 1415a75da3c57b61cba6ab800ae6b9d348ef57c5840859d43648deadfdcb671d  cards/project-plan.md
-7e64d0b6cb5824dad6dd71306179a86a807bb1ddf21b387b449998418fa0bbb5  cards/setup-changelog.md
+e446f8f13e465d1b57bcc764d760e40a050a48432775fe2454371879460ea26a  cards/setup-changelog.md
 c881fcdbb289e30e50344d85b93688923e2c230378c5425af2bbfe62459494f4  cards/standing-defaults.md
 2d3d379ef1e2e31914f7cd7f9b8537c6ec8aaa727a77592e67bb561737255f54  cards/two-tier-claude-md.md

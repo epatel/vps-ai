@@ -1,6 +1,6 @@
 # Project Setup — ai.memention.net
 
-Version: 2026-10-14.2 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
+Version: 2026-10-15 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
 
 You are setting up a project with structured AI-agent documentation patterns.
 Follow the steps below in order. Reading this file again in a project that already
@@ -28,7 +28,7 @@ The record (see *The setup record* at the end) says which version of this setup 
 1. Read `.claude/agent-setup.json`. Fetch the changelog and take every entry whose version is greater than the record's `version` (a version older than every changelog entry is valid — take them all). If the record's `version` equals the version at the top of this file, there is nothing new: skip to step 5 (and, if `skill:review-agentic-setup` is applied, offer to run it — the project itself may have drifted).
 2. For each item, keep it only if its `Affects:` line names a pattern in the record's `applied` list, a file in `copied`, or `all`; `skill:*` matches any *applied* skill (declined skills do not count). Items with `Affects: new pattern <id>` are not changes — carry them to step 3 as offers, using their `Action:` as the recommendation rule. For each kept entry, check whether the project is actually affected (an entry about `@CLAUDE_full.md` matters only if the project uses it) and draft the concrete change from the entry's `Action:` line.
 3. Collect patterns to offer: any pattern in the Step 2 table that is in neither `applied` nor `declined` (new since the last run, or never asked about), plus any `declined` pattern whose changelog items since then say it changed materially. Do not re-offer other declined patterns. Where a changelog item gives a condition for offering a pattern, use it to form your recommendation, but still list the pattern. For Agent Skills, offer `skill:review-agentic-setup` if it is in neither list; do not clone the skills repo just to list the rest — say the user can ask for the full list.
-4. Present one summary, structured like the Step 2 message: mode and record version → current version; the concrete change for each kept item (and skipped items, one line each with the reason); the patterns to offer, each with a recommendation; and any questions the items raise (such as commands you could not discover). Do NOT apply anything until the user confirms. Then apply the confirmed changes using the same rules as Step 3 — extend, never replace wholesale.
+4. Present one summary, structured like the Step 2 message: mode and record version → current version; the concrete change for each kept item (and skipped items, one line each with the reason); the patterns to offer, each with a recommendation; and any questions the items raise (such as commands you could not discover). Do NOT apply anything until the user confirms. If there is nothing to apply, offer or ask, show the summary and continue straight to step 5 — the record update needs no confirmation. Then apply the confirmed changes using the same rules as Step 3 — extend, never replace wholesale.
 5. Run Step 4 (verify), which also rewrites the record with the current version.
 
 If the record is malformed or names a version newer than this file, say so and fall back to **update** mode.
@@ -114,7 +114,7 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 
 **Anthropic's skills** (`https://github.com/anthropics/skills`) — the official example and document skills, published as a plugin marketplace named `anthropic-agent-skills`:
 - Plugins: `document-skills` (docx, pdf, pptx, xlsx), `example-skills` (frontend-design, mcp-builder, webapp-testing, skill-creator, doc-coauthoring, canvas-design and more), `claude-api`. Read the repo's `.claude-plugin/marketplace.json` for the current list rather than relying on this one
-- Recommend one only when the project's work matches it (a web frontend → `example-skills` for `frontend-design` and `webapp-testing`; generating office documents → `document-skills`; building on the Claude API → `claude-api`). Many users already have these installed at user scope — check `/plugin` before proposing
+- Recommend one only when the project's work matches it (a web frontend → `example-skills` for `frontend-design` and `webapp-testing`; generating office documents → `document-skills`; building on the Claude API → `claude-api`). Skip a plugin whose skills the user already has from any source — a user-scope install, another marketplace (e.g. `frontend-design@claude-plugins-official`), or skills built into their Claude account. Check `/plugin` and the skills listed in the session before proposing
 - Enable for the whole project by committing to `.claude/settings.json` (merge with existing keys):
   ```json
   {
