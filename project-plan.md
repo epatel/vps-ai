@@ -24,6 +24,11 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
   under `.claude/skills/` (adt-types, backward-planning, clean-modules,
   design-system, focused-refactor, makefile-actions, project-discovery,
   state-machines). Useful when agents work on the separate `projects/*`. Locked.
+- 2026-10-15 — Re-ran `ai.memention.net/setup` (v2026-10-15, update mode). Added
+  Standing Defaults (copied card; this repo keeps `venv/`, which `hooks/post-merge`
+  expects) and Hooks Over Prose (a `PreToolUse` hook blocks edits to files listed
+  in `projects/landing/ai-setup.manifest`). Declined the feature-first and two-tier
+  patterns. The choices are recorded in `.claude/agent-setup.json`, so re-reading the setup now runs a refresh.
 
 ## Current state / handoff
 

@@ -21,6 +21,8 @@ Generate a Makefile that consolidates a project's real commands behind short, di
 ## Template
 
 ```makefile
+SHELL := bash
+
 info: menu select
 
 menu:
@@ -63,6 +65,7 @@ update_phony:
 
 ## Conventions
 
+- `SHELL := bash` at the top — recipes use bashisms (`read -p`), which break under dash-based `/bin/sh` (Debian/Ubuntu).
 - Recipe lines are TAB-indented, never spaces.
 - `.SILENT:` so `echo` lines print clean (no command echo).
 - `make` with no target runs `info`: prints the numbered menu, then prompts for a number and runs it.

@@ -23,6 +23,9 @@ Lazy-loaded reference cards under `cards/`. Open one when its trigger matches:
 - [nginx-conventions](cards/nginx-conventions.md) — serving a project through nginx, location-block rules
 - [status-page](cards/status-page.md) — registering a project with the status monitor and the `/status/log` event endpoint
 - [landing-page](cards/landing-page.md) — the root landing page, adding a project card, and standalone pages served from `projects/landing/<name>/`
+- [standing-defaults](cards/standing-defaults.md) — before adding Python dependencies or a persisted schema to a project (here the venv is `venv/`, not `.venv/`: `hooks/post-merge` only reinstalls requirements into `venv/`)
+
+When a change adds non-obvious logic, settles an architectural choice, or makes a card above wrong, update or add the card in the same change and keep this index in sync. Cards stay self-contained: no card links to another.
 
 ## Agent execution environment
 

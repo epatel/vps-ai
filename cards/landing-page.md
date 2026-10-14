@@ -38,7 +38,8 @@ project under `projects/` with its own nginx block instead.
 `check-agent-docs.py`, the verifier its Step 4 downloads. All three are linked
 from the "Agent setup" section of the landing page.
 
-**Do not edit `setup` or the files under `cards/` here.** Their source is the
+Edits to the files `ai-setup.manifest` lists are blocked by a hook
+(`.claude/hooks/protect-ai-setup.py`) — change them at their source. Their source is the
 separate `ai-setup` repo (`~/Development/claude/ai-setup`, `site/`), which syncs
 them in with `make sync` / `make publish`. `projects/landing/ai-setup.manifest`
 lists every file it owns with its hash; a hand edit here is reported as drift

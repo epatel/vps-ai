@@ -15,7 +15,7 @@ flowchart TD
     E --> F[push issue-N branch, open PR]
     F --> G[comment summary on issue + close it]
     G -->|PR merged / push to main| H[webhook triggers git pull on server]
-    H --> I[post-merge git hook<br/>restart services, rebuild Flutter apps]
+    H --> I[post-merge git hook<br/>restart changed services]
 ```
 
 Steps 6/7: a comment is posted when the agent starts; after it finishes the `issue-N` branch is pushed and a PR opened for review. The agent's summary is posted as a comment and the issue is closed.
@@ -40,7 +40,7 @@ The guard is therefore in two parts:
 | `run-agent.sh` | Pulls `main`, creates the worktree, runs Claude, pushes branch + opens PR |
 | `github-helper.py` | GitHub API helper (comments, PRs, close) |
 | `post-progress.sh` | Lets running agents post progress to the issue |
-| `hooks/post-merge` | Restarts services + rebuilds Flutter apps when their files change |
+| `hooks/post-merge` | Restarts systemd services when their files change (Flutter web is built by GitHub Actions) |
 | `setup-hooks.sh` | Installs git hooks from `hooks/` |
 | `setup-server.sh` | One-time server provisioning |
 | `.system-prompt.md` | System prompt given to every agent |

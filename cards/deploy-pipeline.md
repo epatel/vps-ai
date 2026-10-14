@@ -6,9 +6,9 @@ How code reaches the server: the post-merge git hook for services, and the GitHu
 
 When a PR is merged (or code is pushed to `main`), the webhook triggers
 `git pull` on the server, and the `hooks/post-merge` git hook auto-restarts
-systemd services whose project files changed and rebuilds Flutter web apps.
-Flutter is **not** required on the server — the post-merge hook does not build
-Flutter projects (GitHub Actions does, see below).
+systemd services whose project files changed. Flutter is **not** required on the
+server — the post-merge hook does not build Flutter projects (GitHub Actions
+does, see below).
 
 ## Flutter web projects
 

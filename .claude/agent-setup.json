@@ -1,0 +1,27 @@
+{
+  "source": "https://ai.memention.net/setup",
+  "version": "2026-10-15",
+  "updated": "2026-10-15",
+  "applied": [
+    "context-cards",
+    "project-plan",
+    "standing-defaults",
+    "hooks-over-prose",
+    "skill:adt-types",
+    "skill:backward-planning",
+    "skill:clean-modules",
+    "skill:design-system",
+    "skill:focused-refactor",
+    "skill:makefile-actions",
+    "skill:project-discovery",
+    "skill:state-machines",
+    "skill:review-agentic-setup"
+  ],
+  "declined": ["feature-first", "feature-first-advanced", "two-tier"],
+  "copied": {
+    "cards/standing-defaults.md": {
+      "pattern": "standing-defaults",
+      "sha256": "c881fcdbb289e30e50344d85b93688923e2c230378c5425af2bbfe62459494f4"
+    }
+  }
+}
