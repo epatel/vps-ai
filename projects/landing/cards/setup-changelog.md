@@ -4,6 +4,12 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-10-16.2
+
+### project-discovery: real dependencies, more languages
+- Affects: skill:project-discovery
+- Action: re-copy `project-discovery` from `https://github.com/epatel/agent-skills`. Its summary's "External deps" listed imported names and standard-library modules (`Path`, `json`) instead of third-party packages, and it pruned calls into the project's own modules imported via `sys.path` as external. It now also indexes Kotlin, Swift, Dart, C#, PHP, Scala, Lua and Arduino `.ino` (as C++). No other project edits.
+
 ## 2026-10-16
 
 ### Updated agent-skills: review rubric, Makefile template, design-system without cards
