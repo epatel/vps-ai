@@ -1,6 +1,6 @@
 # Project Setup — ai.memention.net
 
-Version: 2026-10-15 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
+Version: 2026-10-16 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
 
 You are setting up a project with structured AI-agent documentation patterns.
 Follow the steps below in order. Reading this file again in a project that already
@@ -101,7 +101,8 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 - The repo's `README.md` lists every available skill with a one-line purpose — read it after cloning and recommend from that list rather than from memory
 - `review-agentic-setup` reviews and modernizes an existing agentic setup (CLAUDE.md, cards, skills, hooks) against the current model — install it whenever the project already has structure, and run it as the first step in **update** mode
 - Install only the skills relevant to the project — ask the user which ones if unsure
-- These are **project-scoped** — copied, not symlinked, and committed under `.claude/skills/` — so every agent, worktree, and collaborator for this project can invoke them. (The repo README also describes symlinking into `~/.claude/skills/`; that is a per-user global install, not what this step does.)
+- These are **project-scoped** — copied, not symlinked, and committed under `.claude/skills/` — so every agent, worktree, and collaborator for this project can invoke them, and they trigger only in projects where they apply. Never install into `~/.claude/skills/` from this step, even when the user asks for "all skills": that loads them in every project on the machine and is invisible to collaborators.
+- If a skill from this repo is already installed personally (`~/.claude/skills/<name>`, often a symlink), still copy it into the project — the project copy pins the version this project was set up with. Tell the user the personal copy is now redundant here and can be removed once no other project relies on it; do not touch `~/.claude/` yourself
 - Skills live-reload: an installed skill is available in the current session. If `.claude/skills/` did not exist when the session started, run `/reload-skills` (or tell the user to)
 - Example:
   ```bash
@@ -114,7 +115,7 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 
 **Anthropic's skills** (`https://github.com/anthropics/skills`) — the official example and document skills, published as a plugin marketplace named `anthropic-agent-skills`:
 - Plugins: `document-skills` (docx, pdf, pptx, xlsx), `example-skills` (frontend-design, mcp-builder, webapp-testing, skill-creator, doc-coauthoring, canvas-design and more), `claude-api`. Read the repo's `.claude-plugin/marketplace.json` for the current list rather than relying on this one
-- Recommend one only when the project's work matches it (a web frontend → `example-skills` for `frontend-design` and `webapp-testing`; generating office documents → `document-skills`; building on the Claude API → `claude-api`). Skip a plugin whose skills the user already has from any source — a user-scope install, another marketplace (e.g. `frontend-design@claude-plugins-official`), or skills built into their Claude account. Check `/plugin` and the skills listed in the session before proposing
+- Recommend one only when the project's work matches it (a web frontend → `example-skills` for `frontend-design` and `webapp-testing`; generating office documents → `document-skills`; building on the Claude API → `claude-api`). Skip a plugin whose skills the user already has from another marketplace (e.g. `frontend-design@claude-plugins-official`) or built into their Claude account. If they have this same plugin at user scope, still offer to enable it at project scope so collaborators get it, and mention the user-scope install can then go. Check `/plugin` and the skills listed in the session before proposing. Never run `/plugin install` or `claude plugin install` without `--scope project` — the default is user scope (`~/.claude/settings.json`)
 - Enable for the whole project by committing to `.claude/settings.json` (merge with existing keys):
   ```json
   {

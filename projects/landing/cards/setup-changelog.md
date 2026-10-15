@@ -4,6 +4,16 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-10-16
+
+### Updated agent-skills: review rubric, Makefile template, design-system without cards
+- Affects: skill:review-agentic-setup, skill:makefile-actions, skill:design-system, skill:state-machines, skill:backward-planning, skill:clean-modules, skill:adt-types, skill:ste-writing
+- Action: re-copy each installed skill named above from `https://github.com/epatel/agent-skills` (replace the directory if the project did not edit it, else propose a merge). `review-agentic-setup` now checks `Write(...)` path rules, `../` paths, import depth, AGENTS.md loading and symlinked skills. In a Makefile made from `makefile-actions`, change `select` to call `$(MAKE) --no-print-directory menu` instead of `make menu`. The other skills changed wording and diagrams only.
+
+### Skills install at project level only
+- Affects: skill:*
+- Action: if the project relies on a skill from `epatel/agent-skills` that exists only in `~/.claude/skills/` (it triggers here but has no `.claude/skills/<name>`), copy it into `.claude/skills/`, commit it and record it as `skill:<name>`. Tell the user the personal copy can be removed once no other project relies on it; do not change `~/.claude/` yourself. Install plugins from `anthropic-agent-skills` with `--scope project` only.
+
 ## 2026-10-15
 
 ### Refresh with nothing to do no longer asks
