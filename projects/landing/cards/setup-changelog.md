@@ -4,6 +4,16 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-10-16.3
+
+### Known Stack pattern added
+- Affects: new pattern `known-stack`
+- Action: offer it, experimental. Recommend it when the project is built mostly from mainstream frameworks and patterns used the standard way. Then add a Known stack section to `CLAUDE.md` (one line per concept, with paths and the local twist), and propose removing architecture or domain cards that only restate those concepts. Show the user each card before deleting it. Recommend declining when the architecture is mostly bespoke.
+
+### Maintenance rule scoped to commits
+- Affects: context-cards
+- Action: in the rule below the card index, replace "When a change adds … update or add the card in the same change" with "When you commit a change that adds … update or add the card in that commit", and add "Proposed diffs and answers need no card edits." The old wording made agents add card edits to every diff they proposed. Keep the rest of the rule.
+
 ## 2026-10-16.2
 
 ### project-discovery: real dependencies, more languages

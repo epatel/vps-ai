@@ -65,6 +65,7 @@ Before discovering individual domains, produce the always-loaded and cross-cutti
 1. **Overview** — write 2-3 sentences directly into `CLAUDE.md` above where the index will go. What the product does, who uses it, key stack/runtime facts.
    Below it, a **Commands** block. Take the commands from the Makefile, `package.json` scripts, CI config, or README — and run each cheap one (`--help`, the test command) to confirm it works before writing it down.
 2. **Architecture card** — one card capturing components, connections, data flow, deployment shape. Content sources: top-level README, `docker-compose.yml` / `k8s/`, deployment configs, the dependency graph between top-level modules.
+   If `CLAUDE.md` has a **Known stack** section (one line per standard framework or pattern) and the architecture is a textbook instance of it, skip this card. Likewise skip domain cards for layers those lines already cover. Card only what the code and the model's own knowledge can't supply.
 
 ### Step 1 — Discover domains
 
@@ -146,10 +147,13 @@ Use plain markdown links, never `@cards/name.md` — an `@` reference is an impo
 Add a maintenance rule below the index so the cards stay current without anyone remembering to ask:
 
 ```markdown
-When a change adds non-obvious logic, settles an architectural choice, or makes a
-card above wrong, update or add the card in the same change and keep this index in
-sync. Cards stay self-contained: no card links to another.
+When you commit a change that adds non-obvious logic, settles an architectural choice,
+or makes a card above wrong, update or add the card in that commit and keep this index
+in sync. Proposed diffs and answers need no card edits. Cards stay self-contained: no
+card links to another.
 ```
+
+Scope it to commits. A rule phrased "in the same change" makes agents add card edits to every diff they propose, even for a quick question.
 
 ### Step 5 — Verify
 
