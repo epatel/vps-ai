@@ -4,6 +4,12 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-10-21
+
+### makefile-actions: quote `$(MAKE)` in the menu
+- Affects: skill:makefile-actions
+- Action: re-copy `makefile-actions` from `https://github.com/epatel/agent-skills` (replace the directory if the project did not edit it, else propose a merge). In a Makefile made from it, change `select` to call `"$(MAKE)" --no-print-directory menu`, with the quotes: on macOS `$(MAKE)` can expand to an Xcode path containing a space, and the numbered menu then fails with "bash: /Applications/Xcode: No such file or directory".
+
 ## 2026-10-16.3
 
 ### Known Stack pattern added
