@@ -18,7 +18,7 @@ connections: dict[str, dict[str, web.WebSocketResponse]] = {}
 # Maps websocket -> (room_id, role)
 ws_rooms: dict[web.WebSocketResponse, tuple[str, str]] = {}
 
-MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
+MAX_UPLOAD_SIZE = 200 * 1024 * 1024  # 200 MB
 
 
 async def notify_peer(room_id, target_role, message):
