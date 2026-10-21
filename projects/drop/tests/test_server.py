@@ -127,6 +127,7 @@ async def test_delete_item(session, srv):
     })
     item = await recv(dws)
     item_id = item["id"]
+    await recv(pws)  # sender's own echo of the item
 
     await dws.send_json({"type": "delete", "token": dt, "item_id": item_id})
     dm = await recv(pws)
@@ -160,6 +161,64 @@ async def test_file_upload_and_download(session, srv):
     await pws.close()
 
 
+async def test_desktop_to_desktop_pairing(session, srv):
+    """A second desktop (already holding its own unpaired room) joins by code."""
+    import server
+    d1 = await session.ws_connect(srv.ws_url)
+    await d1.send_json({"type": "request_code"})
+    code = (await recv(d1))["code"]
+
+    d2 = await session.ws_connect(srv.ws_url)
+    await d2.send_json({"type": "request_code"})
+    own = await recv(d2)
+    assert own["type"] == "code" and own["code"] != code
+
+    await d2.send_json({"type": "pair", "code": code})
+    p2 = await recv(d2)
+    p1 = await recv(d1)
+    assert p2["type"] == "paired" and p1["type"] == "paired"
+    assert p1["room_id"] == p2["room_id"]
+    t1, t2 = p1["token"], p2["token"]
+
+    # d2 left its own placeholder room: only registered in the joined room
+    room_id, _ = server.ws_rooms[[w for w in server.ws_rooms
+                                  if server.ws_rooms[w][0] == p2["room_id"]
+                                  and server.ws_rooms[w][1] == "phone"][0]]
+    assert room_id == p2["room_id"]
+    assert sum(1 for r, _ in server.ws_rooms.values() if r == p2["room_id"]) == 2
+
+    # Items flow both ways
+    await d2.send_json({"type": "item", "token": t2, "item_type": "text", "content": "from d2"})
+    assert (await recv(d1))["content"] == "from d2"
+    assert (await recv(d2))["content"] == "from d2"  # echo
+    await d1.send_json({"type": "item", "token": t1, "item_type": "text", "content": "from d1"})
+    assert (await recv(d2))["content"] == "from d1"
+    await d1.close()
+    await d2.close()
+
+
+async def test_upload_size_limit(session, srv):
+    import server
+    from aiohttp import FormData
+    dws, pws, dt, pt = await pair(session, srv.ws_url)
+    old = server.MAX_UPLOAD_SIZE
+    server.MAX_UPLOAD_SIZE = 100 * 1024
+    try:
+        data = FormData()
+        data.add_field("token", dt)
+        data.add_field("file", b"x" * (200 * 1024), filename="big.bin",
+                       content_type="application/octet-stream")
+        resp = await session.post(f"{srv.base}/drop/api/upload", data=data)
+        assert resp.status == 413
+        tmp_dir = os.path.join(srv.app["uploads_dir"], ".tmp")
+        assert not os.listdir(tmp_dir), "temp file left behind"
+    finally:
+        server.MAX_UPLOAD_SIZE = old
+    assert server.MAX_UPLOAD_SIZE == 200 * 1024 * 1024
+    await dws.close()
+    await pws.close()
+
+
 ALL_TESTS = [
     test_pairing_flow,
     test_send_text_item,
@@ -167,6 +226,8 @@ ALL_TESTS = [
     test_invalid_pairing_code,
     test_delete_item,
     test_file_upload_and_download,
+    test_desktop_to_desktop_pairing,
+    test_upload_size_limit,
 ]
 
 

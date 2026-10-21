@@ -15,11 +15,20 @@
 
         <div id="pairing-screen" class="screen">
             <div class="pairing-container">
-                <h2>Pair Your Phone</h2>
-                <p class="subtitle">Enter this code on your phone, or scan the QR code</p>
+                <h2>Pair a Device</h2>
+                <p class="subtitle">Enter this code on your phone or another computer, or scan the QR code</p>
                 <div id="pairing-code" class="code">------</div>
                 <div id="qr-code" class="qr-container"></div>
                 <p class="hint">Code expires in <span id="code-timer">5:00</span></p>
+
+                <div class="join-divider"><span>or join another device</span></div>
+                <p class="subtitle">Got a code from another computer? Enter it here</p>
+                <form id="join-form" class="join-form" autocomplete="off">
+                    <input id="join-input" type="text" maxlength="6" placeholder="ABC123"
+                           autocapitalize="characters" spellcheck="false" aria-label="Pairing code">
+                    <button id="join-btn" type="submit">Pair</button>
+                </form>
+                <button id="cancel-pair-btn" class="btn-clear hidden" type="button">Back to shared items</button>
             </div>
         </div>
 

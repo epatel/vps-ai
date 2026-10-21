@@ -236,3 +236,45 @@ body.dragging .drop-overlay {
     object-fit: contain;
     border-radius: 6px;
 }
+
+/* Desktop-to-desktop: join another device's room by entering its code */
+.join-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 360px;
+    margin: 28px 0 12px;
+    color: #666;
+    font-size: 13px;
+}
+.join-divider::before, .join-divider::after {
+    content: '';
+    flex: 1;
+    border-top: 1px solid #333;
+}
+.join-form { display: flex; gap: 8px; margin-bottom: 16px; }
+.join-form input {
+    width: 180px;
+    font-size: 22px;
+    letter-spacing: 6px;
+    text-align: center;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    background: #252540;
+    color: #eee;
+    border: 1px solid #444;
+    border-radius: 8px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+}
+.join-form input:focus { outline: none; border-color: #6c63ff; }
+.join-form button {
+    background: #6c63ff;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0 20px;
+    font-size: 15px;
+    cursor: pointer;
+}
+.join-form button:hover { background: #5a52e0; }

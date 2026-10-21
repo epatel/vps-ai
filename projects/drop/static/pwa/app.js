@@ -219,8 +219,8 @@
 
     function uploadFile(file) {
         if (!token) return Promise.resolve();
-        if (file.size > 50 * 1024 * 1024) {
-            showToast('File too large (max 50MB)');
+        if (file.size > 200 * 1024 * 1024) {
+            showToast('File too large (max 200MB)');
             return Promise.resolve();
         }
 
