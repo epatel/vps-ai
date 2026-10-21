@@ -91,6 +91,16 @@ async def handle_ws(request):
                     token_b = await db.complete_pairing(room["id"])
                     room_id = room["id"]
 
+                    # A desktop joining by code was registered in its own
+                    # (unpaired) room via request_code; detach it first.
+                    if ws in ws_rooms:
+                        old_room_id, old_role = ws_rooms.pop(ws)
+                        old_conns = connections.get(old_room_id, {})
+                        if old_conns.get(old_role) is ws:
+                            del old_conns[old_role]
+                        if not old_conns:
+                            connections.pop(old_room_id, None)
+
                     if room_id in connections:
                         connections[room_id]["phone"] = ws
                     else:
@@ -245,38 +255,55 @@ async def handle_upload(request):
 
     reader = await request.multipart()
     token = None
-    file_data = None
     filename = None
     content_type = None
     total_size = 0
+    tmp_path = None
 
-    async for field in reader:
-        if field.name == "token":
-            token = (await field.read(decode=True)).decode()
-        elif field.name == "file":
-            filename = field.filename
-            content_type = field.headers.get("Content-Type", "application/octet-stream")
-            chunks = []
-            while True:
-                chunk = await field.read_chunk(8192)
-                if not chunk:
-                    break
-                total_size += len(chunk)
-                if total_size > MAX_UPLOAD_SIZE:
-                    return web.json_response(
-                        {"error": "File too large (max 50MB)"}, status=413
-                    )
-                chunks.append(chunk)
-            file_data = b"".join(chunks)
+    def discard_tmp():
+        if tmp_path and os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+    try:
+        async for field in reader:
+            if field.name == "token":
+                token = (await field.read(decode=True)).decode()
+            elif field.name == "file":
+                filename = field.filename
+                content_type = field.headers.get("Content-Type", "application/octet-stream")
+                # Stream to disk instead of buffering up to MAX_UPLOAD_SIZE in RAM
+                tmp_dir = os.path.join(uploads_dir, ".tmp")
+                os.makedirs(tmp_dir, exist_ok=True)
+                tmp_path = os.path.join(tmp_dir, str(uuid.uuid4()))
+                with open(tmp_path, "wb") as f:
+                    while True:
+                        chunk = await field.read_chunk(65536)
+                        if not chunk:
+                            break
+                        total_size += len(chunk)
+                        if total_size > MAX_UPLOAD_SIZE:
+                            f.close()
+                            discard_tmp()
+                            return web.json_response(
+                                {"error": f"File too large (max {MAX_UPLOAD_SIZE // (1024 * 1024)}MB)"},
+                                status=413,
+                            )
+                        f.write(chunk)
+    except BaseException:
+        discard_tmp()
+        raise
 
     if not token:
+        discard_tmp()
         return web.json_response({"error": "Missing token"}, status=401)
 
     room = await db.find_room_by_token(token)
     if not room:
+        discard_tmp()
         return web.json_response({"error": "Invalid token"}, status=401)
 
-    if not file_data or not filename:
+    if not tmp_path or total_size == 0 or not filename:
+        discard_tmp()
         return web.json_response({"error": "No file provided"}, status=400)
 
     room_id = room["id"]
@@ -288,13 +315,11 @@ async def handle_upload(request):
     room_dir = os.path.join(uploads_dir, room_id)
     os.makedirs(room_dir, exist_ok=True)
     file_path = os.path.join(room_dir, safe_filename)
-
-    with open(file_path, "wb") as f:
-        f.write(file_data)
+    os.replace(tmp_path, file_path)
 
     item_type = "image" if content_type.startswith("image/") else "file"
     metadata = json.dumps({
-        "size": len(file_data),
+        "size": total_size,
         "mime": content_type,
         "filename": filename,
         "stored_as": safe_filename,

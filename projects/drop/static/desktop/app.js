@@ -73,6 +73,11 @@
                 break;
 
             case 'paired':
+                if (data.room_id !== roomId) {
+                    clearFeed();
+                    lastSeenId = 0;
+                    localStorage.setItem(LAST_SEEN_KEY, '0');
+                }
                 token = data.token;
                 roomId = data.room_id;
                 localStorage.setItem(TOKEN_KEY, token);
@@ -115,6 +120,10 @@
 
             case 'error':
                 console.error('Server error:', data.message);
+                if (data.message === 'Invalid or expired code') {
+                    showToast('Invalid or expired code');
+                    $('#join-input').select();
+                }
                 if (data.message === 'Invalid token') {
                     localStorage.removeItem(TOKEN_KEY);
                     localStorage.removeItem(ROOM_KEY);
@@ -130,6 +139,8 @@
         show($('#pairing-screen'));
         hide($('#feed-screen'));
         $('#pairing-code').textContent = code;
+        // Already paired: allow going back to the feed without pairing anything
+        if (token) show($('#cancel-pair-btn')); else hide($('#cancel-pair-btn'));
 
         var qrContainer = $('#qr-code');
         qrContainer.innerHTML = '';
@@ -285,6 +296,30 @@
         }
     });
 
+    // --- Desktop-to-desktop: join another device's room by its code ---
+    $('#join-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var code = $('#join-input').value.trim().toUpperCase();
+        if (code.length !== 6) {
+            showToast('Enter the 6-character code');
+            return;
+        }
+        if (!ws || ws.readyState !== 1) {
+            showToast('Not connected, try again');
+            return;
+        }
+        ws.send(JSON.stringify({ type: 'pair', code: code }));
+        $('#join-input').value = '';
+    });
+
+    $('#cancel-pair-btn').addEventListener('click', function () {
+        if (token) showFeedScreen();
+    });
+
+    function onPairingScreen() {
+        return !$('#pairing-screen').classList.contains('hidden');
+    }
+
     $('#unpair-btn').addEventListener('click', function () {
         if (confirm('Unpair this device and clear all data?')) {
             if (token && ws && ws.readyState === 1) {
@@ -329,7 +364,7 @@
         e.preventDefault();
         dragCounter = 0;
         document.body.classList.remove('dragging');
-        if (!token) return;
+        if (!token || onPairingScreen()) return;
 
         var files = e.dataTransfer.files;
         for (var i = 0; i < files.length; i++) {
@@ -345,7 +380,8 @@
 
     // --- Paste ---
     document.addEventListener('paste', function (e) {
-        if (!token) return;
+        // Let pastes into the pairing-code field (or while pairing) behave normally
+        if (!token || onPairingScreen()) return;
 
         var items = e.clipboardData.items;
         var handledFile = false;
@@ -372,8 +408,8 @@
     // --- Upload and send helpers ---
     function uploadFile(file) {
         if (!token) return;
-        if (file.size > 50 * 1024 * 1024) {
-            showToast('File too large (max 50MB)');
+        if (file.size > 200 * 1024 * 1024) {
+            showToast('File too large (max 200MB)');
             return;
         }
 

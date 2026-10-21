@@ -32,6 +32,13 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
 
 ## Current state / handoff
 
+- 2026-10-21 (#125) — `projects/drop/`: upload limit raised to 200MB
+  (server, both clients, nginx `client_max_body_size 205M` live + example);
+  uploads now stream to `uploads/.tmp/` and are moved into place instead of being
+  buffered in RAM. Desktop pairing screen gained a "join another device" code
+  field, so two desktops pair with just the code (the joiner takes the room's
+  `token_b`/"phone" slot; the server detaches it from its own placeholder room).
+
 - 2026-08-17 — `projects/landing/test-hdr/`: the page now reports actual HDR
   headroom for gain-map JPEGs. It extracts the appended gain-map image (MPF
   MPEntry offsets, falling back to the GContainer `Item:Length` tail), parses

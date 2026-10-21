@@ -1,6 +1,6 @@
 # Drop — Instant Cross-Device Sharing
 
-Push text, links, images, and files from your phone to your desktop browser instantly.
+Push text, links, images, and files from your phone to your desktop browser instantly — or between two desktops.
 
 **Live at:** https://ai.memention.net/drop/
 
@@ -10,6 +10,11 @@ Push text, links, images, and files from your phone to your desktop browser inst
 2. On your phone, open the PWA URL or scan the QR code
 3. Enter the pairing code — devices are now linked
 4. Share content from your phone — it appears on the desktop in real-time
+
+**Desktop to desktop:** open the desktop URL on both computers. On the one that
+should join, type the code shown on the other into the *"or join another device"*
+field and press Enter (or **Pair**). Already paired? Click **Pair Device** on one
+desktop to show a code, and enter it on the other.
 
 Pairing is persistent (stored in localStorage). Both devices auto-reconnect on subsequent visits.
 
@@ -24,11 +29,21 @@ Pairing is persistent (stored in localStorage). Both devices auto-reconnect on s
 
 - **Text & links** — type or paste, links are auto-detected and clickable
 - **Images** — shared inline with thumbnails on both sides
-- **Files** — upload up to 50MB, download from desktop
+- **Files** — upload up to 200MB (streamed to disk), download from desktop
 - **Android Share Target** — install the PWA, then share directly from any app
 - **Real-time sync** — items, deletions, and clears sync across devices instantly
 - **Persistent storage** — items survive across sessions (SQLite)
 - **Re-pairing** — "Pair Device" button generates a new code for the same room
+
+## Notes
+
+- A room has exactly two tokens (`token_a` for the device that showed the code,
+  `token_b` for the device that entered it). The server calls the joining side
+  "phone" regardless of what it is, so a joining desktop works without changes.
+  Showing a new code and pairing again issues a fresh `token_b`, which replaces
+  the previously paired second device.
+- Upload limit is `MAX_UPLOAD_SIZE` in `server.py`; keep the client checks in
+  `static/*/app.js` and nginx `client_max_body_size` in step with it.
 
 ## Tech Stack
 
@@ -67,7 +82,8 @@ sudo cp drop.service /etc/systemd/system/
 sudo systemctl enable --now drop
 
 # Nginx config (see nginx.conf.example)
-# Add /drop/ws (WebSocket upgrade) and /drop/ (proxy) location blocks
+# Add /drop/ws (WebSocket upgrade) and /drop/ (proxy) location blocks.
+# /drop/ needs client_max_body_size 205M (200MB file + multipart overhead).
 
 # Restart
 sudo systemctl restart drop
@@ -93,6 +109,6 @@ projects/drop/
 │   └── pwa/               # Phone PWA (pairing + compose + share target)
 ├── tests/
 │   ├── test_db.py         # Database unit tests (10)
-│   └── test_server.py     # Server integration tests (6)
+│   └── test_server.py     # Server integration tests (8)
 └── uploads/               # Stored files by room_id (gitignored)
 ```
