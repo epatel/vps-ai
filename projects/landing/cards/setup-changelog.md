@@ -4,6 +4,20 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-10-23
+
+### review-agentic-setup: leaves upstream files alone, checks Known Stack
+- Affects: skill:review-agentic-setup
+- Action: re-copy `review-agentic-setup` from `https://github.com/epatel/agent-skills` (replace the directory if the project did not edit it, else propose a merge). It now reads `.claude/agent-setup.json` and reports, instead of editing, findings in skills recorded as `skill:<name>` and in files under `copied`, which a refresh would overwrite. Its rubric flags cards that only restate a mainstream framework (demote to a Known stack line) and Known stack lines that need a paragraph (promote to a card). The global update plan is excluded from git via `.git/info/exclude`. No other project edits.
+
+### Structure skills trimmed to their rules; fixes
+- Affects: skill:adt-types, skill:state-machines, skill:clean-modules, skill:focused-refactor
+- Action: re-copy each installed skill named above (replace the directory if the project did not edit it, else propose a merge). The three structure skills drop textbook material the model already knows and keep their rules, output formats and anti-patterns. `state-machines`' example now gives every reachable state a row. `clean-modules` no longer suggests clippy for boundary rules. `focused-refactor` Phase 5 now says to fix production code when a characterization test catches a real behavior change. No other project edits.
+
+### design-system: `color-scheme` in CSS themes; ste-writing license
+- Affects: skill:design-system, skill:ste-writing
+- Action: re-copy each installed skill named above. In a `tokens.css` made from `design-system`, add `color-scheme: light;` to the `:root` block and `color-scheme: dark;` to both dark blocks, so native controls and scrollbars follow the theme. `ste-writing` now ships the MIT `LICENSE.txt` of the text it adapts; no project edits.
+
 ## 2026-10-21
 
 ### makefile-actions: quote `$(MAKE)` in the menu
