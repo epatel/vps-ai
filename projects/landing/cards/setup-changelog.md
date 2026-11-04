@@ -4,6 +4,12 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-11-04.2
+
+### New skills: double-check, minimal-repro
+- Affects: skill:*
+- Action: offer each skill that is in neither `applied` nor `declined`, in the refresh summary; install only those the user accepts (copy the directory from `https://github.com/epatel/agent-skills` into `.claude/skills/`, commit it, record `skill:<name>` in `applied`, and record declined ones in `declined`). `double-check` reviews a change for completeness, correctness, safety and simplicity, then verifies it. Recommend it for any project where agents make code changes. `minimal-repro` builds a small separate program with the project's versions to reproduce a bug, test a fix or probe an API. Recommend it when the project depends on libraries or frameworks whose behaviour is hard to test in place. No other project edits.
+
 ## 2026-11-04
 
 ### focused-refactor, backward-planning, state-machines trimmed; review-agentic-setup global review on request
