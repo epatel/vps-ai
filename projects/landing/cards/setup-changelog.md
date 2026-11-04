@@ -4,6 +4,12 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-11-04.3
+
+### review-agentic-setup: reports when the setup record is behind
+- Affects: skill:review-agentic-setup
+- Action: re-copy `review-agentic-setup` from `https://github.com/epatel/agent-skills` (replace the directory if the project did not edit it, else propose a merge). It now compares `.claude/agent-setup.json`'s `version` with the live setup's `Version:` line. When the record is older, it lists the pending changelog items that apply to the project under "Setup refresh due" and points to refresh mode. It still applies none of them itself. Before this, a review ran on an outdated project said nothing about re-copied or new skills. No other project edits.
+
 ## 2026-11-04.2
 
 ### New skills: double-check, minimal-repro
