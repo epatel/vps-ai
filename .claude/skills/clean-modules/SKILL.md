@@ -1,115 +1,62 @@
 ---
 name: clean-modules
-description: Restore module-boundary discipline — one public surface per module, dependencies flowing one direction, internals not imported across modules. Use when you see circular imports, deep relative paths (`../../../foo/bar`), confusion about "where does this live", helpers from one module imported all over the codebase, or a "utils" / "common" / "shared" module that has become the de-facto kitchen sink. Skip for single-file scripts and very small projects (< ~5 modules).
+description: Restore module boundaries — one public surface per module, dependencies flowing one direction, no internals imported across modules, rules enforced in CI. Use when you see circular imports, deep relative paths (`../../../foo/bar`), confusion about "where does this live", one module's helpers imported all over the codebase, domain code importing framework or database code, or a "utils" / "common" / "shared" module that has become a kitchen sink. Skip for single-file scripts and projects under ~5 modules.
 ---
 
 # Clean Modules
 
-A module's job is to **hide stuff**. Code inside a module can change freely; code that crosses the boundary is the contract. When the boundary blurs, refactoring becomes a cross-codebase event and small changes ripple unpredictably. This skill restores the boundary: every module has one public surface, dependencies flow one way, internals stay internal.
-
-The discipline is older than the labels people give it (Clean Architecture, Hexagonal, Onion, Ports & Adapters). The labels disagree on details; the underlying rules are the same and are what this skill enforces.
+You know layering, dependency inversion, and the dependency tools of each ecosystem (madge, dependency-cruiser, import-linter, ArchUnit, jdeps, cargo-modules). This skill fixes the procedure and the rules to hold.
 
 ## When to use
 
-Real smells:
+- Circular imports.
+- Deep relative paths reaching into another module's internals.
+- The same concept (`User`, `Money`) defined in several places.
+- `module/index.ts` is clean but callers import `module/internal/foo.ts`.
+- A `utils` / `common` / `shared` / `core` junk drawer imported by everything.
+- Inner layers importing outer ones (domain → database client).
+- One rename touching fifty files.
 
-- **Circular imports** — `A` imports `B` imports `A`. The runtime patches it with hoisting or lazy loads; the design is broken.
-- **Deep relative paths** — `import { foo } from '../../../auth/internal/helpers'`. The `../../../` is the boundary screaming.
-- **"Where does this live?"** — the same concept (a `User`, a `Money`) is defined in 3 places, or its definition lives somewhere unexpected because someone needed it there once.
-- **Internals leaking** — `module/index.ts` exports a clean API, but half the codebase imports from `module/internal/foo.ts` directly.
-- **Kitchen-sink module** — `utils`, `common`, `shared`, `lib`, `core` has 80 unrelated helpers and is imported by everything. It's not a module; it's a junk drawer.
-- **Layer inversion** — domain code imports framework code; pure logic imports the database client; the inner layer reaches outward.
-- **One change, fifty files** — a rename or signature change in one module touches files all over the tree because callers depend on internals.
+Skip for single-file scripts, notebooks, projects under ~5 modules, and prototypes whose shape is not known yet.
 
-Skip for:
+## Method
 
-- Single-file scripts, notebooks, throwaway tools.
-- Projects with < ~5 modules — the overhead of formal boundaries exceeds the benefit.
-- Prototype phases where the right module shape isn't known yet.
+1. **Map the import graph with a tool**, not by eye. Find cycles, high fan-in, high fan-out, and wrong-way edges.
+2. **State the dependency rule** in one sentence and one diagram. Default shape, arrows meaning "may import":
 
-## The method
+   ```mermaid
+   graph TD
+       infra["infra — db, http, fs, third-party"] --> app["application — use cases"]
+       infra --> domain["domain — pure rules, value objects, ADTs"]
+       app --> domain
+   ```
 
-### Phase 1 — Map the current import graph
-
-You can't fix what you can't see. Run a tool or generate the graph by hand:
-
-- **JS/TS:** `madge`, `dependency-cruiser`, or `import/no-cycle` ESLint rule.
-- **Python:** `pydeps`, `import-linter`, or `grimp`.
-- **Go:** `go list -deps` + simple parsing; `go-cleanarch`.
-- **Java/Kotlin:** `jdeps`, ArchUnit.
-- **Rust:** `cargo-modules`, `cargo-deps`.
-
-Look for: cycles, fan-in (modules everyone imports), fan-out (modules that import everything), and any edge that crosses a layer the wrong way.
-
-### Phase 2 — Decide the layers and direction
-
-State the dependency rule explicitly. The classic shape is three or four layers, each only allowed to import from layers *below* (or "more inward"):
-
-```
-infra (db, http, fs, third-party)   ← may import app, domain
-   ↑
-application (use cases, orchestration)  ← may import domain
-   ↑
-domain (pure rules, value objects, ADTs)  ← imports nothing project-internal
-```
-
-Other shapes work — feature modules with an explicit "shared kernel," ports-and-adapters, etc. — but the rule is the same: pick a direction and *enforce it*. Without enforcement, layers decay back into mush within months.
-
-### Phase 3 — Define one public surface per module
-
-Each module exposes a single entry point — `index.ts`, `mod.rs`, `__init__.py`, a single Java package's public types. Everything else is internal:
-
-- **Public:** named exports, intended for outside use.
-- **Internal:** marked private (`internal/` subdir, underscore prefix, package-private, `pub(crate)`, etc.).
-
-The contract is *only* what the public surface exports. Internals can be reorganized at will. If a caller wants something internal, the answer is: either promote it to public (with intent), or move the calling code into the module.
-
-### Phase 4 — Fix violations one at a time
-
-Don't big-bang. For each violation found in phase 1:
-
-- **Cycle:** move the shared piece into a lower layer that both can depend on, or invert one direction with an interface (the higher layer defines the interface, the lower implements it).
-- **Deep relative path:** the import is reaching past a boundary. Either re-export from the public surface, or move the consumer into the same module.
-- **Junk-drawer module:** identify the actual concepts hiding inside (`utils/date.ts`, `utils/money.ts`, `utils/string.ts` are three modules, not one). Split, then delete `utils`.
-- **Layer inversion:** the inner layer should not know about the outer. Define an interface in the inner layer; have the outer layer implement it (Dependency Inversion).
-
-### Phase 5 — Lock the rules in CI
-
-Discipline without enforcement decays. Add a check that fails the build on violations:
-
-- **JS/TS:** `dependency-cruiser` rules, `eslint-plugin-boundaries`, `import/no-restricted-paths`.
-- **Python:** `import-linter` contracts.
-- **Java/Kotlin:** ArchUnit tests.
-- **Rust:** module privacy already enforces a lot; add `clippy` lints for the rest.
-- **Go:** custom `go vet` check or `go-cleanarch`.
-
-The rules now live in a file the team can argue about, not in a Slack thread someone forgot.
+   `domain` imports nothing project-internal. Feature modules with a shared kernel, or ports and adapters, are fine too — the smells choose the shape, not an acronym.
+3. **One public surface per module** (`index.ts`, `__init__.py`, `mod.rs`, a package's public types). Everything else is internal. A caller needing an internal either gets it promoted on purpose or moves into the module.
+4. **Fix one violation per change**, each shippable alone:
+   - Cycle → move the shared piece down, or invert one edge with an interface owned by the inner side.
+   - Deep import → re-export from the surface, or move the consumer in.
+   - Junk drawer → split by the concepts inside (`date`, `money`, `string`), then delete it.
+   - Layer inversion → interface in the inner layer, implementation in the outer.
+5. **Enforce the rule in CI**, or it decays within months. Use a boundary checker that fails the build: `dependency-cruiser` / `eslint-plugin-boundaries` (JS/TS), `import-linter` contracts (Python), ArchUnit (JVM), `go-cleanarch` or a `go list` check (Go). In Rust, crate and `pub(crate)` visibility do most of it; split crates where a boundary must be hard, since clippy has no boundary lints.
 
 ## Output format
 
-Return:
-
-1. **Current state** — top 3–5 violations with file/line examples.
-2. **Proposed layer rule** — one diagram (mermaid) and a one-sentence statement.
-3. **Public surface per affected module** — what's exported, what's hidden.
-4. **Fix plan** — ordered list of moves, each one safe to ship independently.
-5. **Enforcement** — the specific lint rule / config snippet to commit.
+1. **Current state** — top 3–5 violations with file:line examples.
+2. **Layer rule** — the diagram and the one-sentence rule.
+3. **Public surface per affected module** — exported vs hidden.
+4. **Fix plan** — ordered moves, each independently shippable.
+5. **Enforcement** — the exact rule or config to commit.
 
 ## Anti-patterns to refuse
 
-- **One module per file.** Modules are about hiding implementation; a 1-file "module" with 1 export hides nothing. Group by concept.
-- **`shared` / `common` / `utils` as a permanent home.** It's a temporary holding area at best. If it survives more than a sprint, split it.
-- **Re-exporting everything from the index.** That's a public surface in name only. Curate. If everything is public, nothing is hidden.
-- **Layer rule without enforcement.** "We agreed in the doc that domain doesn't import infra" is a wish, not a rule. Enforce in CI or expect drift.
-- **Refactor the whole tree at once.** Moves should be independently shippable. A 200-file rename PR is unreviewable; it will land broken.
-- **Architecture-by-acronym.** Don't impose Hexagonal/Clean/Onion ceremony on a codebase that doesn't need it. The smells drive the structure, not the other way around.
+- **One module per file.** A one-export module hides nothing. Group by concept.
+- **`utils` as a permanent home.** Split it before it outlives a sprint.
+- **Re-exporting everything from the index.** If everything is public, nothing is hidden.
+- **A layer rule only in a doc.** Without CI it is a wish.
+- **Whole-tree refactor in one PR.** Unreviewable, lands broken.
+- **Architecture-by-acronym** on a codebase that does not need the ceremony.
 
 ## Quick mode
 
-For a single offending module:
-
-1. Name the violation in one sentence.
-2. The fix as a 2–4-step move list.
-3. The single lint rule that prevents recurrence.
-
-Skip the layer diagram if the project only has 2–3 modules.
+For one offending module: the violation in one sentence, a 2–4-step move list, and the single rule that prevents recurrence. Skip the diagram for 2–3 modules.

@@ -24,6 +24,10 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
   under `.claude/skills/` (adt-types, backward-planning, clean-modules,
   design-system, focused-refactor, makefile-actions, project-discovery,
   state-machines). Useful when agents work on the separate `projects/*`. Locked.
+- 2026-11-04 — Re-copied all 9 installed skills from `epatel/agent-skills`
+  (bcbd8a0; none had local edits) and applied the 2026-10-16.3 card-maintenance
+  wording to `CLAUDE.md`. Setup refreshed to v2026-11-04.2: installed
+  `double-check`; declined Known Stack and `minimal-repro`.
 - 2026-10-15 — Re-ran `ai.memention.net/setup` (v2026-10-15, update mode). Added
   Standing Defaults (copied card; this repo keeps `venv/`, which `hooks/post-merge`
   expects) and Hooks Over Prose (a `PreToolUse` hook blocks edits to files listed

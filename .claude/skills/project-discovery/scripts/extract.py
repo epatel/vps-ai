@@ -20,10 +20,29 @@ LANGUAGES = {
     ".rb":   "ruby",
     ".rs":   "rust",
     ".java": "java",
+    ".mjs":  "javascript",
+    ".cjs":  "javascript",
+    ".mts":  "typescript",
+    ".cts":  "typescript",
     ".c":    "c",
     ".h":    "c",
     ".cpp":  "cpp",
+    ".cc":   "cpp",
+    ".cxx":  "cpp",
     ".hpp":  "cpp",
+    ".hh":   "cpp",
+    ".hxx":  "cpp",
+    ".ino":  "cpp",   # Arduino sketches are C++
+    ".pde":  "cpp",   # legacy Arduino/Wiring sketches
+    ".dart": "dart",
+    ".kt":   "kotlin",
+    ".kts":  "kotlin",
+    ".swift": "swift",
+    ".cs":   "csharp",
+    ".php":  "php",
+    ".scala": "scala",
+    ".sc":   "scala",
+    ".lua":  "lua",
 }
 
 # Capture-name convention: "<group>.<kind>" where group is "def" or "call".
@@ -161,6 +180,97 @@ QUERIES = {
         (call_expression function: (identifier) @call.function)
         (call_expression function: (field_expression field: (field_identifier) @call.method))
     """,
+    # Dart has no call node: a call is a name followed by a sibling
+    # `selector (argument_part)`, so calls are matched as anchored siblings.
+    "dart": """
+        (class_definition name: (identifier) @def.class)
+        (mixin_declaration (identifier) @def.class)
+        (enum_declaration name: (identifier) @def.type)
+        (extension_declaration name: (identifier) @def.type)
+        (type_alias (type_identifier) @def.type)
+        (function_signature name: (identifier) @def.function)
+        (initialized_identifier (identifier) @def.field)
+        (initialized_variable_definition name: (identifier) @def.var)
+        (formal_parameter name: (identifier) @def.param)
+        (_ (identifier) @call.function . (selector (argument_part)))
+        (_ (selector (unconditional_assignable_selector (identifier) @call.method))
+           . (selector (argument_part)))
+    """,
+    "kotlin": """
+        (class_declaration (type_identifier) @def.class)
+        (object_declaration (type_identifier) @def.class)
+        (type_alias (type_identifier) @def.type)
+        (function_declaration (simple_identifier) @def.function)
+        (class_parameter (simple_identifier) @def.field)
+        (property_declaration (variable_declaration (simple_identifier) @def.var))
+        (parameter (simple_identifier) @def.param)
+        (call_expression (simple_identifier) @call.function)
+        (call_expression (navigation_expression (navigation_suffix (simple_identifier) @call.method)))
+    """,
+    "swift": """
+        (class_declaration name: (type_identifier) @def.class)
+        (protocol_declaration name: (type_identifier) @def.type)
+        (typealias_declaration name: (type_identifier) @def.type)
+        (function_declaration name: (simple_identifier) @def.function)
+        (protocol_function_declaration name: (simple_identifier) @def.function)
+        (property_declaration name: (pattern bound_identifier: (simple_identifier) @def.var))
+        (parameter name: (simple_identifier) @def.param)
+        (call_expression (simple_identifier) @call.function)
+        (call_expression (navigation_expression suffix: (navigation_suffix suffix: (simple_identifier) @call.method)))
+    """,
+    "csharp": """
+        (class_declaration name: (identifier) @def.class)
+        (record_declaration name: (identifier) @def.class)
+        (struct_declaration name: (identifier) @def.type)
+        (interface_declaration name: (identifier) @def.type)
+        (enum_declaration name: (identifier) @def.type)
+        (namespace_declaration name: (identifier) @def.module)
+        (method_declaration name: (identifier) @def.function)
+        (field_declaration (variable_declaration (variable_declarator name: (identifier) @def.field)))
+        (local_declaration_statement (variable_declaration (variable_declarator name: (identifier) @def.var)))
+        (parameter name: (identifier) @def.param)
+        (invocation_expression function: (identifier) @call.function)
+        (invocation_expression function: (member_access_expression name: (identifier) @call.method))
+        (object_creation_expression type: (identifier) @call.new)
+    """,
+    "php": """
+        (class_declaration name: (name) @def.class)
+        (interface_declaration name: (name) @def.type)
+        (trait_declaration name: (name) @def.type)
+        (enum_declaration name: (name) @def.type)
+        (function_definition name: (name) @def.function)
+        (method_declaration name: (name) @def.function)
+        (property_element name: (variable_name (name) @def.field))
+        (assignment_expression left: (variable_name (name) @def.var))
+        (simple_parameter name: (variable_name (name) @def.param))
+        (function_call_expression function: (name) @call.function)
+        (member_call_expression name: (name) @call.method)
+        (scoped_call_expression name: (name) @call.method)
+        (object_creation_expression (name) @call.new)
+    """,
+    "scala": """
+        (class_definition name: (identifier) @def.class)
+        (object_definition name: (identifier) @def.class)
+        (trait_definition name: (identifier) @def.type)
+        (function_definition name: (identifier) @def.function)
+        (function_declaration name: (identifier) @def.function)
+        (class_parameter name: (identifier) @def.field)
+        (val_definition pattern: (identifier) @def.var)
+        (var_definition pattern: (identifier) @def.var)
+        (parameter name: (identifier) @def.param)
+        (call_expression function: (identifier) @call.function)
+        (call_expression function: (field_expression field: (identifier) @call.method))
+    """,
+    "lua": """
+        (function_declaration name: (identifier) @def.function)
+        (function_declaration name: (dot_index_expression field: (identifier) @def.function))
+        (function_declaration name: (method_index_expression method: (identifier) @def.function))
+        (variable_list name: (identifier) @def.var)
+        (parameters name: (identifier) @def.param)
+        (function_call name: (identifier) @call.function)
+        (function_call name: (dot_index_expression field: (identifier) @call.method))
+        (function_call name: (method_index_expression method: (identifier) @call.method))
+    """,
 }
 
 
@@ -202,11 +312,27 @@ def _import_name(node):
     return None
 
 
+_PY_STDLIB = frozenset(getattr(sys, "stdlib_module_names", ())) | {"__future__"}
+
+_NODE_BUILTINS = frozenset({
+    "assert", "async_hooks", "buffer", "child_process", "cluster", "console",
+    "crypto", "dgram", "diagnostics_channel", "dns", "events", "fs", "http",
+    "http2", "https", "inspector", "module", "net", "os", "path", "perf_hooks",
+    "process", "punycode", "querystring", "readline", "repl", "stream",
+    "string_decoder", "timers", "tls", "tty", "url", "util", "v8", "vm",
+    "wasi", "worker_threads", "zlib",
+})
+
+
 def _python_external_imports(root, project_pkgs=frozenset()):
     """External-import bindings in this file, excluding project-internal
     absolute imports (e.g. `from src.database import X` when `src/` is a
-    top-level project directory)."""
+    top-level project directory).
+
+    Returns (bindings, deps): bindings are local names used to prune calls;
+    deps are top-level third-party module names (stdlib excluded)."""
     ext = set()
+    deps = set()
 
     def _module_first_seg(node):
         if node is None:
@@ -225,6 +351,8 @@ def _python_external_imports(root, project_pkgs=frozenset()):
                 first = _module_first_seg(c)
                 if first and first in project_pkgs:
                     continue
+                if first and first not in _PY_STDLIB:
+                    deps.add(first)
                 name = _import_name(c)
                 if name:
                     ext.add(name)
@@ -235,17 +363,28 @@ def _python_external_imports(root, project_pkgs=frozenset()):
             mod_first = mod.named_children[0].text.decode() if mod.named_children else None
             if mod_first in project_pkgs:
                 continue
+            if mod_first and mod_first not in _PY_STDLIB:
+                deps.add(mod_first)
             for c in n.named_children:
                 if c is mod:
                     continue
                 name = _import_name(c)
                 if name:
                     ext.add(name)
-    return ext
+    return ext, deps
+
+
+def _js_package_name(spec):
+    """`@scope/pkg/sub` -> `@scope/pkg`; `pkg/sub` -> `pkg`."""
+    parts = spec.split("/")
+    return "/".join(parts[:2]) if spec.startswith("@") else parts[0]
 
 
 def _js_external_imports(root):
+    """Returns (bindings, deps) like _python_external_imports; deps are npm
+    package names (Node built-ins excluded)."""
     ext = set()
+    deps = set()
     for n in _walk(root):
         if n.type != "import_statement":
             continue
@@ -255,6 +394,9 @@ def _js_external_imports(root):
         s = src.text.decode().strip("'\"`")
         if s.startswith(".") or s.startswith("/"):
             continue
+        pkg = _js_package_name(s)
+        if not s.startswith("node:") and pkg not in _NODE_BUILTINS:
+            deps.add(pkg)
         for c in n.named_children:
             if c.type != "import_clause":
                 continue
@@ -276,11 +418,29 @@ def _js_external_imports(root):
                             nm = spec.child_by_field_name("name")
                             if nm is not None:
                                 ext.add(nm.text.decode())
-    return ext
+    return ext, deps
+
+
+def _dart_external_imports(root, project_pkgs=frozenset()):
+    """Dart imports bind no names (calls cannot be pruned), so only deps:
+    `package:<name>/...` URIs, minus the project's own package."""
+    deps = set()
+    for n in _walk(root):
+        if n.type != "uri":
+            continue
+        s = n.text.decode().strip("'\"")
+        if s.startswith("package:"):
+            pkg = s[len("package:"):].split("/")[0]
+            if pkg and pkg not in project_pkgs:
+                deps.add(pkg)
+    return set(), deps
 
 
 def _project_packages(root: Path):
-    """Top-level package/module names that count as project-internal."""
+    """Package/module names that count as project-internal: top-level
+    directories, plus every Python module and package anywhere in the tree
+    (scripts often import siblings via sys.path, e.g. `tests/` importing
+    `tools/landing.py` as `landing`)."""
     skip = {".git", "node_modules", "venv", ".venv", "__pycache__",
             "dist", "build", "target"}
     pkgs = set()
@@ -290,10 +450,20 @@ def _project_packages(root: Path):
                 continue
             if p.is_dir():
                 pkgs.add(p.name)
-            elif p.is_file() and p.suffix == ".py":
-                pkgs.add(p.stem)
     except (OSError, PermissionError):
         pass
+    for p in walk(root):
+        if p.suffix == ".py":
+            pkgs.add(p.parent.name if p.name == "__init__.py" else p.stem)
+        elif p.name == "pubspec.yaml":
+            # Dart package name; monorepos have one pubspec per package.
+            try:
+                for line in p.read_text(errors="replace").splitlines():
+                    if line.startswith("name:"):
+                        pkgs.add(line.split(":", 1)[1].strip().strip("'\""))
+                        break
+            except OSError:
+                pass
     return pkgs
 
 
@@ -302,6 +472,7 @@ _EXT_IMPORTS = {
     "javascript": lambda r, _pkgs: _js_external_imports(r),
     "typescript": lambda r, _pkgs: _js_external_imports(r),
     "tsx":        lambda r, _pkgs: _js_external_imports(r),
+    "dart":       _dart_external_imports,
 }
 
 _RECEIVER_PARENT = {
@@ -332,15 +503,15 @@ def _receiver_root(node, lang_name):
 
 
 def extract_file(path: Path, project_pkgs=frozenset()):
-    """Returns (records, lang_name, external_imports) or (None, None, None) if unsupported."""
+    """Returns (records, lang_name, external_deps) or (None, None, None) if unsupported."""
     lang_name = LANGUAGES.get(path.suffix)
     if not lang_name or lang_name not in QUERIES:
         return None, None, None
     src = path.read_bytes()
     parser = get_parser(lang_name)
     tree = parser.parse(src)
-    ext_fn = _EXT_IMPORTS.get(lang_name, lambda r, _pkgs: set())
-    ext_imports = ext_fn(tree.root_node, project_pkgs)
+    ext_fn = _EXT_IMPORTS.get(lang_name, lambda r, _pkgs: (set(), set()))
+    ext_imports, ext_deps = ext_fn(tree.root_node, project_pkgs)
     query = Query(get_language(lang_name), QUERIES[lang_name])
     cursor = QueryCursor(query)
     out = []
@@ -365,7 +536,7 @@ def extract_file(path: Path, project_pkgs=frozenset()):
             "col":      node.start_point[1],
             "external": external,
         })
-    return out, lang_name, ext_imports
+    return out, lang_name, ext_deps
 
 
 def walk(root: Path):
@@ -411,7 +582,9 @@ def write_summary(out_path: Path, root: Path, words: dict, file_meta: dict):
     hot.sort(reverse=True)
 
     entry_files = {"main.py", "__main__.py", "cli.py", "app.py", "server.py",
-                   "index.js", "main.js", "app.js", "main.go", "main.rs"}
+                   "index.js", "main.js", "app.js", "main.go", "main.rs",
+                   "main.dart", "main.kt", "main.swift", "Program.cs",
+                   "index.php", "main.lua"}
     entry_points = []
     for name in ("main", "cli", "run", "start"):
         for d in words.get(name, {}).get("defined", []):
@@ -530,10 +703,10 @@ def main():
     file_meta = {}  # file path -> {lang, ext_deps}
     for f in walk(root):
         try:
-            records, lang_name, ext_imports = extract_file(f, project_pkgs)
+            records, lang_name, ext_deps = extract_file(f, project_pkgs)
             if records is None:
                 continue
-            file_meta[str(f)] = {"lang": lang_name, "ext_deps": ext_imports}
+            file_meta[str(f)] = {"lang": lang_name, "ext_deps": ext_deps}
             for r in records:
                 key = (r["file"], r["line"], r["col"], r["name"], r["group"])
                 if key in seen:

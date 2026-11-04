@@ -13,7 +13,7 @@ Establish a layered set of design tokens (color, spacing, typography, fonts, rad
 2. Adapter files for the target stack:
    - Web → `tokens.css` (CSS custom properties + theme switch)
    - Flutter → `app_tokens.dart` (`ColorScheme` + `ThemeExtension`s)
-3. A `design-system` card under `cards/` and an index entry appended to `CLAUDE.md`.
+3. Agent documentation: a `design-system` card under `cards/` plus an index entry in `CLAUDE.md` if the project uses context cards, else a short section in `CLAUDE.md`.
 
 The JSON is canonical; the adapters are derived. Re-running the skill regenerates the adapters from the JSON, so edits go in the JSON.
 
@@ -60,6 +60,8 @@ Resolve aliases when emitting (the adapter files hold literal values, not `{...}
 
 ### Step 4 — Write the card
 
+If the project has no `cards/` directory or card index, do not create one unasked. Instead add a section of at most ~15 lines to `CLAUDE.md`: file locations, that the JSON is canonical, and "components use semantic tokens only". Skip Step 5. Otherwise:
+
 Read `references/card-format.md`, then write `cards/design-system.md` from `assets/design-system-card.template.md`. The card must be self-contained: the token layers, the light/dark semantic map, file locations, how to consume in each stack, and how to add a theme — all inline, no "see also" links. If it would exceed ~150 lines, split by sub-trigger (`design-system-color`, `design-system-type`) rather than letting it sprawl.
 
 ### Step 5 — Index entry
@@ -77,7 +79,7 @@ Phrase the trigger as the situation, not the topic.
 - `design-tokens.json` parses; every alias resolves to a real primitive.
 - `semantic.light` and `semantic.dark` have identical key sets.
 - Each emitted adapter compiles/lints in its stack.
-- The card reads cold without any other card.
+- The card (if written) reads cold without any other card.
 
 ## Conventions
 

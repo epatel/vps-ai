@@ -25,7 +25,7 @@ Lazy-loaded reference cards under `cards/`. Open one when its trigger matches:
 - [landing-page](cards/landing-page.md) — the root landing page, adding a project card, and standalone pages served from `projects/landing/<name>/`
 - [standing-defaults](cards/standing-defaults.md) — before adding Python dependencies or a persisted schema to a project (here the venv is `venv/`, not `.venv/`: `hooks/post-merge` only reinstalls requirements into `venv/`)
 
-When a change adds non-obvious logic, settles an architectural choice, or makes a card above wrong, update or add the card in the same change and keep this index in sync. Cards stay self-contained: no card links to another.
+When you commit a change that adds non-obvious logic, settles an architectural choice, or makes a card above wrong, update or add the card in that commit and keep this index in sync. Proposed diffs and answers need no card edits. Cards stay self-contained: no card links to another.
 
 ## Agent execution environment
 

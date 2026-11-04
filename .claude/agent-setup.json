@@ -1,7 +1,7 @@
 {
   "source": "https://ai.memention.net/setup",
-  "version": "2026-10-15",
-  "updated": "2026-10-15",
+  "version": "2026-11-04.2",
+  "updated": "2026-11-04",
   "applied": [
     "context-cards",
     "project-plan",
@@ -15,9 +15,10 @@
     "skill:makefile-actions",
     "skill:project-discovery",
     "skill:state-machines",
-    "skill:review-agentic-setup"
+    "skill:review-agentic-setup",
+    "skill:double-check"
   ],
-  "declined": ["feature-first", "feature-first-advanced", "two-tier"],
+  "declined": ["feature-first", "feature-first-advanced", "two-tier", "known-stack", "skill:minimal-repro"],
   "copied": {
     "cards/standing-defaults.md": {
       "pattern": "standing-defaults",

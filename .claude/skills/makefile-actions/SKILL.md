@@ -34,7 +34,7 @@ menu:
 	echo "6 make update_phony         - update .PHONY in Makefile"
 
 select:
-	read -p ">>> " P ; make menu | grep "^$$P " | cut -d ' ' -f2-3 | bash
+	read -p ">>> " P ; "$(MAKE)" --no-print-directory menu | grep "^$$P " | cut -d ' ' -f2-3 | bash
 
 .SILENT:
 
@@ -70,5 +70,6 @@ update_phony:
 - `.SILENT:` so `echo` lines print clean (no command echo).
 - `make` with no target runs `info`: prints the numbered menu, then prompts for a number and runs it.
 - Numbered `menu` lines so `select` can map a number → command via `grep "^N "`.
+- `select` calls `"$(MAKE)" --no-print-directory menu`, not bare `make`, so the same make binary and flags are used and no "Entering directory" lines leak into the pipe. Keep the quotes: on macOS `$(MAKE)` can expand to an Xcode path containing a space.
 - Keep `.PHONY` listing every target; run `make update_phony` after adding targets.
 - Pass-through args: `make start_at TARGET=path` → recipe uses `$(TARGET)`.

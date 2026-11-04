@@ -5,102 +5,49 @@ description: Plan by reasoning backwards from a vivid success outcome to the goa
 
 # Backward Planning
 
-Forward planning ("what should we do next?") tends to drift — tasks accumulate without a shared target. Backward planning fixes the destination first, then derives the goals that must be true to reach it. This skill enforces that order.
+Forward task lists drift. This skill fixes the destination first, then derives the goals that must be true to reach it. The order of the four phases is the point.
 
 ## When to use
 
-- User asks: "how do I get to X", "plan this", "what's the path to Y", "work backwards from", "what would it take to ship Z".
-- Scoping a non-trivial feature, migration, refactor, launch, or research initiative.
-- A forward task list is sprawling and you suspect the goal is fuzzy.
-- Decisions feel arbitrary because there's no defined "done."
+- "How do I get to X", "what would it take to ship Z", "plan this".
+- Scoping a non-trivial feature, migration, launch, or research effort.
+- A forward task list sprawls, or decisions feel arbitrary because "done" is undefined.
 
-Skip for one-shot fixes, single-file edits, or anything where the action is the goal.
+Skip for one-shot fixes and work where the action is the goal.
 
-## The method
+## Method
 
-Run these four phases **in order**. Do not skip phase 1 — without a concrete success picture, the rest collapses into ordinary forward planning.
+1. **Outcome.** 3–7 concrete bullets on the world after success: what people observe, what is measurably true, what pain is gone, who notices. If you cannot picture it sharply, ask the user before going on.
+2. **Success criteria.** Each one observable by someone other than the implementer, binary or thresholded, and about the end state, not the work. Bad: "Refactored auth." Good: "No call site imports `legacy_auth.*`; p95 login ≤ 200ms."
+3. **Precondition tree.** From each criterion, ask "what must be true just before this?" until you reach something true today. Nodes are **states, not verbs** ("tokens are validated", not "validate tokens"). Mark nodes that are true today and stop expanding there.
+4. **Goals.** Each edge from a true-today leaf toward the root is a goal: **name** (outcome-shaped), **done when** (the state it produces), **depends on**, **roughly** (S/M/L and a one-line approach). Order by dependency and mark parallel branches.
 
-### Phase 1 — Visualize the outcome
-
-Write a vivid, concrete description of the world *after* this is successful. Force specificity:
-
-- **What does a user/operator/reader observe?** (Screens, logs, metrics, behaviors, artifacts.)
-- **What is measurably true?** (Numbers, thresholds, SLAs, coverage, dollars, users.)
-- **What is no longer true?** (Pain that's gone, code that's deleted, alerts that stopped firing.)
-- **Who notices, and how?** (Stakeholders, customers, on-call.)
-
-Output 3–7 bullets. If you can't picture it sharply, ask the user clarifying questions before continuing — a vague outcome guarantees a vague plan.
-
-### Phase 2 — Define success criteria
-
-Convert the visualization into checkable criteria. Each criterion must be:
-
-- **Observable** — someone could verify it without asking the implementer.
-- **Binary or thresholded** — done/not-done, or `≥ N`, not "better."
-- **Independent of the path** — describes the *end state*, not the work.
-
-Bad: "Refactored the auth module." Good: "All login flows route through `AuthService.authenticate`; no callsite imports `legacy_auth.*`; p95 login latency ≤ 200ms."
-
-### Phase 3 — Reason backwards (preconditions chain)
-
-Starting from each success criterion, repeatedly ask: **"What must be true immediately before this is true?"** Keep asking until you hit something that is true today or is a trivial first step.
-
-Build a tree (or DAG if branches converge). Nodes are *states*, not actions. Example:
-
+```mermaid
+graph RL
+    S["Users can log in via SSO"]
+    T["Provider returns valid tokens for our app"] --> S
+    L["Legacy login works during cutover"] --> S
+    R["App registered, secrets in vault (today: no)"] --> T
+    C["Callback route validates tokens (today: no)"] --> T
+    F["Feature flag gates the new path (today: no)"] --> L
 ```
-Success: Users can log in via SSO
-  ← SSO provider returns valid tokens for our app
-    ← App is registered with provider + secrets in vault
-      ← Vault entry exists (today: doesn't)
-    ← Callback route validates tokens
-      ← JWT verification library wired up (today: not installed)
-  ← Legacy login still works during cutover
-    ← Feature flag gates the new path (today: flag doesn't exist)
-```
-
-Two rules that keep this honest:
-
-1. **State, not verb.** "Tokens are validated" not "validate tokens." States compose; verbs hide assumptions.
-2. **Stop at the truth boundary.** When a precondition is already true, mark it and stop expanding that branch. That's your starting edge.
-
-### Phase 4 — Derive goals from the chain
-
-Walk the tree from the leaves (true-today) toward the root (success). Each *edge* — the transition from one state to the next — becomes a goal.
-
-For each goal, capture:
-
-- **Name** — short, outcome-shaped ("Vault entry provisioned", not "do vault stuff").
-- **Done when** — the precondition state it produces, copied from the tree.
-- **Depends on** — the upstream nodes that must already be true.
-- **Roughly** — size estimate (S/M/L) and one-line approach.
-
-Order goals by dependency. Parallelizable branches surface naturally — call them out so the user can fan out work.
 
 ## Output format
 
-Return four sections in this order:
+1. **Outcome** — the bullets.
+2. **Success criteria** — a checkable list.
+3. **Precondition tree** — mermaid if it branches, indented bullets if linear.
+4. **Goals** — ordered, with the four fields. Mark independent branches `[parallel: A]`, `[parallel: B]`.
 
-1. **Outcome** — the visualization (phase 1).
-2. **Success criteria** — checkable list (phase 2).
-3. **Precondition tree** — mermaid graph or indented bullets (phase 3). Use mermaid if there are branches; bullets if linear.
-4. **Goals** — ordered list with the four fields above (phase 4). Mark independent branches `[parallel: A]`, `[parallel: B]`.
-
-Keep each section tight. The point is clarity of destination and dependency, not exhaustive detail — implementation specifics belong in the goals' own plans, not here.
+Keep each section tight. Implementation detail belongs in each goal's own plan.
 
 ## Anti-patterns to refuse
 
-- **Skipping phase 1.** "Let's just list tasks" is forward planning in disguise. Push back and visualize first.
-- **Verbs as nodes.** "Write tests," "refactor module" — these don't compose into a precondition chain. Rephrase as states ("tests exist and pass," "module exposes only the new API").
-- **Infinite regress.** If the tree keeps expanding, you're either at the wrong altitude (zoom out) or the outcome isn't actually defined (return to phase 1).
-- **Goal = outcome.** If your only goal restates the success criterion, you haven't decomposed anything. Find at least one non-trivial precondition.
+- **Skipping the outcome** ("let's just list tasks") — forward planning in disguise.
+- **Verbs as nodes.** Rephrase as states.
+- **Endless expansion.** Wrong altitude (zoom out) or an undefined outcome (go back to step 1).
+- **Goal = outcome.** Find at least one non-trivial precondition.
 
 ## Quick mode
 
-For small tasks (≤ half a day of work) the user can ask for "quick backward planning." Compress to:
-
-1. One-sentence outcome.
-2. 2–3 success criteria.
-3. Linear precondition list (no tree).
-4. Ordered goals, no size estimates.
-
-Still phase 1 first. The shortcut is in depth, not in order.
+For ≤ half a day of work: a one-sentence outcome, 2–3 criteria, a linear precondition list, ordered goals without sizes. The outcome still comes first.

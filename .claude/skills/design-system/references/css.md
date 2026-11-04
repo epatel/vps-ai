@@ -11,6 +11,8 @@ Emit two tiers so dark mode is a small diff:
 
 ```css
 :root {
+  color-scheme: light;
+
   /* primitives */
   --color-neutral-0: #ffffff;
   --color-neutral-900: #0f172a;
@@ -33,6 +35,7 @@ Emit two tiers so dark mode is a small diff:
 
 /* explicit dark */
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --color-bg: var(--color-neutral-950);
   --color-surface: var(--color-neutral-900);
   --color-text-primary: var(--color-neutral-50);
@@ -44,6 +47,7 @@ Emit two tiers so dark mode is a small diff:
 /* auto: follow OS only when no explicit choice is set */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
+    color-scheme: dark;
     --color-bg: var(--color-neutral-950);
     /* …same overrides as [data-theme="dark"] */
   }
@@ -57,6 +61,7 @@ Emit two tiers so dark mode is a small diff:
 - **Theme switching** is a `data-theme` attribute on `<html>` (`data-theme="dark"` | `"light"` | absent = follow OS). Toggle in JS by setting/removing the attribute; persist the choice however the app already persists prefs.
 - **Adding a theme**: emit another `:root[data-theme="x"]` block overriding the semantic names. No other change.
 - **Shadows**: emit as `--shadow-sm/md/lg`. If the dark theme softens elevation, override those vars in the dark block too.
+- **`color-scheme`** goes in every theme block (`light` / `dark`) so native form controls, scrollbars and the canvas follow the theme.
 - Dimensions carry units (`16px`); weights/line-heights are unitless numbers.
 
 Keep the auto block's overrides identical to the explicit dark block — generate both from the same `semantic.dark` map to avoid drift.

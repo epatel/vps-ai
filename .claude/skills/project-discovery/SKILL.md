@@ -1,6 +1,6 @@
 ---
 name: project-discovery
-description: Generate a compact architecture digest of an unfamiliar codebase via tree-sitter — entry points, hot internal API, per-file class/function map, external deps, orphan callables. Use when the user asks to explore, orient on, summarize, or get an overview of a repo, or when starting work on a project you haven't seen before. Supports Python, JS, TS, Go, Ruby, Rust, Java, C, C++.
+description: Generate a compact architecture digest of an unfamiliar codebase via tree-sitter — entry points, hot internal API, per-file class/function map, external deps, orphan callables. Use when the user asks to explore, orient on, summarize, or get an overview of a repo, or when starting work on a project you haven't seen before. Supports Python, JS, TS, Go, Ruby, Rust, Java, Kotlin, Swift, Dart/Flutter, C#, PHP, Scala, Lua, C, C++ (including Arduino `.ino`).
 ---
 
 # Project Discovery
@@ -40,7 +40,7 @@ The first run creates the venv and installs tree-sitter (needs network, ~30s); l
 ## Summary sections
 
 1. File count + language mix.
-2. External dependencies (real third-party libraries, project-internal absolute imports excluded).
+2. External dependencies — top-level third-party packages (Python modules, npm packages). The standard library, Node built-ins, and modules defined in the project are excluded.
 3. Entry points (`main`/`cli`/`run`/`start` defs + well-known filenames like `main.py`, `app.py`, `index.js`).
 4. Hot internal API — top 20 most-called project-defined names.
 5. Architecture — top 30 core (non-test) files, each with its classes and functions.
@@ -50,5 +50,6 @@ The first run creates the venv and installs tree-sitter (needs network, ~30s); l
 ## Notes
 
 - Calls to externally-imported names are pruned in Python and JS/TS via per-file import resolution + receiver-root matching. Other languages match by bare name only.
+- External deps are listed for Python, JS/TS (npm packages) and Dart (`package:` imports; the project's own pubspec name excluded). Other languages show none.
 - Name-based matching has no type inference: `local_var.foo()` where the project also defines `foo` will be counted as internal even if the receiver came from an external library. Treat hot-API counts as approximate.
 - Re-run any time; ~5s for ~100k LOC.
