@@ -4,6 +4,12 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-11-04
+
+### focused-refactor, backward-planning, state-machines trimmed; review-agentic-setup global review on request
+- Affects: skill:focused-refactor, skill:backward-planning, skill:state-machines, skill:review-agentic-setup
+- Action: re-copy each installed skill named above (replace the directory if the project did not edit it, else propose a merge). `focused-refactor` and `backward-planning` keep the same method, output format and anti-patterns in about half the length. `state-machines` drops the diagram that repeated its example transition table. `review-agentic-setup` now reviews `~/.claude` (Phase 4, the global update plan) only when the user asks for it, and otherwise offers it in one line. No other project edits.
+
 ## 2026-10-23
 
 ### review-agentic-setup: leaves upstream files alone, checks Known Stack
