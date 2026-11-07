@@ -52,43 +52,57 @@ def check_imports(root, md):
             report("ERROR", rel, f"@{target} imports an on-demand file eagerly; use a plain path or link")
 
 
+def read_index_text(root):
+    """CLAUDE.md and CARDS.md (either may hold the card index), concatenated."""
+    files = [root / "CLAUDE.md", root / "CARDS.md"]
+    return "".join(f.read_text(errors="replace") + "\n" for f in files if f.exists())
+
+
+def check_index_entry(root, link, rest):
+    if not (root / link).exists():
+        report("ERROR", "CLAUDE.md", f"index links to missing {link}")
+    trigger = re.sub(r"^[—–-]+\s*", "", rest)
+    if not trigger:
+        report("WARN", "CLAUDE.md", f"index entry for {link} has no trigger phrase")
+    elif len(trigger.split()) < 3:
+        report("WARN", "CLAUDE.md", f"trigger for {link} is very short ({trigger!r}); name the situation, not the topic")
+
+
+def check_index(root):
+    """Check each card-index entry; return the set of linked card paths."""
+    indexed = set()
+    for m in map(INDEX_LINE_RE.match, read_index_text(root).splitlines()):
+        if m:
+            link = m.group(1).removeprefix("./")
+            indexed.add(link)
+            check_index_entry(root, link, m.group(2).strip())
+    return indexed
+
+
+def check_card(root, card, indexed, names):
+    rel = card.relative_to(root)
+    if f"cards/{card.name}" not in indexed:
+        report("WARN", rel, "card is not in the CLAUDE.md index")
+    text = card.read_text(errors="replace")
+    lines = text.count("\n") + 1
+    if lines > 150:
+        report("WARN", rel, f"{lines} lines (>150); split by sub-trigger")
+    prose = strip_code(text)
+    for other in LINK_RE.findall(prose) + re.findall(r"\]\(([\w.-]+\.md)\)", prose):
+        stem = Path(other).stem
+        if stem in names and stem != card.stem:
+            report("ERROR", rel, f"references another card ({other}); cards must be self-contained")
+
+
 def check_cards(root):
     cards_dir = root / "cards"
-    claude = root / "CLAUDE.md"
     if not cards_dir.is_dir():
         return
-    index_text = ""
-    for f in [claude, root / "CARDS.md"]:
-        if f.exists():
-            index_text += f.read_text(errors="replace") + "\n"
-    indexed = set()
-    for line in index_text.splitlines():
-        m = INDEX_LINE_RE.match(line)
-        if not m:
-            continue
-        link, rest = m.group(1).removeprefix("./"), m.group(2).strip()
-        indexed.add(link)
-        if not (root / link).exists():
-            report("ERROR", "CLAUDE.md", f"index links to missing {link}")
-        trigger = re.sub(r"^[—–-]+\s*", "", rest)
-        if not trigger:
-            report("WARN", "CLAUDE.md", f"index entry for {link} has no trigger phrase")
-        elif len(trigger.split()) < 3:
-            report("WARN", "CLAUDE.md", f"trigger for {link} is very short ({trigger!r}); name the situation, not the topic")
-    names = {p.stem for p in cards_dir.glob("*.md")}
-    for card in sorted(cards_dir.glob("*.md")):
-        rel = card.relative_to(root)
-        link = f"cards/{card.name}"
-        if link not in indexed:
-            report("WARN", rel, "card is not in the CLAUDE.md index")
-        text = card.read_text(errors="replace")
-        lines = text.count("\n") + 1
-        if lines > 150:
-            report("WARN", rel, f"{lines} lines (>150); split by sub-trigger")
-        prose = strip_code(text)
-        for other in LINK_RE.findall(prose) + re.findall(r"\]\(([\w.-]+\.md)\)", prose):
-            if Path(other).stem in names and Path(other).stem != card.stem:
-                report("ERROR", rel, f"references another card ({other}); cards must be self-contained")
+    indexed = check_index(root)
+    cards = sorted(cards_dir.glob("*.md"))
+    names = {p.stem for p in cards}
+    for card in cards:
+        check_card(root, card, indexed, names)
 
 
 def check_feature_docs(root):
