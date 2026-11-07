@@ -4,6 +4,12 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-11-08
+
+### code-health: install in the project's venv, pinned to a release
+- Affects: code-health
+- Action: aihealth now has tagged releases (a new minor version can change scores) and recommends a project-venv install. Check the project's form. With the global form (`"command": "aihealth"` in `.mcp.json`, `command -v aihealth` hooks), propose switching to the venv form from `https://ai.memention.net/cards/code-health.md`: install into `.venv/` at the latest tag, point `.mcp.json` and both hooks at `.venv/bin/aihealth` with the `[ -x … ]` guard, commit the pin (dev requirements, or the install command in the `## Code health` section of `CLAUDE.md`), and use `.venv/bin/aihealth` there. Show the diff of each file first. Keep the global form only if aihealth's dependencies clash with the project's; then still pin the install to the latest tag. Either way, if `aihealth --version` says `0.1.0`, the install predates the first release and may skip shell, C and C++ files. Save a scan (`--save`) after the change so `aihealth history` marks the version.
+
 ## 2026-11-07
 
 ### New pattern: Code Health Feedback

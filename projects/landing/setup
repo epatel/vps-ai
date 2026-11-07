@@ -1,6 +1,6 @@
 # Project Setup — ai.memention.net
 
-Version: 2026-11-07 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
+Version: 2026-11-08 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
 
 You are setting up a project with structured AI-agent documentation patterns.
 Follow the steps below in order. Reading this file again in a project that already
@@ -47,7 +47,7 @@ Based on what you found, present the user with a scoping summary and ask which p
 | **Shared Project Plan** (`project-plan`) | A single `project-plan.md` holding the goal + live state that every spawned agent reads first and updates, so independent agents share one objective | Work fanned out across subagents, worktrees, or issue-driven autonomous runs | `https://ai.memention.net/cards/project-plan.md` |
 | **Standing Defaults** (`standing-defaults`) | Decisions made once and not re-litigated per project: always use a Python venv, always ship a dependency-free database migration path | Any project that runs Python or persists data | `https://ai.memention.net/cards/standing-defaults.md` |
 | **Hooks Over Prose** (`hooks-over-prose`) | Moves mechanical "always/never" rules out of CLAUDE.md into `.claude/settings.json` permissions and hooks, so the harness enforces them | Projects whose instruction files contain rules a script could check (protected paths, formatting, forbidden commands) | `https://ai.memention.net/cards/hooks-over-prose.md` |
-| **Code Health Feedback** ⚗️ (`code-health`) | Wires the aihealth code-health tool into Claude Code: hooks report new or worsened smells after each edit and before the agent finishes, plus an MCP server for on-demand checks | Projects where agents regularly change code in Python, Dart, Swift, Rust, TS/JS, C-family, shell, Make or CMake | `https://ai.memention.net/cards/code-health.md` |
+| **Code Health Feedback** ⚗️ (`code-health`) | Installs the aihealth code-health tool in the project's venv, pinned to a release, and wires it into Claude Code: hooks report new or worsened smells after each edit and before the agent finishes, plus an MCP server for on-demand checks | Projects where agents regularly change code in Python, Dart, Swift, Rust, TS/JS, C-family, shell, Make or CMake | `https://ai.memention.net/cards/code-health.md` |
 | **Agent Skills** (`skill:<name>` per copied skill, `plugin:<name>@anthropic-agent-skills` per plugin) | Installs reusable Claude Code skills for the project: copied into `.claude/skills/`, or enabled as plugins from Anthropic's official skills marketplace | Any project that benefits from shared, reusable skills (refactoring, planning, discovery, document creation, frontend design, MCP servers, etc.) | `https://github.com/epatel/agent-skills/` and `https://github.com/anthropics/skills` |
 
 Your scoping message to the user should include:
@@ -104,8 +104,9 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 - Trigger each new rule once to confirm it fires with the expected message
 
 **Code Health Feedback** (`code-health.md`) — ⚗️ *Experimental*:
-- Follow the card's "Applying it to a project" steps; the aihealth repo's `AGENT-INSTALL.md` ("For a project") holds the exact commands and JSON
-- Project scope only: `.mcp.json`, `.claude/settings.json` hooks (merged, keeping the `command -v` guard) and a short `CLAUDE.md` section. Ask before installing the CLI, since that installs it for the whole machine
+- Follow the card's "Applying it to a project" steps; the aihealth repo's `AGENT-INSTALL.md` ("In a project's venv") holds the exact commands and JSON
+- Install into the project's `.venv/` (gitignored), pinned to the latest release tag, and commit the pin (dev requirements, or the install command in `CLAUDE.md`). Never install it globally from this step
+- Wire `.venv/bin/aihealth` into `.mcp.json` and the `.claude/settings.json` hooks (merged, keeping the `[ -x … ]` guard), and add the short `CLAUDE.md` section
 - Run the baseline scan and report it; do not refactor what it finds unless the user asks
 
 **Agent Skills** (`https://github.com/epatel/agent-skills/`):
