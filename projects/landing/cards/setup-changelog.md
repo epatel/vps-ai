@@ -4,6 +4,12 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-11-07
+
+### New pattern: Code Health Feedback
+- Affects: new pattern `code-health`
+- Action: offer it, experimental. Recommend it when agents regularly change code in a language aihealth supports (Python, Dart/Flutter, Swift, Rust, TypeScript/JavaScript, C, C++, Objective-C, shell, Make, CMake); recommend declining for documentation-only repos and projects mostly in other languages. If accepted, follow `https://ai.memention.net/cards/code-health.md`: add the `aihealth` server to `.mcp.json`, merge its two guarded hooks into `.claude/settings.json`, add the short `## Code health` section to `CLAUDE.md`, and report a baseline scan. Ask before installing the CLI. No other project edits.
+
 ## 2026-11-04.3
 
 ### review-agentic-setup: reports when the setup record is behind
