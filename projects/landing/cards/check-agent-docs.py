@@ -108,48 +108,84 @@ VERSION_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(\.\d+)?$")
 PATTERN_RE = re.compile(r"^((skill:)?[a-z0-9][a-z0-9-]*|plugin:[a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*)$")
 
 
-def check_record(root):
-    path = root / ".claude" / "agent-setup.json"
-    rel = path.relative_to(root)
+def load_record(path, rel):
+    """The parsed setup record, or None after reporting why it can't be checked."""
     if not path.exists():
         report("WARN", rel, "no setup record; the next setup run cannot refresh, only update")
-        return
+        return None
     try:
         rec = json.loads(path.read_text())
     except (ValueError, UnicodeDecodeError) as e:
         report("ERROR", rel, f"not valid JSON ({e})")
-        return
+        return None
     if not isinstance(rec, dict):
         report("ERROR", rel, "must be a JSON object")
-        return
-    for key in ("version", "updated"):
-        if not VERSION_RE.match(str(rec.get(key, ""))):
-            report("ERROR", rel, f"{key!r} must be YYYY-MM-DD (optionally .N), got {rec.get(key)!r}")
+        return None
+    return rec
+
+
+def is_pattern_list(ids):
+    return isinstance(ids, list) and all(isinstance(i, str) and PATTERN_RE.match(i) for i in ids)
+
+
+def check_pattern_lists(rec, rel):
+    """Validate applied/declined; return {pattern ID: list it is in}."""
     seen = {}
     for key in ("applied", "declined"):
         ids = rec.get(key, [])
-        if not isinstance(ids, list) or not all(isinstance(i, str) and PATTERN_RE.match(i) for i in ids):
+        if not is_pattern_list(ids):
             report("ERROR", rel, f"{key!r} must be a list of pattern IDs like 'context-cards', 'skill:name' or 'plugin:name@marketplace'")
             continue
         for i in ids:
             if i in seen:
                 report("ERROR", rel, f"{i!r} is in both {seen[i]!r} and {key!r}")
             seen[i] = key
+    return seen
+
+
+def is_copied_entry(entry):
+    return (isinstance(entry, dict) and isinstance(entry.get("pattern"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", str(entry.get("sha256", ""))) is not None)
+
+
+def check_copied_entry(root, rel, p, entry):
+    if not is_copied_entry(entry):
+        report("ERROR", rel, f"copied entry for {p} must be {{\"pattern\": ID, \"sha256\": 64 hex chars}}")
+    elif not (root / p).exists():
+        report("ERROR", rel, f"copied file {p} does not exist")
+    elif hashlib.sha256((root / p).read_bytes()).hexdigest() != entry["sha256"]:
+        report("WARN", rel, f"{p} was edited since it was copied; a refresh will propose a merge, not a replace")
+
+
+def check_copied(root, rec, rel):
     copied = rec.get("copied", {})
     if not isinstance(copied, dict):
         report("ERROR", rel, "'copied' must map project paths to {pattern, sha256}")
-    else:
-        for p, entry in copied.items():
-            if not (isinstance(entry, dict) and isinstance(entry.get("pattern"), str)
-                    and re.fullmatch(r"[0-9a-f]{64}", str(entry.get("sha256", "")))):
-                report("ERROR", rel, f"copied entry for {p} must be {{\"pattern\": ID, \"sha256\": 64 hex chars}}")
-            elif not (root / p).exists():
-                report("ERROR", rel, f"copied file {p} does not exist")
-            elif hashlib.sha256((root / p).read_bytes()).hexdigest() != entry["sha256"]:
-                report("WARN", rel, f"{p} was edited since it was copied; a refresh will propose a merge, not a replace")
-    for i in seen:
-        if i.startswith("skill:") and seen[i] == "applied" and not (root / ".claude" / "skills" / i[6:] / "SKILL.md").exists():
-            report("ERROR", rel, f"{i} is applied but .claude/skills/{i[6:]}/SKILL.md is missing")
+        return
+    for p, entry in copied.items():
+        check_copied_entry(root, rel, p, entry)
+
+
+def check_applied_skills(root, seen, rel):
+    applied = (i for i, key in seen.items() if key == "applied" and i.startswith("skill:"))
+    for i in applied:
+        name = i.removeprefix("skill:")
+        if not (root / ".claude" / "skills" / name / "SKILL.md").exists():
+            report("ERROR", rel, f"{i} is applied but .claude/skills/{name}/SKILL.md is missing")
+
+
+def check_record(root):
+    path = root / ".claude" / "agent-setup.json"
+    rel = path.relative_to(root)
+    rec = load_record(path, rel)
+    if rec is None:
+        return
+    for key in ("version", "updated"):
+        if not VERSION_RE.match(str(rec.get(key, ""))):
+            report("ERROR", rel, f"{key!r} must be YYYY-MM-DD (optionally .N), got {rec.get(key)!r}")
+    seen = check_pattern_lists(rec, rel)
+    check_copied(root, rec, rel)
+    check_applied_skills(root, seen, rel)
 
 
 def main():
