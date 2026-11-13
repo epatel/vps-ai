@@ -4,6 +4,12 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-11-13
+
+### code-health: Go supported (aihealth 0.3.0)
+- Affects: code-health
+- Action: aihealth 0.3.0 scores Go. If the project applied code-health and has Go code, propose moving the pin to the latest tag (`git ls-remote --tags --refs https://github.com/epatel/ai-health | sed 's|.*/||' | sort -V | tail -1`): reinstall into `.venv/`, update the committed pin, and save a scan before and after (`--save`) so `aihealth history` marks the version. An older install silently skips `.go` files. If the project declined code-health because it is mostly Go, offer it again. Projects without Go code need no action; the upgrade does not change other languages' scores.
+
 ## 2026-11-08
 
 ### code-health: install in the project's venv, pinned to a release

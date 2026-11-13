@@ -18,19 +18,19 @@ Install it in the project's own venv and wire it in through the harness, not pro
 | MCP server | `.mcp.json` | Tools the agent calls itself: `review_changes`, `preview_change` (score proposed content before writing it), `score_file`, `scan_project`, `explain_smell` |
 | One CLAUDE.md section | `CLAUDE.md` | How to install the pinned version, and `.venv/bin/aihealth delta` before committing as the manual check |
 
-Supported: Python, Dart/Flutter, Swift/SwiftUI, Rust, TypeScript/TSX, JavaScript/JSX, C, C++, Objective-C(++), shell scripts (bash, zsh), Makefiles and CMake. Needs Python 3.11+ and git 2.24+, and works only in a git repository. The venv is a tool venv: a Flutter, Rust or JavaScript project gets one too.
+Supported: Python, Dart/Flutter, Swift/SwiftUI, Rust, Go, TypeScript/TSX, JavaScript/JSX, C, C++, Objective-C(++), shell scripts (bash, zsh), Makefiles and CMake. Needs Python 3.11+ and git 2.24+, and works only in a git repository. The venv is a tool venv: a Flutter, Rust or JavaScript project gets one too.
 
 ## Applying it to a project
 
 The install doc in the aihealth repo is the source of truth for exact commands and JSON: `https://github.com/epatel/ai-health/blob/main/AGENT-INSTALL.md`, section **In a project's venv**. Fetch it and follow it; if it differs from the summary below, it wins.
 
 1. **Pick the release.** Find the latest tag: `git ls-remote --tags --refs https://github.com/epatel/ai-health | sed 's|.*/||' | sort -V | tail -1`. Pin it; do not follow `main`. A new minor version can score the same code differently (see the repo's `CHANGELOG.md`).
-2. **Install into `.venv/`.** Create it with `python3 -m venv .venv` if the project has none, then `.venv/bin/pip install "git+https://github.com/epatel/ai-health@<tag>"` and check `.venv/bin/aihealth --version`. Make sure `.venv/` is in `.gitignore`. If aihealth is already in the venv, compare its version with the tag and offer the upgrade (see Rules of thumb). Never install it globally from this pattern.
+2. **Install into `.venv/`.** Create it with `python3 -m venv .venv` if the project has none (check `python3 --version` first: macOS ships 3.9, so use a 3.11+ interpreter such as `python3.12` from Homebrew or uv), then `.venv/bin/pip install "git+https://github.com/epatel/ai-health@<tag>"` and check `.venv/bin/aihealth --version`. Make sure `.venv/` is in `.gitignore`. If aihealth is already in the venv, compare its version with the tag and offer the upgrade (see Rules of thumb). Never install it globally from this pattern.
 3. **Commit the pin.** The venv is not committed, so the pin must live somewhere that is. A Python project with a dev requirements file or dev extras adds `aihealth @ git+https://github.com/epatel/ai-health@<tag>` there. Any other project puts the exact install command in the CLAUDE.md section (step 6).
 4. **`.mcp.json`** at the repo root: add the `aihealth` server with `"command": ".venv/bin/aihealth", "args": ["mcp"]`. Merge with existing servers; never replace the file. Project MCP servers need each person's approval the first time Claude Code sees them.
 5. **Hooks** in `.claude/settings.json`: merge the `PostToolUse` and `Stop` entries from the install doc into any hooks already there. Keep their `[ -x "$CLAUDE_PROJECT_DIR/.venv/bin/aihealth" ]` guard, so a clone that has not installed aihealth yet is not blocked.
 6. **CLAUDE.md:** add the short `## Code health` section from the install doc, plus the pinned install command when step 3 did not put it in a requirements file. Do not add rules the hooks already enforce.
-7. **Baseline:** run `.venv/bin/aihealth scan . --save --max-findings 5` and show the user the project score and worst files. `--save` keeps it in `.aihealth/health.db` (it gitignores itself) so later scans show the trend. If the scan includes generated code, vendored code or deliberately bad fixtures, propose an `.aihealth.toml` at the repo root with `[scan] exclude = [...]` for them.
+7. **Baseline:** run `.venv/bin/aihealth scan . --save --max-findings 5` and show the user the project score and worst files. `--save` keeps it in `.aihealth/health.db` (it gitignores itself) so later scans show the trend. Add `--report` if the user wants the full list as a file: it writes `AI-HEALTH.md` in the project (renders on GitHub; leave it uncommitted unless asked). If the scan includes generated code, vendored code or deliberately bad fixtures, propose an `.aihealth.toml` at the repo root with `[scan] exclude = [...]` for them.
 8. **Verify the hook** by running it once by hand. A real edit proves nothing, because the hook is silent on a healthy edit and on a broken one alike:
    ```bash
    echo "{\"cwd\":\"$PWD\",\"tool_input\":{\"file_path\":\"$PWD/<a supported file>\"}}" | .venv/bin/aihealth hook post-edit; echo "exit=$?"
@@ -51,4 +51,4 @@ Show each file change before making it. Do not commit unless asked.
 
 ## When to apply
 
-⚗️ Experimental. Recommend it when most of the code the agent edits is in a supported language and agents make regular code changes. Recommend declining for documentation-only repositories, for projects mostly in unsupported languages (Go, Java, Kotlin, C#, Ruby, PHP), and when the user does not want a tool from outside the project's own stack.
+⚗️ Experimental. Recommend it when most of the code the agent edits is in a supported language and agents make regular code changes. Recommend declining for documentation-only repositories, for projects mostly in unsupported languages (Java, Kotlin, C#, Ruby, PHP), and when the user does not want a tool from outside the project's own stack.
