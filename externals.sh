@@ -36,6 +36,8 @@ status_aisetup() {
   if [[ "$local_out" != "in sync with "* || "$local_out" == *$'\n'* || "$local_out" == *"needs writing"* ||
         "$live_out" != "live site matches site/" ]]; then
     echo "  next: run 'make setup_publish MSG=...' (= ai-setup make publish)"
+  else
+    echo "  up to date"
   fi
 }
 
