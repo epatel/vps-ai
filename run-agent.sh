@@ -104,6 +104,12 @@ git -C "$SCRIPT_DIR" worktree add -b "$BRANCH_NAME" "$WORKTREE_DIR" main 2>&1 ||
 
 echo "Worktree created at $WORKTREE_DIR"
 
+# Share the main checkout's gitignored tool venv (aihealth) so the code-health
+# hooks in .claude/settings.json run for this agent too; they no-op without it.
+if [[ -x "$SCRIPT_DIR/.venv/bin/aihealth" ]]; then
+  ln -s "$SCRIPT_DIR/.venv" "$WORKTREE_DIR/.venv"
+fi
+
 # Notify on the issue that the agent is starting
 python3 "$HELPER" post-comment-text "Agent is starting work on this issue..." "$ISSUE_NUM" "$GITHUB_REPO" "$GITHUB_TOKEN"
 

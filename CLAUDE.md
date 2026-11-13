@@ -35,6 +35,16 @@ When you commit a change that adds non-obvious logic, settles an architectural c
 - System prompt is loaded from `.system-prompt.md`
 - The agent has `--dangerously-skip-permissions` (full autonomy)
 
+## Code health
+- Before committing, run `.venv/bin/aihealth delta --base main` and fix new or worsened
+  smells it reports in code you touched (exit code 1 = health degraded). `--base main`
+  also covers work already committed on an `issue-N` branch, which the Stop hook
+  (uncommitted changes only) does not see.
+- `.venv/bin/aihealth scan .` gives an overview of the codebase.
+- Install (pinned; `.venv/` is a gitignored tool venv, separate from the services'
+  `venv/`): `python3 -m venv .venv && .venv/bin/pip install "git+https://github.com/epatel/ai-health@v0.3.1"`.
+  Issue worktrees get a `.venv` symlink to the main checkout's from `run-agent.sh`.
+
 ## Logs
 
 All gitignored:

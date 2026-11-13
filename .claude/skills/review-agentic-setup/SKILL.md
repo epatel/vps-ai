@@ -37,6 +37,8 @@ Enumerate every agentic asset. Typical locations:
 
 Build the inventory as a table (file, kind, size, last modified) before reviewing anything. If the tree is large, prefer batch/sandboxed execution over reading raw output into context.
 
+**Setup version.** If `.claude/agent-setup.json` exists, compare its `version` with the `Version:` line at the top of https://ai.memention.net/setup. Versions are `YYYY-MM-DD` with optional `.2`, `.3`, and compare as strings. If the record is older, read the changelog that line links to and list the entries newer than the record whose `Affects:` names something in the record's `applied` or `copied`. `skill:*` matches any applied skill, and entries that offer a new pattern or skill count too. This review does not apply them: report them under "Setup refresh due" and tell the user to run the setup's refresh mode (ask Claude to refresh the setup from https://ai.memention.net/setup). If the page cannot be fetched, say the version was not checked.
+
 ## Phase 2 — Review
 
 Review each asset against `references/rubric.md` (read it now). Classify every finding:
@@ -77,6 +79,7 @@ Finish with a summary the user can act on:
 
 1. What was changed (project-local), grouped by file, from the changelog.
 2. What was proposed but not applied (upstream-owned files; the path to the global update plan, if Phase 4 ran).
+   If the setup record is behind, add a **Setup refresh due** line: record version → current version, plus the pending changelog items from Phase 1.
 3. Open QUESTIONs needing a human decision.
 4. A one-line health verdict of the setup and when to re-run this skill (after major model/harness releases, or ~quarterly).
 

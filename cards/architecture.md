@@ -31,6 +31,8 @@ The guard is therefore in two parts:
 
 `run-agent.sh` runs under `set -euo pipefail`, so any failed step aborts it. An `EXIT` trap (`report_failure`) catches a non-zero exit and posts a failure comment naming the stage that died (tracked in `$STAGE`), the exit code, and the last 2 KB of `.agent-issue-N.output` — falling back to `.agent-issue-N.log` when the agent produced no output. On failure the issue is left open and the worktree is left in place for debugging; the next run for that issue removes it.
 
+Right after creating the worktree, `run-agent.sh` symlinks the main checkout's gitignored `.venv/` (the aihealth tool venv) into it when `.venv/bin/aihealth` exists. The code-health hooks in `.claude/settings.json` resolve aihealth through `$CLAUDE_PROJECT_DIR/.venv` and silently do nothing without it, so a server with no `.venv/` simply runs agents without code-health feedback. `.gitignore` lists `.venv` without a trailing slash so the symlink is ignored too. The `Stop` hook only scores *uncommitted* changes against `HEAD`, and issue agents commit before finishing, so `.system-prompt.md` has them run `aihealth delta --base main` explicitly; the per-edit `PostToolUse` hook is unaffected. The `aihealth` MCP server in `.mcp.json` needs interactive approval, so headless agent runs should not be assumed to have it.
+
 ## Components
 
 | File | Role |

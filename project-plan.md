@@ -28,6 +28,11 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
   (bcbd8a0; none had local edits) and applied the 2026-10-16.3 card-maintenance
   wording to `CLAUDE.md`. Setup refreshed to v2026-11-04.2: installed
   `double-check`; declined Known Stack and `minimal-repro`.
+- 2026-11-13 — Setup refreshed to v2026-11-13: re-copied `review-agentic-setup`
+  (940b48c) and applied Code Health Feedback. aihealth v0.3.1 lives in a
+  gitignored tool venv `.venv/` (kept apart from the services' `venv/`), and
+  `run-agent.sh` symlinks it into each issue worktree so server agents get the
+  hooks too. Baseline: project score 6.71.
 - 2026-10-15 — Re-ran `ai.memention.net/setup` (v2026-10-15, update mode). Added
   Standing Defaults (copied card; this repo keeps `venv/`, which `hooks/post-merge`
   expects) and Hooks Over Prose (a `PreToolUse` hook blocks edits to files listed
