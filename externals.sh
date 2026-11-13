@@ -21,31 +21,46 @@ DIR="${DIR:-vps-ai}"
 LIVE="${LIVE:-https://ai.memention.net}"
 AIHEALTH_REPO="https://github.com/epatel/ai-health"
 
-remote() { ssh -o BatchMode=yes "$VPS" "cd $DIR && $1"; }
+# Fail fast when the server is down instead of waiting on OS connect timeouts.
+remote() { ssh -o BatchMode=yes -o ConnectTimeout=5 "$VPS" "cd $DIR && $1"; }
+fetch() { curl -fsL --connect-timeout 5 --max-time 15 "$@"; }
+SERVER_UP=1
+probe_server() {
+  fetch -o /dev/null "$LIVE/" 2>/dev/null && return
+  SERVER_UP=0
+  echo "!! $LIVE is unreachable: skipping live-site and server checks"
+}
 version_of() { grep -Eo '[0-9]+(\.[0-9]+)+' | head -1; }
 
 status_aisetup() {
   echo "== ai-setup ($AISETUP) -> projects/landing/"
   [ -d "$AISETUP" ] || { echo "  not checked out"; return; }
   echo "  repo: $(git -C "$AISETUP" log -1 --format='%h %cs %s')"
-  local local_out live_out
+  local local_out live_out="live site: skipped (server unreachable)"
   local_out="$(make --no-print-directory -C "$AISETUP" status VPS="$PWD" 2>&1 || true)"
-  live_out="$(make --no-print-directory -C "$AISETUP" live_diff 2>&1 || true)"
+  [ "$SERVER_UP" = 0 ] || live_out="$(make --no-print-directory -C "$AISETUP" live_diff 2>&1 || true)"
   printf '%s\n%s\n' "$local_out" "$live_out" | sed 's/^/  /'
-  # Clean output is exactly one "in sync with <path>" line and "live site matches site/".
-  if [[ "$local_out" != "in sync with "* || "$local_out" == *$'\n'* || "$local_out" == *"needs writing"* ||
-        "$live_out" != "live site matches site/" ]]; then
-    echo "  next: run 'make setup_publish MSG=...' (= ai-setup make publish)"
-  else
+  if [ "$SERVER_UP" = 0 ]; then
+    echo "  live site not checked"
+  elif aisetup_clean "$local_out" "$live_out"; then
     echo "  up to date"
+  else
+    echo "  next: run 'make setup_publish MSG=...' (= ai-setup make publish)"
   fi
+}
+
+# Clean output is exactly one "in sync with <path>" line and "live site matches site/".
+aisetup_clean() {
+  [[ "$1" == "in sync with "* && "$1" != *$'\n'* && "$1" != *"needs writing"* &&
+     "$2" == "live site matches site/" ]]
 }
 
 status_record() {
   echo "== setup record (.claude/agent-setup.json)"
   local applied live
   applied="$(python3 -I -c 'import json; print(json.load(open(".claude/agent-setup.json"))["version"])')"
-  live="$(curl -fsL "$LIVE/setup" | sed -n 's/^Version: \([^ ]*\).*/\1/p' | head -1)"
+  live=""
+  [ "$SERVER_UP" = 0 ] || live="$(fetch "$LIVE/setup" | sed -n 's/^Version: \([^ ]*\).*/\1/p' | head -1 || true)"
   echo "  applied: $applied   live: ${live:-unreachable}"
   if [[ -n "$live" && "$live" > "$applied" ]]; then
     echo "  next: refresh — ask Claude in this repo to 'read $LIVE/setup and apply it' (update mode)"
@@ -80,14 +95,24 @@ status_aihealth() {
   pinned="$(grep -o 'ai-health@v[0-9.]*' CLAUDE.md | head -1 | version_of)"
   latest="$(git ls-remote --tags --refs "$AIHEALTH_REPO" | sed 's|.*/||' | sort -V | tail -1 | version_of)"
   localv="$( (.venv/bin/aihealth --version 2>/dev/null || true) | version_of)"
-  serverv="$( (remote '.venv/bin/aihealth --version' 2>/dev/null || true) | version_of)"
+  serverv=""
+  [ "$SERVER_UP" = 0 ] || serverv="$( (remote '.venv/bin/aihealth --version' 2>/dev/null || true) | version_of)"
   echo "  pinned: ${pinned:-?}  latest: ${latest:-?}  local: ${localv:-none}  server: ${serverv:-none}"
-  if [ "$latest" != "$pinned" ]; then
-    echo "  next: make aihealth_update V=v$latest  (scores can shift between versions)"
-  elif [ "$localv" != "$pinned" ] || [ "$serverv" != "$pinned" ]; then
-    echo "  next: make aihealth_update V=v$pinned  (reinstall the pinned version)"
+  echo "  $(aihealth_next "$pinned" "$latest" "$localv" "$serverv")"
+}
+
+# aihealth_next PINNED LATEST LOCAL SERVER -> the next step for ai-health.
+aihealth_next() {
+  if [ "$2" != "$1" ]; then
+    echo "next: make aihealth_update V=v$2  (scores can shift between versions)"
+  elif [ "$3" != "$1" ]; then
+    echo "next: make aihealth_update V=v$1  (reinstall the pinned version)"
+  elif [ "$SERVER_UP" = 0 ]; then
+    echo "local up to date (server not checked)"
+  elif [ "$4" != "$1" ]; then
+    echo "next: make aihealth_update V=v$1  (reinstall the pinned version)"
   else
-    echo "  up to date"
+    echo "up to date"
   fi
 }
 
@@ -105,7 +130,7 @@ cmd_aihealth() {
 }
 
 case "${1:-}" in
-  status)   status_aisetup; status_record; status_skills; status_aihealth ;;
+  status)   probe_server; status_aisetup; status_record; status_skills; status_aihealth ;;
   aihealth) shift; cmd_aihealth "$@" ;;
   *)        echo "usage: $0 status | aihealth <tag>" >&2; exit 2 ;;
 esac

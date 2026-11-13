@@ -8,7 +8,7 @@ VPS     ?= epatel@ai.memention.net
 DIR     ?= vps-ai
 WAIT    ?= 60
 AISETUP ?= ../ai-setup
-SSH     := ssh -o BatchMode=yes $(VPS)
+SSH     := ssh -o BatchMode=yes -o ConnectTimeout=5 $(VPS)
 EXT     := VPS="$(VPS)" DIR="$(DIR)" AISETUP="$(AISETUP)" bash externals.sh
 
 info: menu select

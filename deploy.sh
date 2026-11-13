@@ -15,7 +15,7 @@ DIR="${DIR:-vps-ai}"
 WAIT="${WAIT:-60}"
 
 die() { echo "deploy: $*" >&2; exit 1; }
-remote() { ssh -o BatchMode=yes "$VPS" "cd $DIR && $1"; }
+remote() { ssh -o BatchMode=yes -o ConnectTimeout=5 "$VPS" "cd $DIR && $1"; }
 server_head() { remote "git rev-parse HEAD"; }
 
 preflight() {
