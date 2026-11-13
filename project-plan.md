@@ -33,6 +33,9 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
   gitignored tool venv `.venv/` (kept apart from the services' `venv/`), and
   `run-agent.sh` symlinks it into each issue worktree so server agents get the
   hooks too. Baseline: project score 6.71.
+- 2026-11-13 — Setup refreshed to v2026-11-13.2: re-copied `review-agentic-setup`
+  (2d8dd9a, project scope only; no local edits, no `GLOBAL_UPDATE_PLAN_*` files
+  to clean up).
 - 2026-10-15 — Re-ran `ai.memention.net/setup` (v2026-10-15, update mode). Added
   Standing Defaults (copied card; this repo keeps `venv/`, which `hooks/post-merge`
   expects) and Hooks Over Prose (a `PreToolUse` hook blocks edits to files listed

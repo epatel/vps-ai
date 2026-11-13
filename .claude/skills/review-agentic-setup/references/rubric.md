@@ -50,10 +50,6 @@ Checks per asset type. Every check names the finding class it usually produces (
 - Permission allowlist entries for tools/commands no longer used → REDUNDANT (list them, don't silently remove — QUESTION if unsure).
 - MCP servers configured but unreachable → QUESTION (may be environment-specific).
 
-## Global setup (report-only, Phase 4)
+## Skill placement
 
-All checks above, plus:
-
-- **Blast radius** — for each proposed change, note which kinds of projects rely on it. A global skill's description change affects triggering everywhere.
-- **Global vs local placement** — skills default to project level. A global skill that is domain-specific (refactoring, design tokens, a framework, a document type) rather than wanted in every project → GAP: propose copying it into the projects that use it (`.claude/skills/`, committed) and removing the global copy once none rely on it. A project that uses a global-only skill → GAP in that project (Phase 3: copy it in). A global plugin install that a project depends on → propose `--scope project`. Project instruction duplicated across many CLAUDE.md files → propose promoting to global.
-- **Index/registration consistency** — global CLAUDE.md mentions of skills/triggers must match skills actually present in `~/.claude/skills/`.
+- A project that depends on a skill found only in `~/.claude/skills/` → GAP: copy it into `.claude/skills/` (committed). A plugin the project needs that is installed only at user scope → GAP: propose enabling it with `--scope project`. Report the personal copy as redundant; never change `~/.claude/`.

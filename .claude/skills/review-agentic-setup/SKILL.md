@@ -1,6 +1,6 @@
 ---
 name: review-agentic-setup
-description: Review and modernize a project's agentic setup — CLAUDE.md / AGENTS.md, agent docs (cards/ index, per-feature CLAUDE.md / CLAUDE_full.md, project-plan.md), local .claude/ skills, agents, commands, and hooks — against the capabilities of the model currently running this skill. Applies updates to project-local files directly; on request it also reviews global files (~/.claude/skills, ~/.claude/CLAUDE.md) and produces an update plan, never edits. Use when the user asks to review, refresh, audit, or modernize the agentic/Claude setup of a project, when instruction files reference outdated models or tools, or periodically as models and tooling improve. Trigger: /review-agentic-setup [path]
+description: Review and modernize a project's agentic setup — CLAUDE.md / AGENTS.md, agent docs (cards/ index, per-feature CLAUDE.md / CLAUDE_full.md, project-plan.md), local .claude/ skills, agents, commands, and hooks — against the capabilities of the model currently running this skill. Applies updates to project-local files only; it never reviews or edits ~/.claude. Use when the user asks to review, refresh, audit, or modernize the agentic/Claude setup of a project, when instruction files reference outdated models or tools, or periodically as models and tooling improve. Trigger: /review-agentic-setup [path]
 ---
 
 # Review Agentic Setup
@@ -14,7 +14,7 @@ Target: the project at `[path]` if given, else the current working directory.
 ## Ground rules
 
 - **Project-local files: apply updates directly.** Surgical edits, smallest diff that fixes the finding. Never rewrite a file wholesale when editing sections will do.
-- **Global files (`~/.claude/skills/`, `~/.claude/CLAUDE.md`, `~/.claude/agents/`, `~/.claude/settings.json`): read-only.** Review them only when the user asks (Phase 4). Never edit, move, or delete anything under `~/.claude/` — global changes affect every project and the user applies them deliberately.
+- **Project scope only.** Review and change files inside the target project. Do not review, edit, move, or delete anything under `~/.claude/`: personal setup affects every project and is outside this skill. Look there only to find a skill the project depends on (Phase 3).
 - **Upstream-owned files: report, don't edit.** If `.claude/agent-setup.json` exists, the project follows https://ai.memention.net/setup. Skills it records as `skill:<name>` and files under `copied` come from upstream, and a setup refresh replaces them. For those, put findings in the report as proposed upstream changes and leave the files as they are. Everything else the setup wrote (CLAUDE.md, cards it generated) is project-local.
 - **Preserve intent.** If an instruction looks odd but you can't show it's obsolete, keep it and flag it as a question in the report instead of deleting it. User-authored constraints (e.g. "never use library X") are policy, not rot.
 - **Verify before declaring rot.** An instruction referencing a path, binary, command, or model is only stale if you checked that the referent is actually gone or renamed. Run the check (`ls`, `which`, `--help`) — don't assume.
@@ -33,7 +33,6 @@ Enumerate every agentic asset. Typical locations:
 | Local commands | `.claude/commands/*.md` (legacy — candidates for skill conversion) |
 | Settings & hooks | `.claude/settings.json`, `.claude/settings.local.json` (hooks, permissions, MCP) |
 | Skill libraries | plugin-style dirs like `skill-library/*/skills/*/SKILL.md`, `.claude-plugin/plugin.json` |
-| Global (read-only, Phase 4 only) | `~/.claude/CLAUDE.md` + its `@` imports, `~/.claude/skills/`, `~/.claude/agents/`, `~/.claude/settings.json` |
 
 Build the inventory as a table (file, kind, size, last modified) before reviewing anything. If the tree is large, prefer batch/sandboxed execution over reading raw output into context.
 
@@ -55,34 +54,21 @@ Cross-file pass after per-file review: contradictions between CLAUDE.md, cards, 
 Fix ROT, REDUNDANT, and GAP findings in project-local files only.
 
 - Skills: keep `SKILL.md` lean (frontmatter + when-to-use + how-to-run); push long material to sibling reference files loaded on demand. Descriptions must be trigger-rich — state *when* to use, including indirect phrasings — since the description is all the model sees before deciding to load it.
-- Skill placement: skills belong at project level. If the project depends on a skill that exists only under `~/.claude/skills/`, copy it into `.claude/skills/` (a real directory, not a symlink) so collaborators and fresh clones get it. Mention the now-redundant global copy in the report; never remove it yourself.
+- Skill placement: skills belong at project level. If the project depends on a skill that exists only under `~/.claude/skills/`, copy it into `.claude/skills/` (a real directory, not a symlink) so collaborators and fresh clones get it. Mention that the personal copy is now redundant here; never remove it yourself.
 - CLAUDE.md: it loads into every session — every line costs context forever. Move task-specific material into cards/skills with a routing line ("read X when doing Y") instead.
 - Verify each edit: referenced paths exist, referenced commands run, `@` imports resolve, card manifest entries match actual files.
 - Keep a running changelog of every edit (file, finding class, one-line rationale) for the report.
 
-## Phase 4 — Global review (on request, plan only)
-
-Skip this phase unless the user asked for a global review (for example "include global", "review my ~/.claude too"). Otherwise, end the report with one line offering it.
-
-Review `~/.claude/skills/*`, `~/.claude/CLAUDE.md` and its imports, and `~/.claude/agents/` with the same rubric, but **write no changes**. Instead produce `GLOBAL_UPDATE_PLAN_<YYYY-MM-DD>.md` in the target project root. It is about the user's machine, not the project: in a git repo, add `GLOBAL_UPDATE_PLAN_*.md` to `.git/info/exclude` (local, never committed) unless `.gitignore` already covers it, so the plan is not committed by accident. Per finding, the plan contains:
-
-- File and location
-- Finding class (ROT / REDUNDANT / GAP / QUESTION) and rationale
-- The concrete proposed edit — exact replacement text or a precise diff-style description, ready to apply verbatim in a later session
-- Risk note: what other projects/sessions could be affected
-
-Order the plan by impact, safe-and-obvious fixes first. End it with a one-command hint for applying it later (e.g. "open this file in any session and ask Claude to apply section N").
-
-## Phase 5 — Report
+## Phase 4 — Report
 
 Finish with a summary the user can act on:
 
 1. What was changed (project-local), grouped by file, from the changelog.
-2. What was proposed but not applied (upstream-owned files; the path to the global update plan, if Phase 4 ran).
+2. What was proposed but not applied (upstream-owned files).
    If the setup record is behind, add a **Setup refresh due** line: record version → current version, plus the pending changelog items from Phase 1.
 3. Open QUESTIONs needing a human decision.
 4. A one-line health verdict of the setup and when to re-run this skill (after major model/harness releases, or ~quarterly).
 
 ## Re-running
 
-The skill is idempotent by design: on a healthy setup it should produce near-zero findings. If a previous `GLOBAL_UPDATE_PLAN_*.md` exists, read it first — unapplied items either carry forward or get dropped with a stated reason.
+The skill is idempotent by design: on a healthy setup it should produce near-zero findings.
