@@ -44,6 +44,7 @@ Right after creating the worktree, `run-agent.sh` symlinks the main checkout's g
 | `post-progress.sh` | Lets running agents post progress to the issue |
 | `hooks/post-merge` | Restarts systemd services when their files change (Flutter web is built by GitHub Actions) |
 | `setup-hooks.sh` | Installs git hooks from `hooks/` |
+| `Makefile`, `deploy.sh`, `deploy-server.sh`, `externals.sh` | Local action menu: deploy + verify, server status, external-source checks |
 | `setup-server.sh` | One-time server provisioning |
 | `.system-prompt.md` | System prompt given to every agent |
 | `.env.issues` | Config (gitignored) |

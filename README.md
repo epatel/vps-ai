@@ -67,6 +67,12 @@ graph TD
 - Adding a new Flutter project requires no workflow changes — any `projects/*/` directory with a `pubspec.yaml` is auto-detected
 - The [status page](https://ai.memention.net/status) shows a "Recent Events" panel; CI posts deploy results there via `POST /status/log`
 
+From a local checkout, `make` gives a menu of the common actions:
+
+- `make deploy` — checks, pushes `main`, waits for the server to pull it (or pulls it directly), then runs the steps a pull skips: reinstalling changed git hooks and restarting the webhook receiver when it changed
+- `make externals` — reports what is out of date from the repos this one copies from (the agent-setup docs, agent skills, the aihealth tool)
+- `make server_status`, `make logs`, `make run_issue N=<n>`
+
 ## Setup
 
 ```bash

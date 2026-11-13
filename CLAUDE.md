@@ -23,6 +23,7 @@ Lazy-loaded reference cards under `cards/`. Open one when its trigger matches:
 - [nginx-conventions](cards/nginx-conventions.md) — serving a project through nginx, location-block rules
 - [status-page](cards/status-page.md) — registering a project with the status monitor and the `/status/log` event endpoint
 - [landing-page](cards/landing-page.md) — the root landing page, adding a project card, and standalone pages served from `projects/landing/<name>/`
+- [external-sources](cards/external-sources.md) — updating anything that comes from ai-setup, agent-skills or ai-health (setup docs/cards, `.claude/skills/`, the aihealth pin) and the order to apply it
 - [standing-defaults](cards/standing-defaults.md) — before adding Python dependencies or a persisted schema to a project (here the venv is `venv/`, not `.venv/`: `hooks/post-merge` only reinstalls requirements into `venv/`)
 
 When you commit a change that adds non-obvious logic, settles an architectural choice, or makes a card above wrong, update or add the card in that commit and keep this index in sync. Proposed diffs and answers need no card edits. Cards stay self-contained: no card links to another.
@@ -53,6 +54,12 @@ All gitignored:
 - `.agent-issue-N.output` — raw Claude output (used for comment extraction)
 
 ## Manual commands
+
+`make` shows a numbered menu (run from a local checkout; server targets go over ssh).
+`make externals` checks ai-setup / agent-skills / ai-health; `make deploy` pushes
+`main` and confirms the server pulled it (`deploy.sh` local, `deploy-server.sh` on
+the server: reinstalls changed git hooks, restarts `vps-ai-webhook` when
+`webhook-receiver.py` changed, warns about nginx/unit-file changes).
 
 ```bash
 # Run monitor manually for a specific issue.
