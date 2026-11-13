@@ -1,0 +1,4 @@
+# aihealth config (code-health feedback; see the "Code health" section in CLAUDE.md).
+[scan]
+# Code nobody edits here: a vendored library and skills copied from epatel/agent-skills.
+exclude = ["projects/bellman/vendor/**", ".claude/skills/**"]
