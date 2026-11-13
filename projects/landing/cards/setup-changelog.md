@@ -4,6 +4,12 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-11-13.2
+
+### review-agentic-setup: project scope only
+- Affects: skill:review-agentic-setup
+- Action: re-copy `review-agentic-setup` from `https://github.com/epatel/agent-skills` (replace the directory if the project did not edit it, else propose a merge). The skill no longer reviews `~/.claude` or writes a `GLOBAL_UPDATE_PLAN_*.md`, so it no longer offers a global review either. It still copies a skill found only in `~/.claude/skills/` into the project. If the project has a `GLOBAL_UPDATE_PLAN_*.md` and a matching line in `.git/info/exclude` from an earlier run, tell the user. Those files are theirs to keep or delete. No other project edits.
+
 ## 2026-11-13
 
 ### code-health: Go supported (aihealth 0.3.0)
