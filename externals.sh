@@ -28,9 +28,15 @@ status_aisetup() {
   echo "== ai-setup ($AISETUP) -> projects/landing/"
   [ -d "$AISETUP" ] || { echo "  not checked out"; return; }
   echo "  repo: $(git -C "$AISETUP" log -1 --format='%h %cs %s')"
-  { make --no-print-directory -C "$AISETUP" status VPS="$PWD" 2>&1 || true; } | sed 's/^/  /'
-  { make --no-print-directory -C "$AISETUP" live_diff 2>&1 || true; } | sed 's/^/  /'
-  echo "  next: if anything differs, run 'make setup_publish MSG=...' (= ai-setup make publish)"
+  local local_out live_out
+  local_out="$(make --no-print-directory -C "$AISETUP" status VPS="$PWD" 2>&1 || true)"
+  live_out="$(make --no-print-directory -C "$AISETUP" live_diff 2>&1 || true)"
+  printf '%s\n%s\n' "$local_out" "$live_out" | sed 's/^/  /'
+  # Clean output is exactly one "in sync with <path>" line and "live site matches site/".
+  if [[ "$local_out" != "in sync with "* || "$local_out" == *$'\n'* || "$local_out" == *"needs writing"* ||
+        "$live_out" != "live site matches site/" ]]; then
+    echo "  next: run 'make setup_publish MSG=...' (= ai-setup make publish)"
+  fi
 }
 
 status_record() {
