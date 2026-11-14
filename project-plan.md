@@ -47,6 +47,11 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
   The live nginx site config is tracked verbatim in `nginx/ai.memention.net.conf`:
   live edits get copied back (`make nginx_pull`, or `cp` from an agent worktree),
   and `make server_status` reports drift. Locked.
+- 2026-11-14 — Setup refreshed to v2026-11-14.3:
+  - Copied `review-agentic-setup` again (0b639fe: report-only mode, numeric version compare) and `project-discovery` (asks first, installs into the gitignored `.venv-tools/project-discovery/`). Neither had local edits.
+  - Replaced the copied `cards/standing-defaults.md`, which was unedited (migration runner refuses a newer database).
+  - Recorded tools in `.claude/agent-setup.json`: aihealth v0.3.1 in the project venv, python ≥3.11, git ≥2.24.
+  - No project has a `migrate()` copied from the card, so no code changed.
 
 ## Current state / handoff
 

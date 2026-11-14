@@ -1,6 +1,6 @@
 ---
 name: review-agentic-setup
-description: Review and modernize a project's agentic setup — CLAUDE.md / AGENTS.md, agent docs (cards/ index, per-feature CLAUDE.md / CLAUDE_full.md, project-plan.md), local .claude/ skills, agents, commands, and hooks — against the capabilities of the model currently running this skill. Applies updates to project-local files only; it never reviews or edits ~/.claude. Use when the user asks to review, refresh, audit, or modernize the agentic/Claude setup of a project, when instruction files reference outdated models or tools, or periodically as models and tooling improve. Trigger: /review-agentic-setup [path]
+description: Review and modernize a project's agentic setup — CLAUDE.md / AGENTS.md, agent docs (cards/ index, per-feature CLAUDE.md / CLAUDE_full.md, project-plan.md), local .claude/ skills, agents, commands, and hooks — against the capabilities of the model currently running this skill. Applies updates to project-local files only, or only reports them with --report-only (as the ai.memention.net setup does before scoping); it never reviews or edits ~/.claude. Use when the user asks to review, refresh, audit, or modernize the agentic/Claude setup of a project, when instruction files reference outdated models or tools, or periodically as models and tooling improve. Trigger: /review-agentic-setup [--report-only] [path]
 ---
 
 # Review Agentic Setup
@@ -11,9 +11,14 @@ Agentic setups (instruction files, skills, agent docs) are written against the m
 
 Target: the project at `[path]` if given, else the current working directory.
 
+**Mode.** The default mode applies fixes. **Report-only** writes nothing:
+- **When:** the user passes `--report-only`, says to only report, audit or not change anything, or another procedure calls this skill as an assessment step. The ai.memention.net setup calls it this way before presenting scope.
+- **What runs:** Phases 1, 2 and 4. Phase 3 is skipped.
+- **What the report holds:** every ROT, REDUNDANT and GAP finding goes under "Proposed changes" with the exact edit it would make, so the caller can apply the ones the user confirms.
+
 ## Ground rules
 
-- **Project-local files: apply updates directly.** Surgical edits, smallest diff that fixes the finding. Never rewrite a file wholesale when editing sections will do.
+- **Project-local files: apply updates directly** (default mode only; in report-only mode, propose them). Surgical edits, smallest diff that fixes the finding. Never rewrite a file wholesale when editing sections will do.
 - **Project scope only.** Review and change files inside the target project. Do not review, edit, move, or delete anything under `~/.claude/`: personal setup affects every project and is outside this skill. Look there only to find a skill the project depends on (Phase 3).
 - **Upstream-owned files: report, don't edit.** If `.claude/agent-setup.json` exists, the project follows https://ai.memention.net/setup. Skills it records as `skill:<name>` and files under `copied` come from upstream, and a setup refresh replaces them. For those, put findings in the report as proposed upstream changes and leave the files as they are. Everything else the setup wrote (CLAUDE.md, cards it generated) is project-local.
 - **Preserve intent.** If an instruction looks odd but you can't show it's obsolete, keep it and flag it as a question in the report instead of deleting it. User-authored constraints (e.g. "never use library X") are policy, not rot.
@@ -36,7 +41,7 @@ Enumerate every agentic asset. Typical locations:
 
 Build the inventory as a table (file, kind, size, last modified) before reviewing anything. If the tree is large, prefer batch/sandboxed execution over reading raw output into context.
 
-**Setup version.** If `.claude/agent-setup.json` exists, compare its `version` with the `Version:` line at the top of https://ai.memention.net/setup. Versions are `YYYY-MM-DD` with optional `.2`, `.3`, and compare as strings. If the record is older, read the changelog that line links to and list the entries newer than the record whose `Affects:` names something in the record's `applied` or `copied`. `skill:*` matches any applied skill, and entries that offer a new pattern or skill count too. This review does not apply them: report them under "Setup refresh due" and tell the user to run the setup's refresh mode (ask Claude to refresh the setup from https://ai.memention.net/setup). If the page cannot be fetched, say the version was not checked.
+**Setup version.** If `.claude/agent-setup.json` exists, compare its `version` with the `Version:` line at the top of https://ai.memention.net/setup. Versions are `YYYY-MM-DD` with optional `.2`, `.3`. Compare the date, then the suffix as a number, with no suffix counting as 1 (`2026-11-13.10` is newer than `2026-11-13.2`). If the record is older, read the changelog that line links to and list the entries newer than the record whose `Affects:` names something in the record's `applied` or `copied`. `skill:*` matches any applied skill, and entries that offer a new pattern or skill count too. This review does not apply them: report them under "Setup refresh due" and tell the user to run the setup's refresh mode (ask Claude to refresh the setup from https://ai.memention.net/setup). If the page cannot be fetched, say the version was not checked.
 
 ## Phase 2 — Review
 
@@ -51,6 +56,8 @@ Cross-file pass after per-file review: contradictions between CLAUDE.md, cards, 
 
 ## Phase 3 — Apply project-local updates
 
+Skip this phase in report-only mode: write nothing, and carry each fix into the report as a proposed change.
+
 Fix ROT, REDUNDANT, and GAP findings in project-local files only.
 
 - Skills: keep `SKILL.md` lean (frontmatter + when-to-use + how-to-run); push long material to sibling reference files loaded on demand. Descriptions must be trigger-rich — state *when* to use, including indirect phrasings — since the description is all the model sees before deciding to load it.
@@ -63,7 +70,7 @@ Fix ROT, REDUNDANT, and GAP findings in project-local files only.
 
 Finish with a summary the user can act on:
 
-1. What was changed (project-local), grouped by file, from the changelog.
+1. What was changed (project-local), grouped by file, from the changelog. In report-only mode: **Proposed changes** instead, grouped by file, each with its finding class and the exact edit, and a note that nothing was written.
 2. What was proposed but not applied (upstream-owned files).
    If the setup record is behind, add a **Setup refresh due** line: record version → current version, plus the pending changelog items from Phase 1.
 3. Open QUESTIONs needing a human decision.

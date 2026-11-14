@@ -10,3 +10,4 @@ projects/*/build/
 projects/status-page/.events.jsonl
 agents-lab/
 .venv
+.venv-tools/
