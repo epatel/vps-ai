@@ -1,6 +1,6 @@
 # Project Setup — ai.memention.net
 
-Version: 2026-11-14.3 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
+Version: 2026-11-14.4 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
 
 You are setting up a project with structured AI-agent documentation patterns.
 Follow the steps below in order. Reading this file again in a project that already
@@ -111,12 +111,12 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 
 **Code Health Feedback** (`code-health.md`) — ⚗️ *Experimental*:
 - Follow the card's "Applying it to a project" steps; the aihealth repo's `AGENT-INSTALL.md` ("In a project's venv") holds the exact commands and JSON
-- Get aihealth and a Python 3.11+ interpreter through *Installing tools*: use a suitable existing copy, or install where the user chooses (default: the project's gitignored `.venv/`), pinned to the latest release tag. Commit the pin (dev requirements, or the install command in `CLAUDE.md`). Install outside the project only when the user picks that option
+- Get aihealth and a Python 3.11+ interpreter through *Installing tools*: use a suitable existing copy, or install where the user chooses (default: the project's gitignored `.venv/`), pinned to the commit of the latest release tag (the card shows how to resolve it; a tag can be moved, a commit cannot). Commit the pin (dev requirements, or the install command in `CLAUDE.md`). Install outside the project only when the user picks that option
 - Wire `.venv/bin/aihealth` into `.mcp.json` and the `.claude/settings.json` hooks (merged, keeping the `[ -x … ]` guard), and add the short `CLAUDE.md` section
 - Run the baseline scan and report it; do not refactor what it finds unless the user asks
 
 **Agent Skills** (`https://github.com/epatel/agent-skills/`):
-- Clone the repo and copy the desired skill directories into the project's `.claude/skills/` directory (one directory per skill, each containing its `SKILL.md` and any `references/` or `scripts/`)
+- Clone the **latest release tag**, not `main`, and copy the desired skill directories into the project's `.claude/skills/` directory (one directory per skill, each containing its `SKILL.md` and any `references/` or `scripts/`). Releases are tagged `vYYYY.MM.DD`, with `.2`, `.3` for later releases the same day. Record the tag as `skills_release` in the setup record, so a refresh knows which release the copies came from. If the repo has no tags yet, clone the default branch and say so
 - The repo's `README.md` lists every available skill with a one-line purpose — read it after cloning and recommend from that list rather than from memory
 - `review-agentic-setup` reviews and modernizes an existing agentic setup (CLAUDE.md, cards, skills, hooks) against the current model — install it whenever the project already has structure, and run it as the first step in **update** mode
 - Install only the skills relevant to the project — ask the user which ones if unsure
@@ -126,8 +126,11 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 - Skills live-reload: an installed skill is available in the current session. If `.claude/skills/` did not exist when the session started, run `/reload-skills` (or tell the user to)
 - Example:
   ```bash
-  SRC=$(mktemp -d)
-  git clone --depth 1 https://github.com/epatel/agent-skills.git "$SRC"
+  REPO=https://github.com/epatel/agent-skills.git
+  TAG=$(git ls-remote --tags --refs "$REPO" | sed 's|.*/||' | sort -V | tail -1)
+  SRC=$(mktemp -d); trap 'rm -rf "$SRC"' EXIT
+  # An annotated tag makes git print "... is not a commit!"; that warning is harmless.
+  git -c advice.detachedHead=false clone -q --depth 1 ${TAG:+--branch "$TAG"} "$REPO" "$SRC" && echo "agent-skills ${TAG:-default branch}"
   cat "$SRC/README.md"
   mkdir -p .claude/skills
   cp -r "$SRC/focused-refactor" .claude/skills/
@@ -221,8 +224,9 @@ Every run ends by writing `.claude/agent-setup.json`, committed with the project
   "copied": {
     "cards/standing-defaults.md": { "pattern": "standing-defaults", "sha256": "<hash of the file as copied>" }
   },
+  "skills_release": "v2026.11.14",
   "tools": {
-    "aihealth": { "pattern": "code-health", "min": "0.3.0", "pin": "v0.3.0", "form": "project-venv" },
+    "aihealth": { "pattern": "code-health", "min": "0.3.1", "pin": "ff7f011ae6d01ed4f44a18a617541167dc070725", "form": "project-venv" },
     "python": { "pattern": "code-health", "min": "3.11", "form": "existing" }
   }
 }
@@ -232,10 +236,11 @@ Every run ends by writing `.claude/agent-setup.json`, committed with the project
 - `updated` — the date of the last run (any mode).
 - `applied` / `declined` — pattern IDs from the Step 2 table (`skill:<name>` and `plugin:<name>@<marketplace>` for Agent Skills). A pattern the user was not asked about is in neither.
 - `copied` — files copied from a pattern into the project verbatim (today only the Standing Defaults card), keyed by project path, with the pattern ID and the SHA-256 of the file as it was copied (`shasum -a 256`). In refresh mode, if the file's current hash still matches, it is unedited: show the diff to the new source and replace it. If the hash differs, the project edited it: propose a merge instead. Record the new hash after either.
+- `skills_release` — the `epatel/agent-skills` release tag the copied skills (`skill:<name>` in `applied`) came from. Present when any such skill is applied. In refresh mode, compare it with the latest tag. When a newer release exists, the changelog items since the record's `version` say which skills to copy again; copy them from that release and update this field.
 - `tools` — optional. One entry per tool a pattern or skill needs, keyed by tool name, written by *Installing tools*:
   - `pattern`: the pattern ID that needs the tool.
-  - `min`: the minimum version, as dotted numbers.
-  - `pin`: the release the project is pinned to, if any.
+  - `min`: the minimum version, as dotted numbers. For a pinned tool, the pinned release's version.
+  - `pin`: for a tool installed from git, the commit SHA the project is pinned to, resolved from the release tag. The tag stays readable next to it in the committed install command.
   - `form`: where this project expects the tool. One of `existing` (use whatever suitable copy each machine has), `project-venv`, `tool-venv` (`.venv-tools/`), `user` (uv tool, pipx), or `system` (Homebrew, apt). A skipped tool has no entry, because what needed it was declined.
 
-  Never record paths or versions found on one machine. In refresh mode, run detection again for every entry and offer an install or upgrade where a tool is missing, older than `min`, or older than `pin`. Upgrade only after the user's yes.
+  Never record paths or versions found on one machine. In refresh mode, run detection again for every entry and offer an install or upgrade where a tool is missing or older than `min`. Where a newer release exists than the one `pin` points to, offer moving the pin. Upgrade only after the user's yes.

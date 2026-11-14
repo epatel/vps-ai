@@ -4,6 +4,27 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-11-14.4
+
+### Agent skills come from release tags; the record keeps `skills_release`
+- Affects: skill:*
+- Action: agent-skills now publishes releases tagged `vYYYY.MM.DD`, and the setup copies skills from the latest tag instead of `main`. The first release is `v2026.11.14`.
+  - For each skill in `applied`, compare `.claude/skills/<name>` with that release.
+  - A skill named in the items below: copy it again from the release. Replace it if unedited; otherwise propose a merge.
+  - Any other skill that differs: show the diff and ask before replacing it.
+  - Then record `"skills_release": "v2026.11.14"` in `.claude/agent-setup.json`.
+
+### project-discovery: exact dependency pins, rebuild on change, Python 3.10+
+- Affects: skill:project-discovery
+- Action: copy `project-discovery` again from release `v2026.11.14`. Replace it if unedited; otherwise propose a merge. Its `requirements.txt` now pins exact versions tested together (PyYAML 6.0.3, tree-sitter 0.26.0, tree-sitter-language-pack 1.22.1), which need Python 3.10+. The skill keeps a copy of the pins inside its venv and asks to rebuild the venv when they differ. A `.venv-tools/project-discovery/` built before this change has no such copy, so the skill asks to rebuild it once. No other project edits.
+
+### code-health: pin the release's commit, not its tag
+- Affects: code-health
+- Action: a tag can be moved after the fact; a commit cannot. Resolve the commit of the tag the project already pins, for example `git ls-remote https://github.com/epatel/ai-health "refs/tags/v0.3.1" "refs/tags/v0.3.1^{}" | sort -k2 | tail -1 | cut -f1`.
+  - Change the committed pin from `@<tag>` to `@<SHA>  # <tag>`: in dev requirements, or the install command in the `## Code health` section of `CLAUDE.md`.
+  - In the setup record, set the `aihealth` entry's `pin` to the SHA and `min` to the tag's version.
+  - It is the same release, so no reinstall and no score change. Show the diff first. If the project has its own tooling that writes the pin (a re-pin script, a Makefile target), point it at the commit too.
+
 ## 2026-11-14.3
 
 ### Checker: AGENTS.md, ~~~ fences, `*` index lines

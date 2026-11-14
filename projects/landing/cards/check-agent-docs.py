@@ -201,6 +201,8 @@ def check_applied_skills(root, seen, rel):
 TOOL_FORMS = {"existing", "project-venv", "tool-venv", "user", "system"}
 TOOL_KEYS = {"pattern", "min", "pin", "form"}
 MIN_RE = re.compile(r"^\d+(\.\d+)*$")
+SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+RELEASE_RE = re.compile(r"^v\d{4}\.\d{2}\.\d{2}(\.\d+)?$")
 
 
 def tool_entry_errors(entry):
@@ -235,6 +237,17 @@ def check_tools(rec, seen, rel):
             continue
         if seen.get(entry["pattern"]) != "applied":
             report("WARN", rel, f"tools entry {name!r} names {entry['pattern']!r}, which is not applied; remove the entry")
+        if "pin" in entry and not SHA_RE.match(entry["pin"]):
+            report("WARN", rel, f"tools entry {name!r} pins {entry['pin']!r}; pin the release's commit SHA, since a tag can be moved")
+
+
+def check_skills_release(rec, seen, rel):
+    release = rec.get("skills_release")
+    if release is None:
+        if any(key == "applied" and i.startswith("skill:") for i, key in seen.items()):
+            report("WARN", rel, "skills are applied but 'skills_release' is missing; a refresh cannot tell which release they came from")
+    elif not (isinstance(release, str) and RELEASE_RE.match(release)):
+        report("ERROR", rel, f"'skills_release' must be a release tag like 'v2026.11.14', got {release!r}")
 
 
 def check_record(root):
@@ -249,6 +262,7 @@ def check_record(root):
     seen = check_pattern_lists(rec, rel)
     check_copied(root, rec, rel)
     check_applied_skills(root, seen, rel)
+    check_skills_release(rec, seen, rel)
     check_tools(rec, seen, rel)
 
 
