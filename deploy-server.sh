@@ -85,12 +85,18 @@ cmd_post() {
     echo "post-deploy: webhook-receiver.py changed, restarting vps-ai-webhook"
     sudo systemctl restart vps-ai-webhook
   fi
-  if changed "$NGINX_REPO" && [ "$(nginx_state)" != "in sync" ]; then
-    echo "post-deploy: WARNING $NGINX_REPO changed and differs from the live config. Review, then apply:"
-    echo "  bash deploy-server.sh nginx-diff"
-    echo "  sudo cp $NGINX_REPO $NGINX_LIVE && sudo nginx -t && sudo systemctl reload nginx"
-  elif changed nginx/; then
-    echo "post-deploy: WARNING nginx/ changed — apply it to the live config, then: sudo nginx -t && sudo systemctl reload nginx"
+  if changed "$NGINX_REPO"; then
+    if [ "$(nginx_state)" = "in sync" ]; then
+      echo "post-deploy: $NGINX_REPO changed and already matches the live config; nothing to apply"
+    else
+      echo "post-deploy: WARNING $NGINX_REPO changed and differs from the live config. Review, then apply:"
+      echo "  bash deploy-server.sh nginx-diff"
+      echo "  sudo cp $NGINX_REPO $NGINX_LIVE && sudo nginx -t && sudo systemctl reload nginx"
+    fi
+  fi
+  # Other files under nginx/ (snippets) are installed by setup-server.sh, by hand.
+  if changed nginx/ ":(exclude)$NGINX_REPO"; then
+    echo "post-deploy: WARNING nginx/ snippets changed — install them (see setup-server.sh), then: sudo nginx -t && sudo systemctl reload nginx"
   fi
   if changed setup-server.sh; then
     echo "post-deploy: WARNING setup-server.sh changed — if a unit file changed, update it and run: sudo systemctl daemon-reload"
