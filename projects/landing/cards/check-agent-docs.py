@@ -21,6 +21,10 @@ import re
 import sys
 from pathlib import Path
 
+if sys.version_info < (3, 9):  # keep this file parseable by old Pythons so this message shows
+    sys.exit(f"check-agent-docs.py needs Python 3.9+, found {sys.version.split()[0]}. "
+             "Run it with a newer python3.x; do not install one just for this check.")
+
 SKIP_DIRS = {".git", ".worktrees", "node_modules", ".venv", "venv", "build", "dist", ".dart_tool", "target"}
 IMPORT_RE = re.compile(r"(?:^|\s)@([\w./~-]+\.md)\b")
 LINK_RE = re.compile(r"\]\(((?:\./)?cards/[\w.-]+\.md)\)")

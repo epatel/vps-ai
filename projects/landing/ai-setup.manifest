@@ -1,10 +1,10 @@
 # Files in this directory owned by ai-setup (the source for /setup and /cards/*).
 # Edit them there and run `make sync`; edits made here are reported as drift.
 # Verify: cd projects/landing && grep -v '^#' ai-setup.manifest | shasum -a 256 -c
-# source: ai-setup 3895583
-fa7a7bbdadd99f84d69a74297e55f0f0a51981c2bb860c847e6c5a4cf6762483  setup
+# source: ai-setup b02d4fe
+558cc25669c2b40ad06629dcade0d39f816256981c1459d860838580121843fc  setup
 821c2d1898c88c8fffd4f33bbf92883fd6ae49b3d2f1f46726c5c3d22d8b0601  cards/cards-instructions.md
-a2dad9fe67a802a8dcd7f0eee518e054358d8bc9cf846db6b62132343fc8aa27  cards/check-agent-docs.py
+2ba3b25f8e2dafe82d96646e7e1042697a0213b8592ba35bc0afa95db6dc9680  cards/check-agent-docs.py
 a828b36184746c228011889efd2c6caa34e4295ca3ff1cf632bd9d45e6d0a685  cards/code-health.md
 557134563fc46805c4a0a0eb5013a1b1a68ba48cca4ecd017df64dd71413e4e1  cards/feature-first-advanced.md
 427100a7a593052b775ba15509507ad51c3f63046d789a2f2d4c44e6a9eceeda  cards/feature-first-structured.md

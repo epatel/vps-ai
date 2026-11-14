@@ -22,7 +22,9 @@ Before asking the user anything, orient yourself:
 **If this is an update, be careful:** the existing setup encodes decisions and project knowledge. Do not re-apply patterns over it or replace files wholesale — extend and refresh instead. In update mode, install the `review-agentic-setup` skill now (the install commands are under Agent Skills in Step 3). Run it in **report-only** mode (`/review-agentic-setup --report-only`):
 - **Loading it:** skills live-reload. If `.claude/skills/` did not exist when the session started, run `/reload-skills` first, or simply follow its `SKILL.md` directly.
 - **What it does:** it audits what exists *before* you present scope, and writes nothing.
-- **Using its findings:** put its proposed changes in the scoping summary, and apply only the ones the user confirms, in Step 3. Installing the skill is the only write before scope is confirmed; mention it in the summary. Also read the whole changelog: a project set up before records existed may predate any of its entries, so use them as a checklist of known fixes. Treat every existing file as intentional until shown otherwise.
+- **Using its findings:** put its proposed changes in the scoping summary, and apply only the ones the user confirms, in Step 3. Installing the skill is the only write before scope is confirmed: leave it uncommitted, and mention it in the summary. It is committed with the rest in Step 3, recorded as `skill:review-agentic-setup`.
+- **The changelog:** read the whole changelog too. A project set up before records existed may predate any of its entries, so use them as a checklist of known fixes. There is no `applied` list to filter by, so treat each pattern that is visibly present in the project (a card index, per-feature CLAUDE.md files, a `project-plan.md`, hooks, copied skills) as applied when reading `Affects:` lines.
+- Treat every existing file as intentional until shown otherwise.
 
 ### Refresh mode
 
@@ -128,13 +130,18 @@ For each pattern the user selected, fetch its URL and follow the instructions in
   ```bash
   REPO=https://github.com/epatel/agent-skills.git
   TAG=$(git ls-remote --tags --refs "$REPO" | sed 's|.*/||' | sort -V | tail -1)
-  SRC=$(mktemp -d); trap 'rm -rf "$SRC"' EXIT
+  SRC=$(mktemp -d) && echo "clone in $SRC"
   # An annotated tag makes git print "... is not a commit!"; that warning is harmless.
-  git -c advice.detachedHead=false clone -q --depth 1 ${TAG:+--branch "$TAG"} "$REPO" "$SRC" && echo "agent-skills ${TAG:-default branch}"
+  if [ -n "$TAG" ]; then
+    git -c advice.detachedHead=false clone -q --depth 1 --branch "$TAG" "$REPO" "$SRC"
+  else
+    git clone -q --depth 1 "$REPO" "$SRC"      # no release tags yet: default branch
+  fi
   cat "$SRC/README.md"
   mkdir -p .claude/skills
   cp -r "$SRC/focused-refactor" .claude/skills/
   ```
+  The snippet works in bash and zsh. Your shell may not keep variables between commands, so note the printed clone path and use it for later copies. Delete the clone (`rm -rf <path>`) once the skills are copied, not before.
 
 **Anthropic's skills** (`https://github.com/anthropics/skills`) — the official example and document skills, published as a plugin marketplace named `anthropic-agent-skills`:
 - Plugins: `document-skills` (docx, pdf, pptx, xlsx), `example-skills` (frontend-design, mcp-builder, webapp-testing, skill-creator, doc-coauthoring, canvas-design and more), `claude-api`. Read the repo's `.claude-plugin/marketplace.json` for the current list rather than relying on this one
@@ -161,7 +168,7 @@ Some patterns and skills need tools: an interpreter, a CLI, a package. A card li
    2. `command -v <tool>` on `PATH`.
    3. For a Python interpreter, versioned names and managers: `python3.13`, `python3.12`, `python3.11`, `uv python find '>=3.11'`.
 
-   Take the version from the tool's own `--version` output. Compare versions number by number (`3.9` is older than `3.11`), never as strings.
+   Take the version from the tool's own `--version` output. Compare versions number by number (`3.9` is older than `3.11`), never as strings. For an interpreter, report every qualifying one you found with its path, and recommend the newest. A tool needed only by a rule the user has not approved yet (a formatter for a Hooks Over Prose hook) is detected once that rule is approved, not during scoping.
 2. **Check that it works, not only that it exists.** For Python, also create a throwaway venv: `python3 -m venv "$(mktemp -d)/t"`. On Debian and Ubuntu this fails with `ensurepip is not available` until `python3-venv` is installed.
 3. **Ask once, after scope is confirmed.** Put one question per missing or outdated tool in a single message. Each question gives the tool, which pattern needs it, the version found (or "not found"), the minimum version, and the location options with a recommended default:
 
@@ -197,7 +204,7 @@ After applying all selected patterns:
    curl -fsSL https://ai.memention.net/cards/check-agent-docs.py -o "$CHECK"
    python3 -I "$CHECK" .
    ```
-   It flags unresolved `@` imports, eager imports of cards or `CLAUDE_full.md`, dead or missing index entries, card-to-card references, files over the size limits, and a malformed setup record. Fix every ERROR the user's confirmed scope covers; report any remaining ones (for example, a fix the user declined) instead of fixing them unasked. Judge each WARN.
+   It flags unresolved `@` imports, eager imports of cards or `CLAUDE_full.md`, dead or missing index entries, card-to-card references, files over the size limits, and a malformed setup record. If running it is blocked (by a permission prompt the user declines, or a policy), say so in the summary and do not work around it. You may apply the same checks by hand, labelled as such. Fix every ERROR the user's confirmed scope covers; report any remaining ones (for example, a fix the user declined) instead of fixing them unasked. Judge each WARN.
 2. Confirm every new file is readable in isolation (open it cold — the script cannot judge this)
 3. Confirm `CLAUDE.md` index entries name the situation that should trigger the card, not just its topic
 4. Write `.claude/agent-setup.json` (see *The setup record* below): create it, or in refresh/update mode rewrite it — keep earlier choices, add this run's, set `version` to this file's version
@@ -217,8 +224,8 @@ Every run ends by writing `.claude/agent-setup.json`, committed with the project
 ```json
 {
   "source": "https://ai.memention.net/setup",
-  "version": "2026-10-14",
-  "updated": "2026-10-14",
+  "version": "2026-11-14.4",
+  "updated": "2026-11-14",
   "applied": ["context-cards", "hooks-over-prose", "skill:review-agentic-setup"],
   "declined": ["project-plan", "standing-defaults"],
   "copied": {
