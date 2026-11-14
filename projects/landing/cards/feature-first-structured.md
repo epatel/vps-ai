@@ -2,6 +2,14 @@
 
 Organize code per feature, one directory each. Inside, a feature is a **pipeline of named nodes** — each node an observable, hookable step rather than an opaque function call.
 
+## When to apply
+
+**As documentation for an existing project:** only when the code already has an explicit pipeline, middleware or hook engine. That means named steps, plus a way for other code to attach before or after them: an engine with `bind`/`hook` calls, a middleware chain, a plugin system with named extension points. Point to it (file and symbol) before writing any feature contract. Plain modules, services or MVC layers are not pipelines. For those, recommend declining and let Context Cards cover the domains.
+
+Every node, context key and hook in a feature's `CLAUDE.md` must exist in the code and be traceable to a file. Never invent nodes or hook points to make the code fit this pattern.
+
+**As a design for new code:** only when the user asks for this architecture. The setup documents code and does not refactor it.
+
 ## Layout
 
 ```

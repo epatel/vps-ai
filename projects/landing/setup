@@ -1,6 +1,6 @@
 # Project Setup — ai.memention.net
 
-Version: 2026-11-13.2 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
+Version: 2026-11-14.3 · Changelog: `https://ai.memention.net/cards/setup-changelog.md`
 
 You are setting up a project with structured AI-agent documentation patterns.
 Follow the steps below in order. Reading this file again in a project that already
@@ -19,7 +19,10 @@ Before asking the user anything, orient yourself:
    - **update** — no record, but the project already has CLAUDE.md + cards, skills under `.claude/skills/`, a project plan, or similar (possibly from a run of this setup before records existed).
    - **setup** — little or no agentic structure exists.
 
-**If this is an update, be careful:** the existing setup encodes decisions and project knowledge. Do not re-apply patterns over it or replace files wholesale — extend and refresh instead. In update mode, install the `review-agentic-setup` skill now (the install commands are under Agent Skills in Step 3) and run it (skills live-reload; if `.claude/skills/` did not exist when the session started, run `/reload-skills` first, or simply follow its `SKILL.md` directly) to audit and modernize what exists *before* presenting scope, so the scoping summary reflects its findings. Also read the whole changelog: a project set up before records existed may predate any of its entries, so use them as a checklist of known fixes. Treat every existing file as intentional until shown otherwise.
+**If this is an update, be careful:** the existing setup encodes decisions and project knowledge. Do not re-apply patterns over it or replace files wholesale — extend and refresh instead. In update mode, install the `review-agentic-setup` skill now (the install commands are under Agent Skills in Step 3). Run it in **report-only** mode (`/review-agentic-setup --report-only`):
+- **Loading it:** skills live-reload. If `.claude/skills/` did not exist when the session started, run `/reload-skills` first, or simply follow its `SKILL.md` directly.
+- **What it does:** it audits what exists *before* you present scope, and writes nothing.
+- **Using its findings:** put its proposed changes in the scoping summary, and apply only the ones the user confirms, in Step 3. Installing the skill is the only write before scope is confirmed; mention it in the summary. Also read the whole changelog: a project set up before records existed may predate any of its entries, so use them as a checklist of known fixes. Treat every existing file as intentional until shown otherwise.
 
 ### Refresh mode
 
@@ -28,7 +31,7 @@ The record (see *The setup record* at the end) says which version of this setup 
 1. Read `.claude/agent-setup.json`. Fetch the changelog and take every entry whose version is greater than the record's `version` (a version older than every changelog entry is valid — take them all). If the record's `version` equals the version at the top of this file, there is nothing new: skip to step 5 (and, if `skill:review-agentic-setup` is applied, offer to run it — the project itself may have drifted).
 2. For each item, keep it only if its `Affects:` line names a pattern in the record's `applied` list, a file in `copied`, or `all`; `skill:*` matches any *applied* skill (declined skills do not count). Items with `Affects: new pattern <id>` are not changes — carry them to step 3 as offers, using their `Action:` as the recommendation rule. For each kept entry, check whether the project is actually affected (an entry about `@CLAUDE_full.md` matters only if the project uses it) and draft the concrete change from the entry's `Action:` line.
 3. Collect patterns to offer: any pattern in the Step 2 table that is in neither `applied` nor `declined` (new since the last run, or never asked about), plus any `declined` pattern whose changelog items since then say it changed materially. Do not re-offer other declined patterns. Where a changelog item gives a condition for offering a pattern, use it to form your recommendation, but still list the pattern. For Agent Skills, offer `skill:review-agentic-setup` if it is in neither list; do not clone the skills repo just to list the rest — say the user can ask for the full list.
-4. Present one summary, structured like the Step 2 message: mode and record version → current version; the concrete change for each kept item (and skipped items, one line each with the reason); the patterns to offer, each with a recommendation; and any questions the items raise (such as commands you could not discover). Do NOT apply anything until the user confirms. If there is nothing to apply, offer or ask, show the summary and continue straight to step 5 — the record update needs no confirmation. Then apply the confirmed changes using the same rules as Step 3 — extend, never replace wholesale.
+4. Present one summary, structured like the Step 2 message: mode and record version → current version; the concrete change for each kept item (and skipped items, one line each with the reason); the patterns to offer, each with a recommendation; the tool check (run the detection from *Installing tools* in Step 3 for every tool in the record's `tools` and every tool a kept item or offered pattern requires, and list what is missing, older than its minimum, or older than its pin); and any questions the items raise (such as commands you could not discover). Do NOT apply anything until the user confirms. If there is nothing to apply, offer or ask, show the summary and continue straight to step 5 — the record update needs no confirmation. Then apply the confirmed changes using the same rules as Step 3 — extend, never replace wholesale.
 5. Run Step 4 (verify), which also rewrites the record with the current version.
 
 If the record is malformed or names a version newer than this file, say so and fall back to **update** mode.
@@ -41,13 +44,13 @@ Based on what you found, present the user with a scoping summary and ask which p
 |---------|-------------|----------|-----|
 | **Context Cards** (`context-cards`) | Compresses project knowledge into small, lazy-loaded reference cards indexed from CLAUDE.md | Any project where CLAUDE.md is growing large or agents need domain context | `https://ai.memention.net/cards/cards-instructions.md` |
 | **Known Stack** ⚗️ (`known-stack`) | Names the standard frameworks and patterns in one line each in CLAUDE.md, so cards cover only what the code and the model's prior can't supply | Projects built mostly from mainstream frameworks used the standard way | `https://ai.memention.net/cards/known-stack.md` |
-| **Feature-First Architecture** ⚗️ (`feature-first`) | Organizes code per feature as a hookable pipeline of named nodes | Projects with multiple interacting features, event-driven or plugin architectures | `https://ai.memention.net/cards/feature-first-structured.md` |
+| **Feature-First Architecture** ⚗️ (`feature-first`) | Documents code organized per feature as a hookable pipeline of named nodes | Projects whose code already has an explicit pipeline, middleware or hook engine (named steps that other code attaches to) | `https://ai.memention.net/cards/feature-first-structured.md` |
 | **Feature-First Advanced** ⚗️ (`feature-first-advanced`) | Adds bidirectional peer features, runtime-bound hooks, full middleware model | Feature-first projects where features hook into each other or middleware varies per request | `https://ai.memention.net/cards/feature-first-advanced.md` |
 | **Two-Tier CLAUDE.md** (`two-tier`) | Splits per-feature CLAUDE.md into a slim always-loaded overview + on-demand full contract | Projects using feature-first architecture with 3+ node features | `https://ai.memention.net/cards/two-tier-claude-md.md` |
 | **Shared Project Plan** (`project-plan`) | A single `project-plan.md` holding the goal + live state that every spawned agent reads first and updates, so independent agents share one objective | Work fanned out across subagents, worktrees, or issue-driven autonomous runs | `https://ai.memention.net/cards/project-plan.md` |
 | **Standing Defaults** (`standing-defaults`) | Decisions made once and not re-litigated per project: always use a Python venv, always ship a dependency-free database migration path | Any project that runs Python or persists data | `https://ai.memention.net/cards/standing-defaults.md` |
 | **Hooks Over Prose** (`hooks-over-prose`) | Moves mechanical "always/never" rules out of CLAUDE.md into `.claude/settings.json` permissions and hooks, so the harness enforces them | Projects whose instruction files contain rules a script could check (protected paths, formatting, forbidden commands) | `https://ai.memention.net/cards/hooks-over-prose.md` |
-| **Code Health Feedback** ⚗️ (`code-health`) | Installs the aihealth code-health tool in the project's venv, pinned to a release, and wires it into Claude Code: hooks report new or worsened smells after each edit and before the agent finishes, plus an MCP server for on-demand checks | Projects where agents regularly change code in Python, Dart, Swift, Rust, Go, TS/JS, C-family, shell, Make or CMake | `https://ai.memention.net/cards/code-health.md` |
+| **Code Health Feedback** ⚗️ (`code-health`) | Uses or installs (after asking where; default the project's venv) the aihealth code-health tool, pinned to a release, and wires it into Claude Code: hooks report new or worsened smells after each edit and before the agent finishes, plus an MCP server for on-demand checks | Projects where agents regularly change code in Python, Dart, Swift, Rust, Go, TS/JS, C-family, shell, Make or CMake | `https://ai.memention.net/cards/code-health.md` |
 | **Agent Skills** (`skill:<name>` per copied skill, `plugin:<name>@anthropic-agent-skills` per plugin) | Installs reusable Claude Code skills for the project: copied into `.claude/skills/`, or enabled as plugins from Anthropic's official skills marketplace | Any project that benefits from shared, reusable skills (refactoring, planning, discovery, document creation, frontend design, MCP servers, etc.) | `https://github.com/epatel/agent-skills/` and `https://github.com/anthropics/skills` |
 
 Your scoping message to the user should include:
@@ -55,13 +58,14 @@ Your scoping message to the user should include:
 - Whether you are in **setup** or **update** mode, and why (refresh mode has its own summary, above)
 - A 2-3 sentence summary of what you found (stack, size, current state of docs)
 - For each pattern: whether you recommend it and a one-line reason why or why not
+- For each recommended pattern that needs tools (its card's `## Requires` table): what detection found — path and version, "older than the minimum", or "not found". Detection is read-only, so run it now (see *Installing tools* in Step 3); install nothing yet
 - Ask the user to confirm which patterns to apply
 
 Do NOT proceed until the user confirms scope.
 
 ## Step 3 — Fetch and apply
 
-For each pattern the user selected, fetch its URL and follow the instructions inside it.
+For each pattern the user selected, fetch its URL and follow the instructions inside it. Whenever a pattern or skill needs a tool, follow *Installing tools* at the end of this step: never install anything without the user's yes, and let them choose where.
 
 **Known Stack** (`known-stack.md`) — ⚗️ *Experimental*:
 - Apply it before Context Cards: write the Known stack section in `CLAUDE.md` between the overview and the commands
@@ -74,6 +78,8 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 - Append the index to `CLAUDE.md`
 
 **Feature-First Architecture** (`feature-first-structured.md`) — ⚗️ *Experimental*:
+- Recommend it only when the code already has an explicit pipeline, middleware or hook engine: named steps, and a way for other code to attach before or after them. Show the user where that is (file and symbol). If there is none, recommend declining. Plain modules or MVC layers are not pipelines
+- Document only nodes, context keys and hooks that exist in the code, each traceable to a file. Never invent nodes or hook points to fit the pattern
 - Identify existing features/modules that map to the pipeline model
 - Create per-feature `CLAUDE.md` files documenting nodes, context keys, hooks
 - This is a documentation/organization pattern — do NOT refactor code unless the user asks
@@ -105,7 +111,7 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 
 **Code Health Feedback** (`code-health.md`) — ⚗️ *Experimental*:
 - Follow the card's "Applying it to a project" steps; the aihealth repo's `AGENT-INSTALL.md` ("In a project's venv") holds the exact commands and JSON
-- Install into the project's `.venv/` (gitignored), pinned to the latest release tag, and commit the pin (dev requirements, or the install command in `CLAUDE.md`). Never install it globally from this step
+- Get aihealth and a Python 3.11+ interpreter through *Installing tools*: use a suitable existing copy, or install where the user chooses (default: the project's gitignored `.venv/`), pinned to the latest release tag. Commit the pin (dev requirements, or the install command in `CLAUDE.md`). Install outside the project only when the user picks that option
 - Wire `.venv/bin/aihealth` into `.mcp.json` and the `.claude/settings.json` hooks (merged, keeping the `[ -x … ]` guard), and add the short `CLAUDE.md` section
 - Run the baseline scan and report it; do not refactor what it finds unless the user asks
 
@@ -116,6 +122,7 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 - Install only the skills relevant to the project — ask the user which ones if unsure
 - These are **project-scoped** — copied, not symlinked, and committed under `.claude/skills/` — so every agent, worktree, and collaborator for this project can invoke them, and they trigger only in projects where they apply. Never install into `~/.claude/skills/` from this step, even when the user asks for "all skills": that loads them in every project on the machine and is invisible to collaborators.
 - If a skill from this repo is already installed personally (`~/.claude/skills/<name>`, often a symlink), still copy it into the project — the project copy pins the version this project was set up with. Tell the user the personal copy is now redundant here and can be removed once no other project relies on it; do not touch `~/.claude/` yourself
+- A skill whose `SKILL.md` installs its own dependencies (for example a venv for a helper script) goes through *Installing tools* before its first run: say what it would install and where, and run it only after the user's yes
 - Skills live-reload: an installed skill is available in the current session. If `.claude/skills/` did not exist when the session started, run `/reload-skills` (or tell the user to)
 - Example:
   ```bash
@@ -142,11 +149,46 @@ For each pattern the user selected, fetch its URL and follow the instructions in
 - Plugin skills are namespaced by plugin (`/example-skills:frontend-design`) and otherwise used like any other skill. Record each enabled plugin as `plugin:<name>@anthropic-agent-skills`
 - Each skill carries its own `LICENSE.txt`: most are Apache 2.0, but the document skills are "All rights reserved" — use them, do not copy their files into the project
 
+### Installing tools
+
+Some patterns and skills need tools: an interpreter, a CLI, a package. A card lists them in a `## Requires` table (tool, minimum version, how to detect it, default location). Every tool goes through the same steps: **detect → check the version → ask whether and where → install → verify → record**. Never install anything without an explicit yes from the user.
+
+1. **Detect, in this order.** Stop at the first copy that works:
+   1. The project's own location: `.venv/bin/<tool>`, `node_modules/.bin/<tool>`.
+   2. `command -v <tool>` on `PATH`.
+   3. For a Python interpreter, versioned names and managers: `python3.13`, `python3.12`, `python3.11`, `uv python find '>=3.11'`.
+
+   Take the version from the tool's own `--version` output. Compare versions number by number (`3.9` is older than `3.11`), never as strings.
+2. **Check that it works, not only that it exists.** For Python, also create a throwaway venv: `python3 -m venv "$(mktemp -d)/t"`. On Debian and Ubuntu this fails with `ensurepip is not available` until `python3-venv` is installed.
+3. **Ask once, after scope is confirmed.** Put one question per missing or outdated tool in a single message. Each question gives the tool, which pattern needs it, the version found (or "not found"), the minimum version, and the location options with a recommended default:
+
+   | Tool type | Options, recommended first |
+   |---|---|
+   | Python tool for this project (e.g. aihealth) | Existing suitable copy · project `.venv/` · separate project tool venv `.venv-tools/` (when its dependencies clash with the project's) · user level with `uv tool install` or `pipx` (all projects) · skip |
+   | Python interpreter | Existing `python3.1x` or uv-managed interpreter · `uv python install <version>` (user level) · Homebrew or apt (system-wide) · skip the pattern |
+   | `python3-venv` on Debian/Ubuntu | The user runs `sudo apt install python3-venv` · use `uv venv` instead · skip |
+   | CLI tool used by a hook (`jq`, a formatter) | Project-local (`.venv/` for Python tools, `devDependencies` for Node tools) · Homebrew or apt (system-wide) · skip, and the hook does nothing |
+   | `git`, `curl`, `make`, `claude` | Never installed by this setup. If missing or too old, stop and tell the user |
+
+   - **Label the scope.** Mark every option outside the project as *affects all projects* or *system-wide*.
+   - **Offer an existing copy first.** When a suitable copy already exists, even outside the recommended location, offer "use the existing copy at `<path>`" first, and say what it means for collaborators: they need the same form.
+4. **Install only what was approved, where it was approved.**
+   - Show the exact command before you run it.
+   - Never run `sudo` yourself; give the user the command to run (they can type `! <command>` in Claude Code).
+   - After installing, detect the tool again and confirm the version meets the minimum.
+   - If an install fails, report the error and stop. Do not switch to another method without asking.
+5. **If the user skips a tool, what needs it is declined.**
+   - **A tool the whole pattern needs** (aihealth for code-health): make no file changes for that pattern and record it under `declined`, with no `tools` entry.
+   - **A tool only one rule or hook needs** (a formatter in hooks-over-prose): leave out that rule and keep the rest of the pattern.
+
+   Say in one line what was left out, and that the user can ask for it later once the tool is installed. Refresh mode does not offer it again on its own.
+6. **Record the choice in the setup record's `tools` key.** Record the form, never machine-specific paths or the version found on this machine: collaborators run the same steps on their own machines. The install command goes where the pattern says (a requirements file, the `CLAUDE.md` section, a `make setup` target).
+
 ## Step 4 — Verify
 
 After applying all selected patterns:
 
-1. Run the mechanical checks — read the script first; it is short, read-only, and standard-library only:
+1. Run the mechanical checks — read the script first; it is short, read-only, and standard-library only. It needs Python 3.9+ (any `python3.x` that detection finds); if there is none, tell the user and skip this check rather than installing an interpreter for it:
    ```bash
    CHECK=$(mktemp -d)/check-agent-docs.py
    curl -fsSL https://ai.memention.net/cards/check-agent-docs.py -o "$CHECK"
@@ -156,12 +198,12 @@ After applying all selected patterns:
 2. Confirm every new file is readable in isolation (open it cold — the script cannot judge this)
 3. Confirm `CLAUDE.md` index entries name the situation that should trigger the card, not just its topic
 4. Write `.claude/agent-setup.json` (see *The setup record* below): create it, or in refresh/update mode rewrite it — keep earlier choices, add this run's, set `version` to this file's version
-5. Present a summary to the user: files created, patterns applied, checker output, any recommendations for next steps
+5. Present a summary to the user: files created, patterns applied, tools used or installed (and where), tools skipped with what stays inactive, checker output, any recommendations for next steps
 
 ## Notes
 
 - These patterns document existing code — they do not restructure or refactor it. The one exception is a changelog item that fixes code copied from a pattern (such as the migration runner): show the change and apply it only with the user's explicit approval
-- If the project also serves other coding agents that read `AGENTS.md`, keep the shared content (overview, commands, card index) in `AGENTS.md`. Claude Code reads `AGENTS.md` natively when no `CLAUDE.md` exists; if you need Claude-specific lines too, add a thin `CLAUDE.md` that imports it with `@AGENTS.md`. One source, no drift.
+- If the project also serves other coding agents that read `AGENTS.md`, keep the shared content (overview, commands, card index) in `AGENTS.md`. Claude Code (v2.1.277 or later) reads `AGENTS.md` natively when there is no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` in the working directory or above, and the checker reads a card index kept there; if you need Claude-specific lines too, add a thin `CLAUDE.md` that imports it with `@AGENTS.md`. One source, no drift.
 - If the project already has partial setup (e.g., some cards exist), extend rather than replace — never overwrite an existing card, feature doc, or skill without showing the user what would be lost
 - When in doubt about a pattern's applicability, ask the user — do not guess
 
@@ -178,11 +220,22 @@ Every run ends by writing `.claude/agent-setup.json`, committed with the project
   "declined": ["project-plan", "standing-defaults"],
   "copied": {
     "cards/standing-defaults.md": { "pattern": "standing-defaults", "sha256": "<hash of the file as copied>" }
+  },
+  "tools": {
+    "aihealth": { "pattern": "code-health", "min": "0.3.0", "pin": "v0.3.0", "form": "project-venv" },
+    "python": { "pattern": "code-health", "min": "3.11", "form": "existing" }
   }
 }
 ```
 
-- `version` — the `Version:` at the top of this file when it was last applied. Versions are `YYYY-MM-DD`, with `.2`, `.3`… for later releases the same day; compare them as strings. Refresh mode takes the changelog entries with a greater version.
+- `version` — the `Version:` at the top of this file when it was last applied. Versions are `YYYY-MM-DD`, with `.2`, `.3`… for later releases the same day. Compare the date first, then the number after the dot as a number; no suffix counts as 1. So `2026-11-13.10` is newer than `2026-11-13.2`, which is newer than `2026-11-13`. Do not compare them as plain strings. Refresh mode takes the changelog entries with a greater version.
 - `updated` — the date of the last run (any mode).
 - `applied` / `declined` — pattern IDs from the Step 2 table (`skill:<name>` and `plugin:<name>@<marketplace>` for Agent Skills). A pattern the user was not asked about is in neither.
 - `copied` — files copied from a pattern into the project verbatim (today only the Standing Defaults card), keyed by project path, with the pattern ID and the SHA-256 of the file as it was copied (`shasum -a 256`). In refresh mode, if the file's current hash still matches, it is unedited: show the diff to the new source and replace it. If the hash differs, the project edited it: propose a merge instead. Record the new hash after either.
+- `tools` — optional. One entry per tool a pattern or skill needs, keyed by tool name, written by *Installing tools*:
+  - `pattern`: the pattern ID that needs the tool.
+  - `min`: the minimum version, as dotted numbers.
+  - `pin`: the release the project is pinned to, if any.
+  - `form`: where this project expects the tool. One of `existing` (use whatever suitable copy each machine has), `project-venv`, `tool-venv` (`.venv-tools/`), `user` (uv tool, pipx), or `system` (Homebrew, apt). A skipped tool has no entry, because what needed it was declined.
+
+  Never record paths or versions found on one machine. In refresh mode, run detection again for every entry and offer an install or upgrade where a tool is missing, older than `min`, or older than `pin`. Upgrade only after the user's yes.

@@ -4,6 +4,62 @@ Changes to `https://ai.memention.net/setup` and its pattern cards that an existi
 
 Each entry: a version heading, then one item per change with `Affects:` (pattern IDs from the setup's table, `copied:<path>`, or `all`) and `Action:` (what to do in a project that applied it — "none" if the change needs no project edits).
 
+## 2026-11-14.3
+
+### Checker: AGENTS.md, ~~~ fences, `*` index lines
+- Affects: all
+- Action: none required. `check-agent-docs.py` now reads a card index kept in `AGENTS.md`, checks `@` imports in `AGENTS.md` files, ignores `~~~` fenced examples, accepts `* [name](cards/…)` index lines, and no longer treats `.claude/CLAUDE.md` as a per-feature doc. A project whose index lives in `AGENTS.md` stops getting "card is not in the index" warnings. Re-run it in Step 4 as usual and act on any new ERROR.
+
+### hooks-over-prose: Bash rules match the text as written; Stop hooks need a loop guard
+- Affects: hooks-over-prose
+- Action: check the project's `.claude/settings.json`:
+  - **Bash deny rules that guard a command with several spellings** (such as `Bash(git push --force:*)`, which misses `git push -f` and `git push origin main --force`): tell the user, and propose the card's `PreToolUse` hook (`no-force-push.sh`) or a similar one. Show the diff and apply it only after a yes.
+  - **Stop hooks that exit `2`:** each must exit `0` when the input's `stop_hook_active` is true. Propose that guard for any that lack it.
+
+### standing-defaults: migration runner refuses a newer database; no transaction control inside steps
+- Affects: standing-defaults, copied:cards/standing-defaults.md
+- Action: refresh the copied card. If its hash matches the record, show the diff and replace it; otherwise propose a merge. Record the new hash either way. Then look for a `migrate()` in the project that was copied from the card. Propose the version check: raise when `user_version > len(MIGRATIONS)`. Show the change and apply it only after the user's yes. Also flag any migration step that contains `BEGIN`/`COMMIT`/`ROLLBACK`, `VACUUM`, or `PRAGMA foreign_keys`/`journal_mode`; the card explains why those break the runner.
+
+### review-agentic-setup: setup versions compare numerically
+- Affects: skill:review-agentic-setup
+- Action: copy `review-agentic-setup` again from `https://github.com/epatel/agent-skills`. Replace the directory if the project did not edit it; otherwise propose a merge. Versions now compare by date, then the same-day suffix as a number (`2026-11-13.10` is newer than `2026-11-13.2`). The setup's own record section says the same. No other project edits.
+
+## 2026-11-14.2
+
+### review-agentic-setup: report-only mode, used by the setup before scoping
+- Affects: skill:review-agentic-setup
+- Action: copy `review-agentic-setup` again from `https://github.com/epatel/agent-skills`. Replace the directory if the project did not edit it; otherwise propose a merge. The skill has a report-only mode (`--report-only`) that runs the inventory, review and report, writes nothing, and lists every fix as a proposed change. The setup's update mode now runs it this way before presenting scope, and applies only the fixes the user confirms. No other project edits.
+
+### review-agentic-setup: old copies that review ~/.claude
+- Affects: skill:review-agentic-setup
+- Action: check the project's `.claude/skills/review-agentic-setup/SKILL.md`. If it mentions a "global update plan", a `GLOBAL_UPDATE_PLAN` file, or a Phase that reviews `~/.claude`, it predates 2026-11-13.2. Copy the skill again; the item above covers how. If `GLOBAL_UPDATE_PLAN_*.md` files or a matching line in `.git/info/exclude` remain from an earlier run, tell the user. They are the user's to keep or delete; do not remove them.
+
+### project-discovery: project-local tool venv, asks before installing
+- Affects: skill:project-discovery
+- Action: copy `project-discovery` again from `https://github.com/epatel/agent-skills`. Replace the directory if the project did not edit it; otherwise propose a merge. The skill now asks before installing its dependencies, and puts them in `.venv-tools/project-discovery/` in the project instead of `~/.cache/project-discovery/venv`. Propose adding `.venv-tools/` to `.gitignore` if it is not ignored. If `~/.cache/project-discovery/venv` exists, tell the user it is no longer used; do not delete it.
+
+### agent-skills is MIT licensed
+- Affects: skill:*
+- Action: none. The skills you copied may now be reused under the MIT licence (`LICENSE` in `https://github.com/epatel/agent-skills`). `ste-writing` keeps its own MIT notice in `ste-writing/LICENSE.txt`.
+
+### Feature-First: only for code that already has a pipeline or hook engine
+- Affects: feature-first, feature-first-advanced
+- Action: the pattern now applies only when the code has an explicit pipeline, middleware or hook engine, and every documented node, context key and hook must be traceable to code. Check each per-feature `CLAUDE.md` / `CLAUDE_full.md`. List any node, context key or hook you cannot find in the code, and propose removing it or marking it as planned; show the diff and apply only with the user's yes. If the project has no such engine at all, say so and ask whether to keep the docs. Do not delete them unasked.
+
+## 2026-11-14
+
+### Installing tools: detect, check the version, ask whether and where
+- Affects: all
+- Action: the setup has a new *Installing tools* section in Step 3, and cards that need tools have a `## Requires` table. Nothing is installed without the user's yes, and the user chooses where. Collect the tools the record's applied patterns use (code-health: python 3.11+, git 2.24+, aihealth; hook scripts from hooks-over-prose: whatever they call). Run detection for each tool and report what was found. Write a `tools` entry in `.claude/agent-setup.json` for each (`pattern`, `min`, `pin` if pinned, `form`), describing how the project already gets the tool; do not install or move anything to fit. Offer an install only for a tool that is missing or older than its minimum, using the location options in *Installing tools*.
+
+### code-health: no automatic global install; separate tool venv on a dependency clash
+- Affects: code-health
+- Action: the card now detects an existing aihealth (project `.venv/`, then `PATH`) and asks before installing. When aihealth's dependencies clash with the project's, it offers `.venv-tools/` instead of a global install. A project already on the global form keeps it: record `"form": "user"` or `"existing"`, and do not move it unless the user asks. A project using the project venv needs no edits beyond the `tools` entry.
+
+### hooks-over-prose: hook examples check their tools
+- Affects: hooks-over-prose
+- Action: the example hook now exits 0 when `jq` or the formatter is missing (`command -v … || exit 0`, `[ -x … ]`). Check the project's own hook scripts under `.claude/hooks/`. For each tool a script calls without such a guard, propose adding one (show the diff), so a fresh clone without the tool is not blocked.
+
 ## 2026-11-13.2
 
 ### review-agentic-setup: project scope only

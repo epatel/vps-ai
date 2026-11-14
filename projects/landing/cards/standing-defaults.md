@@ -58,6 +58,11 @@ MIGRATIONS = [
 
 def migrate(conn):
     version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version > len(MIGRATIONS):
+        raise RuntimeError(
+            f"database schema is version {version}, but this code knows only "
+            f"{len(MIGRATIONS)}: it was written by newer code"
+        )
     for i, sql in enumerate(MIGRATIONS[version:], start=version):
         try:
             conn.executescript(
@@ -74,6 +79,13 @@ commits any open transaction before it runs and ignores `with conn:`, so
 without it a migration that fails halfway leaves the schema partly changed and
 the version un-bumped — and every later run fails on the half-applied step.
 Here the schema change and the version bump commit together or not at all.
+
+Two consequences of that wrapping:
+
+- **A migration must not contain its own transaction control.** A `BEGIN`, `COMMIT` or `ROLLBACK` inside a step breaks the all-or-nothing guarantee.
+- **Some statements cannot run inside a transaction:** `VACUUM`, and `PRAGMA foreign_keys` or `PRAGMA journal_mode`, which are silently ignored there. Run those outside `migrate()`, for example once at connect time, not as a migration step.
+
+The version check at the top refuses to start when the database is newer than the code, for example after rolling back a deploy. Without it, old code would silently run against a schema it does not know.
 
 Reach for a migration framework (Alembic, Flyway, Prisma Migrate) only when the
 project already carries that dependency or the schema genuinely outgrows a

@@ -2,6 +2,8 @@
 
 Extends the basic feature-first pattern (features as directories, each a pipeline of hookable named nodes). Reach for these only when the basics aren't enough: when features need to hook into *each other* as equals, or when the middleware set must change per request. If you don't need that, stay on the basic pattern.
 
+When documenting an existing project, apply this only where the code already does it. Features must already hook into each other, or hooks must already bind at runtime, and each documented outbound or dynamic hook must be traceable to code. Never document peer hooks or runtime bindings the code does not have.
+
 ## Full Middleware Capabilities
 
 At any node's hook points, any code (including other features) can:
@@ -69,20 +71,22 @@ Both features stay autonomous — each owns its pipeline — but they participat
 
 ```mermaid
 graph LR
-  subgraph "place-order"
+  subgraph PO["place-order"]
     A["validate_cart"] --> B["calculate_totals"]
     B --> C["charge_payment"]
     C --> D["confirm_order"]
   end
 
-  subgraph "inventory"
+  subgraph INV["inventory"]
     E["check_stock"] --> F["low_stock"]
   end
 
-  A -.->|"inventory hooks in (before: short-circuit)"| E
-  D -.->|"inventory hooks in (after: decrement)"| E
-  F -.->|"place-order hooks in (after: alert)"| D
+  INV -.->|"hooks validate_cart.before: abort if out of stock"| A
+  INV -.->|"hooks confirm_order.after: decrement stock"| D
+  PO -.->|"hooks low_stock.after: alert pending orders"| F
 ```
+
+Dotted arrows run from the feature that owns the hook to the node it attaches to.
 
 The result is the opposite of a layered or tree architecture: a **graph of features** connected through exposed nodes. Each declares its own pipeline and which nodes of other features it participates in.
 
