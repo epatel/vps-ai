@@ -59,6 +59,11 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
 
 ## Current state / handoff
 
+- 2026-11-14 — Hardening, phase 5:
+  - **Dotfiles blocked (live, reloaded):** nginx served dotfiles; `/flutter_demo/.last_build_id` and `/todo-app/.last_build_id` returned 200. No secrets were exposed, since no `.env`, key or `.git` exists in the served dirs. The new first block returns 404 for any dot-segment path except `/.well-known/`. Backup: `/tmp/nginx-backup.EMD7/available-before-dotfiles.conf` on the server.
+  - **Pulls serialized:** webhook pulls and `deploy-server.sh pull` take a shared `flock` lock, with timeouts.
+  - **CI check:** `.github/workflows/landing-check.yml` checks the ai-setup manifest and runs the agent-docs checker.
+
 - 2026-11-14 — nginx on the server cleaned up (live, reloaded):
   - `sites-enabled/ai.memention.net` had become a regular file (edited 2026-10-21) instead of the symlink, so `sites-available/` was a stale Sep 7 copy with `/drop/` at 55M.
   - The served file was copied to `sites-available/`, and `sites-enabled/` is a symlink again. `/drop/` stays at `client_max_body_size 205M`, which fits the 200 MB `MAX_UPLOAD_SIZE`.

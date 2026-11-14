@@ -35,6 +35,8 @@ When adding a new project that needs to be served:
 - **WebSocket services**: add a separate location block with `proxy_http_version 1.1` and `Upgrade` headers
 - **Flutter web apps**: use `alias` to `build/web/` with `try_files` for SPA routing
 
+The first block in the server returns 404 for any path with a segment that starts with a dot (`.env`, `.git`, build ids), except `/.well-known/`, which ACME certificate renewal needs. It is a regex location, so it applies on top of every `alias` and `proxy_pass` block. Keep it first, and do not add dotfile-serving locations.
+
 The catch-all `location /` serves the landing page. New location blocks must be
 added **before** it (nginx uses longest prefix match, but the catch-all `alias`
 can interfere).

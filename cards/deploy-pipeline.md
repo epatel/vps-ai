@@ -16,6 +16,17 @@ on the server) does the first two and warns about the rest; `make server_pull`
 does the same when the webhook missed a push. Deploy refuses to run if the server
 has tracked changes, because the webhook's `merge --ff-only` would fail on them.
 
+The pull is always fetch + `merge --ff-only`. It never commits or deletes on the
+server. The webhook and `deploy-server.sh pull` share a lock,
+`.git/vps-ai-pull.lock` via `flock`, so two pushes in a row, or a webhook pull plus
+`make server_pull`, never run `git merge` at the same time. A pull that cannot get
+the lock within 120 s gives up and logs it. Fetch and merge have timeouts (120 s / 600 s).
+
+`.github/workflows/landing-check.yml` runs on changes to `projects/landing/`,
+agent docs and `.claude/`. It checks the ai-setup manifest hashes and runs the
+published `check-agent-docs.py`. It cannot block a deploy (the webhook pulls
+regardless), but a red run flags a broken publish.
+
 ## Flutter web projects
 
 Built and deployed by **GitHub Actions** (`.github/workflows/build-flutter-web.yml`).

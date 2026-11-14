@@ -73,13 +73,17 @@ def pull_main():
 
     `git merge` runs hooks/post-merge. The merge is --ff-only, so it fails
     (and logs why) instead of creating a merge commit if the server has
-    diverged or has tracked changes.
+    diverged or has tracked changes. Pulls are serialized with the same lock
+    file as `deploy-server.sh pull`: a second push waits for the first pull
+    (up to 120 s) instead of running `git merge` concurrently.
     """
     subprocess.Popen(
         ["bash", "-c", f"""
             cd '{SCRIPT_DIR}'
-            git fetch origin main --quiet 2>/dev/null
-            git merge origin/main --ff-only 2>&1
+            exec 9>"$(git rev-parse --git-dir)/vps-ai-pull.lock"
+            flock -w 120 9 || {{ echo "pull: another pull still holds the lock after 120s, skipping"; exit 1; }}
+            timeout 120 git fetch origin main --quiet 2>&1
+            timeout 600 git merge origin/main --ff-only 2>&1
         """],
         stdout=open(LOG_FILE, "a"),
         stderr=subprocess.STDOUT,

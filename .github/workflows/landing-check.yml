@@ -1,0 +1,37 @@
+name: Check setup docs and agent docs
+
+# The server deploys by webhook pull on every push to main, so this check cannot
+# block a deploy. It makes a broken publish visible: a red run on the commit and
+# a failing check on pull requests.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'projects/landing/**'
+      - 'CLAUDE.md'
+      - 'cards/**'
+      - '.claude/**'
+      - '.github/workflows/landing-check.yml'
+  pull_request:
+    paths:
+      - 'projects/landing/**'
+      - 'CLAUDE.md'
+      - 'cards/**'
+      - '.claude/**'
+      - '.github/workflows/landing-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Files published from ai-setup match their manifest
+        working-directory: projects/landing
+        run: grep -v '^#' ai-setup.manifest | sha256sum --check --strict --quiet
+
+      - name: Agent docs pass the published checker
+        run: python3 -I projects/landing/cards/check-agent-docs.py .

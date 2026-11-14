@@ -65,8 +65,11 @@ cmd_pull() {
     git status --short --untracked-files=no >&2
     exit 1
   fi
-  git fetch -q origin main
-  git merge --ff-only origin/main
+  # Same lock as the webhook's pull, so the two never merge at the same time.
+  exec 9>"$(git rev-parse --git-dir)/vps-ai-pull.lock"
+  flock -w 120 9 || { echo "pull: another pull still holds the lock after 120s" >&2; exit 1; }
+  timeout 120 git fetch -q origin main
+  timeout 600 git merge --ff-only origin/main
 }
 
 cmd_post() {
