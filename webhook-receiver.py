@@ -54,10 +54,10 @@ WEBHOOK_SECRET = CONFIG.get("WEBHOOK_SECRET", "")
 
 
 def verify_signature(payload, signature):
-    """Verify GitHub HMAC-SHA256 webhook signature."""
+    """Verify GitHub HMAC-SHA256 webhook signature. Without a secret, refuse."""
     if not WEBHOOK_SECRET:
-        log("WARNING: No WEBHOOK_SECRET configured, skipping signature check")
-        return True
+        log("ERROR: No WEBHOOK_SECRET configured, refusing request (set it in .env.issues)")
+        return False
     if not signature:
         return False
     if not signature.startswith("sha256="):
@@ -66,6 +66,25 @@ def verify_signature(payload, signature):
         WEBHOOK_SECRET.encode(), payload, hashlib.sha256
     ).hexdigest()
     return hmac.compare_digest(f"sha256={expected}", signature)
+
+
+def pull_main():
+    """Fast-forward the server checkout to origin/main in the background.
+
+    `git merge` runs hooks/post-merge. The merge is --ff-only, so it fails
+    (and logs why) instead of creating a merge commit if the server has
+    diverged or has tracked changes.
+    """
+    subprocess.Popen(
+        ["bash", "-c", f"""
+            cd '{SCRIPT_DIR}'
+            git fetch origin main --quiet 2>/dev/null
+            git merge origin/main --ff-only 2>&1
+        """],
+        stdout=open(LOG_FILE, "a"),
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
 
 
 class WebhookHandler(BaseHTTPRequestHandler):
@@ -147,18 +166,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         if event == "push" and data.get("ref") == "refs/heads/main":
             log("Push to main detected, pulling changes")
-
-            # Git pull to update server
-            subprocess.Popen(
-                ["bash", "-c", f"""
-                    cd '{SCRIPT_DIR}'
-                    git fetch origin main --quiet 2>/dev/null
-                    git merge origin/main --ff-only 2>&1
-                """],
-                stdout=open(LOG_FILE, "a"),
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-            )
+            pull_main()
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -172,24 +180,11 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 pr_title = pr.get("title", "")
                 log(f"PR merged: {pr_title}")
 
-                # Git pull to trigger post-merge hook
-                subprocess.Popen(
-                    ["bash", "-c", f"""
-                        cd '{SCRIPT_DIR}'
-                        git add -u
-                        git commit -m "Auto-commit local changes before merge" --quiet || true
-                        git fetch origin main --quiet 2>/dev/null
-                        git diff --name-only origin/main 2>/dev/null | while read -r f; do
-                            if [ -f "$f" ] && ! git ls-files --error-unmatch "$f" &>/dev/null; then
-                                rm -f "$f"
-                            fi
-                        done
-                        git merge origin/main --ff-only 2>&1
-                    """],
-                    stdout=open(LOG_FILE, "a"),
-                    stderr=subprocess.STDOUT,
-                    start_new_session=True,
-                )
+                # Same fast-forward pull as a push (runs hooks/post-merge). Never
+                # commits or deletes server-side files: a tracked change on the
+                # server makes the ff-only merge fail and shows up in the log and
+                # in `make server_status`, to be resolved by hand.
+                pull_main()
                 log("Triggered git pull for merge")
 
                 self.send_response(200)
@@ -224,6 +219,8 @@ def main():
     port = 5000
     server = HTTPServer((host, port), WebhookHandler)
     log(f"Webhook receiver started on {host}:{port}")
+    if not WEBHOOK_SECRET:
+        log("ERROR: WEBHOOK_SECRET is empty in .env.issues; every webhook will be refused with 403")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

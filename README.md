@@ -123,12 +123,12 @@ Put it in `.env.issues` as `GITHUB_TOKEN`.
 In the repo's **Settings → Webhooks**, create a webhook with:
 - **URL:** `https://ai.memention.net/webhook`
 - **Content type:** `application/json`
-- **Secret:** must match `WEBHOOK_SECRET` in `.env.issues`
-- **Events:** **Issues**, **Pull requests**, and **Pushes** (Issues triggers the agent; Pull requests and Pushes trigger `git pull` + the post-merge hook on the server)
+- **Secret:** must match `WEBHOOK_SECRET` in `.env.issues`. It is required; without it, every webhook is refused with 403.
+- **Events:** **Issues**, **Pull requests**, and **Pushes** (Issues triggers the agent; Pull requests and Pushes trigger a fast-forward `git pull` + the post-merge hook on the server. A pull never commits or deletes files on the server; if the server has tracked changes, the pull fails and `make server_status` shows them.)
 
 ### Nginx
 
-Nginx is the single public entry point for everything on `ai.memention.net`. It handles TLS, reverse-proxies the webhook and backend services, and serves static and Flutter web projects directly from disk. The config lives at `/etc/nginx/sites-available/ai.memention.net`; `sites-enabled` is a symlink to it, so always edit the `sites-available` copy.
+Nginx is the single public entry point for everything on `ai.memention.net`. It handles TLS, reverse-proxies the webhook and backend services, and serves static and Flutter web projects directly from disk. The config lives at `/etc/nginx/sites-available/ai.memention.net`; `sites-enabled` is a symlink to it, so always edit the `sites-available` copy. A verbatim copy is tracked in [`nginx/ai.memention.net.conf`](nginx/ai.memention.net.conf). After a live edit, commit the new copy (`make nginx_pull` from a local checkout). `make server_status` reports whether the two match.
 
 The config is organized as a set of `location` blocks, one per project, in front of a catch-all that serves the landing page. The block type depends on what the project is:
 

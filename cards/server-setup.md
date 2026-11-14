@@ -43,5 +43,5 @@ Add a webhook on `epatel/vps-ai` repo settings:
 
 - **URL:** `https://ai.memention.net/webhook`
 - **Content type:** `application/json`
-- **Secret:** matches `WEBHOOK_SECRET` in `.env.issues`
+- **Secret:** matches `WEBHOOK_SECRET` in `.env.issues`. It is required: with an empty secret, the receiver refuses every webhook with 403 and logs an error at startup.
 - **Events:** Issues, Pull requests, Pushes

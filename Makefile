@@ -19,19 +19,20 @@ menu:
 	echo "3 make aihealth_update      - re-pin aihealth and reinstall it locally + on the server (V=vX.Y.Z)"
 	echo "4 make check                - aihealth delta, agent-docs check, script syntax"
 	echo "5 make deploy               - check, push main, confirm the server pulled, post-deploy steps"
-	echo "6 make server_status        - server HEAD, drift, hooks, service states"
+	echo "6 make server_status        - server HEAD, drift, hooks, nginx, service states"
 	echo "7 make server_pull          - make the server pull main (if the webhook missed it)"
-	echo "8 make logs                 - tail the server's monitor log (N=<issue> for an agent log)"
-	echo "9 make run_issue            - (re)run the agent for an issue on the server (N=<issue>)"
-	echo "10 make health              - aihealth scan of the repo"
-	echo "11 make update_phony        - update .PHONY in Makefile"
+	echo "8 make nginx_pull           - copy the live nginx site config into nginx/ai.memention.net.conf (review, commit)"
+	echo "9 make logs                 - tail the server's monitor log (N=<issue> for an agent log)"
+	echo "10 make run_issue           - (re)run the agent for an issue on the server (N=<issue>)"
+	echo "11 make health              - aihealth scan of the repo"
+	echo "12 make update_phony        - update .PHONY in Makefile"
 
 select:
 	read -p ">>> " P ; "$(MAKE)" --no-print-directory menu | grep "^$$P " | cut -d ' ' -f2-3 | bash
 
 .SILENT:
 
-.PHONY: info menu select externals setup_publish aihealth_update check deploy server_status server_pull logs run_issue health update_phony
+.PHONY: info menu select externals setup_publish aihealth_update check deploy server_status server_pull nginx_pull logs run_issue health update_phony
 
 externals:
 	$(EXT) status
@@ -62,6 +63,14 @@ server_status:
 server_pull:
 	old=$$($(SSH) "cd $(DIR) && git rev-parse HEAD"); \
 	$(SSH) "cd $(DIR) && bash deploy-server.sh pull && bash deploy-server.sh post $$old"
+
+# The live config is what serves; agents and hand edits change it there. This brings
+# it into the repo so git shows the change; review the diff before committing.
+nginx_pull:
+	tmp=$$(mktemp); trap 'rm -f "$$tmp"' EXIT; \
+	$(SSH) "cat /etc/nginx/sites-available/ai.memention.net" > "$$tmp" && [ -s "$$tmp" ] || { echo "nginx_pull: could not read the live config"; exit 1; }; \
+	if cmp -s "$$tmp" nginx/ai.memention.net.conf; then echo "nginx: repo copy matches live"; \
+	else cp "$$tmp" nginx/ai.memention.net.conf; git --no-pager diff --stat -- nginx/ai.memention.net.conf; echo "nginx: updated from live; review with git diff, then commit"; fi
 
 logs:
 	if [ -n "$(N)" ]; then $(SSH) "tail -n 100 -f $(DIR)/.agent-issue-$(N).log"; \

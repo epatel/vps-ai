@@ -41,8 +41,22 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
   expects) and Hooks Over Prose (a `PreToolUse` hook blocks edits to files listed
   in `projects/landing/ai-setup.manifest`). Declined the feature-first and two-tier
   patterns. The choices are recorded in `.claude/agent-setup.json`, so re-reading the setup now runs a refresh.
+- 2026-11-14 — Webhook hardened. With an empty `WEBHOOK_SECRET` it now refuses every
+  request (403) instead of skipping the signature check. The PR-merged handler does
+  the same ff-only pull as push, with no auto-commit or file deletion on the server.
+  The live nginx site config is tracked verbatim in `nginx/ai.memention.net.conf`:
+  live edits get copied back (`make nginx_pull`, or `cp` from an agent worktree),
+  and `make server_status` reports drift. Locked.
 
 ## Current state / handoff
+
+- 2026-11-14 — nginx on the server cleaned up (live, reloaded):
+  - `sites-enabled/ai.memention.net` had become a regular file (edited 2026-10-21) instead of the symlink, so `sites-available/` was a stale Sep 7 copy with `/drop/` at 55M.
+  - The served file was copied to `sites-available/`, and `sites-enabled/` is a symlink again. `/drop/` stays at `client_max_body_size 205M`, which fits the 200 MB `MAX_UPLOAD_SIZE`.
+  - Removed the unused `sites-enabled/ai.memention.net.bak-omai`, which caused the "conflicting server name" warnings.
+  - Removed omai-recept from serving: the nginx `include` for `/omai/` is gone, and `omai-recept.service` (port 8097) is stopped, disabled and its unit file deleted. Its directory `/home/epatel/omai-recept` (812 MB) is still on disk.
+  - Backups are on the server in `/tmp/nginx-backup.EMD7/`: the three nginx files, the config before the omai change, and `omai-recept.service`.
+  - `nginx/ai.memention.net.conf` now matches the served file, and `make server_status` flags a broken symlink as `SPLIT`.
 
 - 2026-10-21 (#125) — `projects/drop/`: upload limit raised to 200MB
   (server, both clients, nginx `client_max_body_size 205M` live + example);

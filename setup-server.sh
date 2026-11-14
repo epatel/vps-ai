@@ -78,6 +78,22 @@ cp "$REPO_DIR/nginx/security-headers.conf" /etc/nginx/snippets/security-headers.
 if ! grep -qE 'js[[:space:]]+mjs;' /etc/nginx/mime.types; then
     sed -i 's|application/javascript\([[:space:]]*\)js;|application/javascript\1js mjs;|' /etc/nginx/mime.types
 fi
+# The real site config is tracked in nginx/ai.memention.net.conf (a copy of the live
+# file). It needs the Let's Encrypt certificate and the includes from the sibling
+# repos it names (sl-chat, sl-mcp, wcag_checker_frontend, luni-demo), so install it
+# only once those exist. A brand-new server gets the minimal bootstrap config below;
+# re-run this script after certbot (step 10) and cloning those repos.
+NGINX_REPO_CONF="$REPO_DIR/nginx/ai.memention.net.conf"
+NGINX_MISSING=""
+for f in /etc/letsencrypt/live/ai.memention.net/fullchain.pem \
+         $(grep -Eo '^[[:space:]]*include[[:space:]]+/home/[^;]+' "$NGINX_REPO_CONF" | awk '{print $2}'); do
+    [ -e "$f" ] || NGINX_MISSING="$NGINX_MISSING $f"
+done
+if [ -z "$NGINX_MISSING" ]; then
+    cp "$NGINX_REPO_CONF" /etc/nginx/sites-available/ai.memention.net
+    echo "Installed nginx/ai.memention.net.conf"
+else
+    echo "Using the bootstrap nginx config; nginx/ai.memention.net.conf needs:$NGINX_MISSING"
 cat > /etc/nginx/sites-available/ai.memention.net <<'NGINX'
 server {
     listen 80;
@@ -98,6 +114,7 @@ server {
     }
 }
 NGINX
+fi
 
 ln -sf /etc/nginx/sites-available/ai.memention.net /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
