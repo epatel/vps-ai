@@ -92,7 +92,8 @@ status_skills() {
 status_aihealth() {
   echo "== ai-health -> .venv/ (local + server)"
   local pinned latest localv serverv
-  pinned="$(grep -o 'ai-health@v[0-9.]*' CLAUDE.md | head -1 | version_of)"
+  # The pin is `ai-health@<commit SHA>"  # <tag>`: the version comes from the tag label.
+  pinned="$(grep -oE 'ai-health@[0-9a-f]{40}" +# v[0-9.]+' CLAUDE.md | head -1 | sed 's/.*# //' | version_of)"
   latest="$(git ls-remote --tags --refs "$AIHEALTH_REPO" | sed 's|.*/||' | sort -V | tail -1 | version_of)"
   localv="$( (.venv/bin/aihealth --version 2>/dev/null || true) | version_of)"
   serverv=""
@@ -116,17 +117,44 @@ aihealth_next() {
   fi
 }
 
+# aihealth_sha TAG -> the commit the tag points to (the ^{} line, present for annotated tags).
+aihealth_sha() {
+  git ls-remote "$AIHEALTH_REPO" "refs/tags/$1" "refs/tags/$1^{}" | sort -k2 | tail -1 | cut -f1
+}
+
+# repin_files SHA TAG: rewrite the install commands (old @tag form or @sha  # tag form).
+repin_files() {
+  sed -E -i.bak "s|ai-health@[0-9A-Za-z.]+\"( +# v[0-9.]+)?|ai-health@$1\"  # $2|g" CLAUDE.md README.md &&
+    rm -f CLAUDE.md.bak README.md.bak
+}
+
+# repin_record SHA TAG: the setup record's aihealth tools entry (pin = commit, min = version).
+repin_record() {
+  python3 -I - "$1" "${2#v}" <<'PY'
+import json, sys
+p = ".claude/agent-setup.json"
+rec = json.load(open(p))
+entry = rec.setdefault("tools", {}).setdefault("aihealth", {"pattern": "code-health", "form": "project-venv"})
+entry["pin"], entry["min"] = sys.argv[1], sys.argv[2]
+open(p, "w").write(json.dumps(rec, indent=2) + "\n")
+PY
+}
+
 cmd_aihealth() {
   local tag="${1:?usage: externals.sh aihealth <tag, e.g. v0.3.2>}"
-  local spec="git+$AIHEALTH_REPO@$tag"
-  git ls-remote --exit-code --tags "$AIHEALTH_REPO" "refs/tags/$tag" >/dev/null || { echo "no tag $tag" >&2; exit 1; }
-  sed -i.bak "s|ai-health@v[0-9.]*|ai-health@$tag|g" CLAUDE.md README.md && rm -f CLAUDE.md.bak README.md.bak
+  local sha
+  sha="$(aihealth_sha "$tag")"
+  [ -n "$sha" ] || { echo "no tag $tag" >&2; exit 1; }
+  local spec="git+$AIHEALTH_REPO@$sha"
+  echo "aihealth $tag -> commit $sha"
+  repin_files "$sha" "$tag"
+  repin_record "$sha" "$tag"
   [ -x .venv/bin/python ] || python3 -m venv .venv
   .venv/bin/pip install -q --upgrade "$spec"
   echo "local:  $(.venv/bin/aihealth --version)"
   remote "[ -x .venv/bin/python ] || python3 -m venv .venv; .venv/bin/pip install -q --upgrade '$spec' && .venv/bin/aihealth --version" |
     sed 's/^/server: /'
-  echo "next: record the new pin in project-plan.md Decisions, commit CLAUDE.md + README.md, push"
+  echo "next: record the new pin in project-plan.md Decisions, commit CLAUDE.md + README.md + .claude/agent-setup.json, push"
 }
 
 case "${1:-}" in

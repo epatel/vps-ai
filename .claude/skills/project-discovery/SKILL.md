@@ -14,7 +14,7 @@ Generate a markdown digest plus a YAML lookup index for any codebase, optimized 
 
 ## How to run
 
-The extractor ships with this skill in `scripts/`. Its dependencies (`scripts/requirements.txt`: tree-sitter, tree-sitter-language-pack, PyYAML) go in a project-local tool venv, `.venv-tools/project-discovery/`, at the root of the project this skill is installed in. They never go into the system Python, the user's home directory, or the skill directory, which is committed.
+The extractor ships with this skill in `scripts/`. Its dependencies (`scripts/requirements.txt`: tree-sitter, tree-sitter-language-pack and PyYAML, pinned to exact versions tested together) go in a project-local tool venv, `.venv-tools/project-discovery/`, at the root of the project this skill is installed in. They never go into the system Python, the user's home directory, or the skill directory, which is committed.
 
 ```bash
 SKILL=<this skill's base directory>
@@ -22,12 +22,14 @@ PROJECT=$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/nul
 VENV="$PROJECT/.venv-tools/project-discovery"
 ```
 
-1. **Detect.** If `"$VENV/bin/python"` runs, skip to step 4.
+1. **Detect.** If `"$VENV/bin/python"` runs and `cmp -s "$SKILL/scripts/requirements.txt" "$VENV/requirements.txt"` succeeds, the venv matches the pins: skip to step 4. If the venv exists but the files differ, the skill was updated since the install. Ask to reinstall (delete `$VENV` and repeat steps 2–3).
 2. **Ask before installing.** Ask the user before installing anything. Say that the skill needs its three packages installed into `.venv-tools/project-discovery/` in this project: about 30 s, with network access. Install only after a yes. If the user says no, stop and say the digest is unavailable. Do not improvise a substitute tool.
-3. **Install.** Use a Python 3.9+ interpreter (`python3 --version`), then:
+3. **Install.** Use a Python 3.10+ interpreter (`python3 --version`; try `python3.12` or `python3.11` if `python3` is older), then:
    ```bash
-   python3 -m venv "$VENV" && "$VENV/bin/pip" install -q -r "$SKILL/scripts/requirements.txt"
+   python3 -m venv "$VENV" && "$VENV/bin/pip" install -q -r "$SKILL/scripts/requirements.txt" \
+     && cp "$SKILL/scripts/requirements.txt" "$VENV/requirements.txt"
    ```
+   The copied `requirements.txt` records which pins the venv was built from (step 1 compares it).
    If `git -C "$PROJECT" check-ignore -q .venv-tools/` fails, propose adding `.venv-tools/` to the project's `.gitignore`, and add it only after a yes. If the install fails, for example with `ensurepip is not available` on Debian or Ubuntu, report the error. Do not switch to another install method without asking.
 4. **Run:**
    ```bash

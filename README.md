@@ -89,7 +89,7 @@ chmod 600 .env.issues
 
 # Optional: code-health feedback for agents (aihealth, pinned, in a tool venv;
 # run-agent.sh links it into each issue worktree)
-python3 -m venv .venv && .venv/bin/pip install "git+https://github.com/epatel/ai-health@v0.3.1"
+python3 -m venv .venv && .venv/bin/pip install "git+https://github.com/epatel/ai-health@ff7f011ae6d01ed4f44a18a617541167dc070725"  # v0.3.1
 ```
 
 Beyond that, a few things live outside this repo and must be configured by hand — see [Manual configuration](#manual-configuration) below.

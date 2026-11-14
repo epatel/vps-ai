@@ -52,6 +52,10 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
   - Replaced the copied `cards/standing-defaults.md`, which was unedited (migration runner refuses a newer database).
   - Recorded tools in `.claude/agent-setup.json`: aihealth v0.3.1 in the project venv, python ≥3.11, git ≥2.24.
   - No project has a `migrate()` copied from the card, so no code changed.
+- 2026-11-14 — Setup refreshed to v2026-11-14.4:
+  - aihealth is pinned by commit: `@ff7f011…"  # v0.3.1`, the same release, so no reinstall. This is in the install commands in `CLAUDE.md` and `README.md`, and in the record's `pin`.
+  - `externals.sh aihealth <tag>` now resolves the tag to its commit and updates `CLAUDE.md`, `README.md` and the record; `status` reads the version from the tag comment.
+  - Skills come from agent-skills release `v2026.11.14`, recorded as `skills_release`. All ten installed skills match it after `project-discovery` was copied again (exact dependency pins, Python 3.10+; an existing `.venv-tools/project-discovery/` gets one rebuild prompt).
 
 ## Current state / handoff
 
