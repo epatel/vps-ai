@@ -59,6 +59,11 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
 
 ## Current state / handoff
 
+- 2026-11-15 — `projects/drop/` PWA: added an "Unpair" button in the header
+  (visible only when paired). It only forgets the token/room locally and resets
+  the socket; unlike the desktop's Unpair it does not send `clear`, so the shared
+  history stays on the desktop. SW cache bumped to `drop-v5`.
+
 - 2026-11-14 — Hardening, phase 5:
   - **Dotfiles blocked (live, reloaded):** nginx served dotfiles; `/flutter_demo/.last_build_id` and `/todo-app/.last_build_id` returned 200. No secrets were exposed, since no `.env`, key or `.git` exists in the served dirs. The new first block returns 404 for any dot-segment path except `/.well-known/`. Backup: `/tmp/nginx-backup.EMD7/available-before-dotfiles.conf` on the server.
   - **Pulls serialized:** webhook pulls and `deploy-server.sh pull` take a shared `flock` lock, with timeouts.

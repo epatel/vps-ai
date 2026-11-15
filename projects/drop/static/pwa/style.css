@@ -22,6 +22,12 @@ header {
 
 header h1 { font-size: 18px; font-weight: 600; color: #fff; }
 
+.header-right { display: flex; align-items: center; gap: 8px; }
+.btn-unpair {
+    font-size: 11px; padding: 3px 8px; border-radius: 10px;
+    background: transparent; color: #ff6b6b; border: 1px solid #5a2b2b; cursor: pointer;
+}
+
 .status { font-size: 11px; padding: 3px 8px; border-radius: 10px; }
 .status.connected { background: #1b3a2d; color: #4ecca3; }
 .status.disconnected { background: #3a1b1b; color: #ff6b6b; }

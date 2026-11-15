@@ -127,25 +127,43 @@
             case 'error':
                 console.error('Server error:', data.message);
                 if (data.message === 'Invalid token') {
-                    localStorage.removeItem(TOKEN_KEY);
-                    localStorage.removeItem(ROOM_KEY);
-                    token = null;
-                    roomId = null;
+                    forgetPairing();
                     showPairingScreen();
                 }
                 break;
         }
     }
 
+    function forgetPairing() {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(ROOM_KEY);
+        token = null;
+        roomId = null;
+    }
+
     function showPairingScreen() {
         show($('#pairing-screen'));
         hide($('#compose-screen'));
+        hide($('#unpair-btn'));
     }
 
     function showComposeScreen() {
         hide($('#pairing-screen'));
         show($('#compose-screen'));
+        show($('#unpair-btn'));
     }
+
+    // Unpair: forget this phone's pairing locally. Shared items are left
+    // alone (the desktop keeps them); reconnecting drops this socket from
+    // the room so the server stops pushing items to it.
+    $('#unpair-btn').addEventListener('click', function () {
+        if (!confirm('Unpair this phone from the desktop?')) return;
+        forgetPairing();
+        clearHistory();
+        $('#pair-input').value = '';
+        showPairingScreen();
+        if (ws) ws.close();  // onclose schedules a fresh, unpaired connection
+    });
 
     function processPendingShare() {
         if (pendingShareData && token) {
