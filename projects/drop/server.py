@@ -6,7 +6,7 @@ import os
 import uuid
 from pathlib import Path
 
-from aiohttp import web
+from aiohttp import WSCloseCode, web
 
 from db import Database
 
@@ -17,6 +17,8 @@ log = logging.getLogger(__name__)
 connections: dict[str, dict[str, web.WebSocketResponse]] = {}
 # Maps websocket -> (room_id, role)
 ws_rooms: dict[web.WebSocketResponse, tuple[str, str]] = {}
+# Every open websocket, paired or not; closed on shutdown.
+open_sockets: set[web.WebSocketResponse] = set()
 
 MAX_UPLOAD_SIZE = 200 * 1024 * 1024  # 200 MB
 
@@ -34,6 +36,7 @@ async def notify_peer(room_id, target_role, message):
 async def handle_ws(request):
     ws = web.WebSocketResponse(max_msg_size=1024 * 1024)
     await ws.prepare(request)
+    open_sockets.add(ws)
     db: Database = request.app["db"]
     uploads_dir: str = request.app["uploads_dir"]
 
@@ -238,6 +241,7 @@ async def handle_ws(request):
             elif msg.type in (web.WSMsgType.ERROR, web.WSMsgType.CLOSE):
                 break
     finally:
+        open_sockets.discard(ws)
         if ws in ws_rooms:
             room_id, role = ws_rooms.pop(ws)
             room_conns = connections.get(room_id, {})
@@ -429,7 +433,18 @@ async def create_app(db_path="drop.db", uploads_dir="uploads", static_dir="stati
         if os.path.isdir(os.path.join(static_dir, "desktop")):
             app.router.add_static("/drop/", os.path.join(static_dir, "desktop"))
 
+    app.on_response_prepare.append(set_static_cache_headers)
     return app
+
+
+async def set_static_cache_headers(request, response):
+    """Make browsers revalidate the app shell on every load.
+
+    Without Cache-Control, browsers cache by Last-Modified age heuristics, so a
+    long-unchanged app.js can be served stale for days after a deploy.
+    """
+    if request.method in ("GET", "HEAD") and not request.path.startswith(("/drop/api/", "/drop/ws")):
+        response.headers.setdefault("Cache-Control", "no-cache")
 
 
 async def cleanup_task(app):
@@ -484,6 +499,10 @@ async def on_startup(app):
 
 async def on_shutdown(app):
     app["cleanup_task"].cancel()
+    # Open websockets keep their handlers alive, which stalls shutdown until
+    # systemd's stop timeout SIGKILLs us. Close them so clients reconnect.
+    for ws in list(open_sockets):
+        await ws.close(code=WSCloseCode.GOING_AWAY, message=b"Server shutdown")
     await app["db"].close()
 
 

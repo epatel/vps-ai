@@ -63,6 +63,10 @@ Every change keeps the issue→worktree→PR→deploy pipeline working and keeps
   (visible only when paired). It only forgets the token/room locally and resets
   the socket; unlike the desktop's Unpair it does not send `clear`, so the shared
   history stays on the desktop. SW cache bumped to `drop-v5`.
+  Server fixes found while deploying it: static files now send
+  `Cache-Control: no-cache` (without it browsers kept a weeks-old `app.js` by
+  heuristic caching), and `on_shutdown` closes all open websockets so a restart
+  no longer hangs until systemd's 90s SIGKILL.
 
 - 2026-11-14 — Hardening, phase 5:
   - **Dotfiles blocked (live, reloaded):** nginx served dotfiles; `/flutter_demo/.last_build_id` and `/todo-app/.last_build_id` returned 200. No secrets were exposed, since no `.env`, key or `.git` exists in the served dirs. The new first block returns 404 for any dot-segment path except `/.well-known/`. Backup: `/tmp/nginx-backup.EMD7/available-before-dotfiles.conf` on the server.
